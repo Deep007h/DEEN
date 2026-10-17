@@ -1,7 +1,7 @@
 # DEEN
 
 <p align="center">
-  <img src="assets/logo.png" alt="DEEN Logo" width="160" />
+  <img src="assets/logo.png" alt="DEEN Logo" width="180" />
 </p>
 
 <p align="center">
