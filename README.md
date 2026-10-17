@@ -1,7 +1,7 @@
 # DEEN
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Deep007h/DEEN/main/assets/banner.png" alt="DEEN Logo" width="160" onerror="this.style.display='none'"/>
+  <img src="assets/logo.png" alt="DEEN Logo" width="160" />
 </p>
 
 <p align="center">
