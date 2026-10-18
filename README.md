@@ -36,6 +36,16 @@ DEEN was crafted to look and feel like a luxury flagship application:
 
 ---
 
+## 🧭 Explore Hub & Discovery
+
+Discover your next favorite anime effortlessly with curated discovery feeds:
+
+- **Trending Spotlights**: Stay ahead of the curve with dynamically updated spotlight carousels highlighting the most watched weekly series.
+- **Curated Seasonal Collections**: Explore currently airing seasonal anime, top-rated anime classics, and hidden gems organized by community popularity.
+- **In-App Notification Center**: Instant access to release updates, episode additions, and announcements right inside the app.
+
+---
+
 ## 📚 Vast & Comprehensive Anime Library
 
 Discover, explore, and track an expansive world of animation:
@@ -93,11 +103,12 @@ The latest release APKs are hosted directly under [GitHub Releases](https://gith
 
 | Package Architecture | File Name | Recommended For | Direct Download |
 | :--- | :--- | :--- | :--- |
-| **ARM64 (64-bit)** | `DEEN-v1.0.0-arm64-v8a.apk` | Most modern Android smartphones & tablets | [Download APK](https://github.com/Deep007h/DEEN/releases/download/v1.0.0/DEEN-v1.0.0-arm64-v8a.apk) |
-| **ARMv7 (32-bit)** | `DEEN-v1.0.0-armeabi-v7a.apk` | Older Android phones & legacy devices | [Download APK](https://github.com/Deep007h/DEEN/releases/download/v1.0.0/DEEN-v1.0.0-armeabi-v7a.apk) |
-| **x86_64** | `DEEN-v1.0.0-x86_64.apk` | Android Emulators (BlueStacks, LDPlayer), Chromebooks & PC | [Download APK](https://github.com/Deep007h/DEEN/releases/download/v1.0.0/DEEN-v1.0.0-x86_64.apk) |
+| **ARM64 (64-bit)** | `DEEN-v1.0.1-arm64-v8a.apk` | Most modern Android smartphones & tablets | [Download APK](https://github.com/Deep007h/DEEN/releases/download/v1.0.1/DEEN-v1.0.1-arm64-v8a.apk) |
+| **Universal (All Devices)** | `DEEN-v1.0.1-universal.apk` | All-in-one package compatible with any device | [Download APK](https://github.com/Deep007h/DEEN/releases/download/v1.0.1/DEEN-v1.0.1-universal.apk) |
+| **ARMv7 (32-bit)** | `DEEN-v1.0.1-armeabi-v7a.apk` | Older Android phones & legacy devices | [Download APK](https://github.com/Deep007h/DEEN/releases/download/v1.0.1/DEEN-v1.0.1-armeabi-v7a.apk) |
+| **x86_64** | `DEEN-v1.0.1-x86_64.apk` | Android Emulators (BlueStacks, LDPlayer), Chromebooks & PC | [Download APK](https://github.com/Deep007h/DEEN/releases/download/v1.0.1/DEEN-v1.0.1-x86_64.apk) |
 
-> **Tip**: If you are unsure which version to pick, download **`DEEN-v1.0.0-arm64-v8a.apk`**, as nearly all modern Android smartphones use 64-bit ARM processors.
+> **Tip**: If you are unsure which version to pick, download **`DEEN-v1.0.1-arm64-v8a.apk`** for modern phones or **`DEEN-v1.0.1-universal.apk`** for universal compatibility.
 
 ---
 
@@ -117,14 +128,17 @@ The latest release APKs are hosted directly under [GitHub Releases](https://gith
 Verify the authenticity of your downloaded package:
 
 ```text
-DEEN-v1.0.0-arm64-v8a.apk:
-4f787f2fce128258b8dfd584675e25ce57e424c2fb5b07a6b1298045d135fd77
+DEEN-v1.0.1-arm64-v8a.apk:
+04a979a4d3509141edcba833dc5d8fa694c06fa23a56939b6dea0e837f86362e
 
-DEEN-v1.0.0-armeabi-v7a.apk:
-4301b94960d76c6f817639623cdfa78dfc836c94aa2f9b9d83843a542243bfc1
+DEEN-v1.0.1-universal.apk:
+90761f591d7a1c8dbd36da6bf0bff03afa2d3f220eee09da0476526be862963e
 
-DEEN-v1.0.0-x86_64.apk:
-71ca6270c103f2ae31656bf1f6e781a7143093e0eee4aede4bb292fd43777f94
+DEEN-v1.0.1-armeabi-v7a.apk:
+573ac17c04c6ce46c97a2c60996cf661364132d793acdc1a7b2b06f35a76da2e
+
+DEEN-v1.0.1-x86_64.apk:
+41fd6877e5eba1f72ec269f0ba7f36f53dfb98109f01db8727d012b857a5c974
 ```
 
 ---
