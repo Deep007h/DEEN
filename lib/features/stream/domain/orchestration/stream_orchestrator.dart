@@ -83,6 +83,7 @@ class StreamOrchestrator {
   final StreamPreferencesRepository prefsRepo;
   final DiagnosticsRepository diagnostics;
   final Map<String, List<SourceEpisode>> _episodesCache = {};
+  final Map<String, (DateTime, StreamResolutionResult)> _resolutionCache = {};
 
   StreamOrchestrator({
     required this.registry,
@@ -99,6 +100,13 @@ class StreamOrchestrator {
     String? preferredProviderId,
   }) async {
     final title = anime.titles.preferredTitle();
+    final cacheKey = '${anime.id}_${episodeNumber}_${preferredProviderId ?? ''}';
+    final cached = _resolutionCache[cacheKey];
+    if (cached != null && DateTime.now().difference(cached.$1).inMinutes < 10) {
+      diagnostics.info('Using prewarmed/cached stream resolution for "$title" Ep: $episodeNumber');
+      return cached.$2;
+    }
+
     diagnostics.info(
       'Starting resolution for "$title" (ID: ${anime.id}) Ep: $episodeNumber',
       {'preferredProvider': preferredProviderId ?? 'none'},
@@ -236,10 +244,13 @@ class StreamOrchestrator {
           continue;
         }
 
-        // Direct high-speed streaming: append #.m3u8 if missing so libmpv/FFmpeg detects HLS format instantly
+        // Direct high-speed streaming: append #.m3u8 if missing on HLS so libmpv/FFmpeg detects HLS format instantly
         final resolvedVariants = <StreamVariant>[];
         for (final v in healthyVariants) {
-          final streamUrl = v.url.contains('.m3u8') ? v.url : '${v.url}#.m3u8';
+          final isExplicitMp4 = v.url.toLowerCase().contains('.mp4');
+          final streamUrl = (v.url.contains('.m3u8') || isExplicitMp4)
+              ? v.url
+              : (v.isHls ? '${v.url}#.m3u8' : v.url);
           resolvedVariants.add(v.copyWith(url: streamUrl));
         }
 
@@ -287,7 +298,7 @@ class StreamOrchestrator {
           effectiveQuality,
         );
 
-        return StreamResolutionResult(
+        final result = StreamResolutionResult(
           match: match,
           episode: resolvedTargetEpisode,
           activeProvider: provider,
@@ -298,6 +309,8 @@ class StreamOrchestrator {
           selectedQuality: selectedQuality,
           candidateMatches: allCandidates,
         );
+        _resolutionCache[cacheKey] = (DateTime.now(), result);
+        return result;
       } catch (e, stack) {
         diagnostics.warn(
           'Provider ${provider.displayName} failed: $e',
@@ -346,6 +359,36 @@ class StreamOrchestrator {
   Future<(bool, StreamVariant)> _probeAndEnrichVariant(StreamVariant variant) async {
     if (Platform.environment.containsKey('FLUTTER_TEST')) {
       return (!variant.url.contains('/vid/'), variant);
+    }
+
+    final isDirectMp4 = variant.url.toLowerCase().contains('.mp4');
+    if (isDirectMp4) {
+      try {
+        final headResp = await _probeDio.head(
+          variant.url,
+          options: Options(headers: variant.headers),
+        );
+        final statusCode = headResp.statusCode ?? 0;
+        final isValid = statusCode >= 200 && statusCode < 400;
+        return (isValid, variant);
+      } catch (_) {
+        try {
+          final rangeHeaders = Map<String, String>.from(variant.headers);
+          rangeHeaders['Range'] = 'bytes=0-1024';
+          final rangeResp = await _probeDio.get(
+            variant.url,
+            options: Options(
+              responseType: ResponseType.stream,
+              headers: rangeHeaders,
+            ),
+          );
+          final statusCode = rangeResp.statusCode ?? 0;
+          final isValid = statusCode == 200 || statusCode == 206;
+          return (isValid, variant);
+        } catch (_) {
+          return (!variant.url.contains('/vid/'), variant);
+        }
+      }
     }
 
     try {

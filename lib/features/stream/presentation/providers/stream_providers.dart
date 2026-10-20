@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide StreamProvider;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../domain/models/audio_language.dart';
@@ -28,10 +29,13 @@ final diagnosticsRepositoryProvider = Provider<DiagnosticsRepository>((ref) {
 final sharedPreferencesAsyncProvider = FutureProvider<SharedPreferences>((ref) async {
   try {
     return await SharedPreferences.getInstance();
-  } catch (_) {
-    // ignore: invalid_use_of_visible_for_testing_member
-    SharedPreferences.setMockInitialValues({});
-    return await SharedPreferences.getInstance();
+  } catch (e) {
+    if (Platform.environment.containsKey('FLUTTER_TEST')) {
+      // ignore: invalid_use_of_visible_for_testing_member
+      SharedPreferences.setMockInitialValues({});
+      return await SharedPreferences.getInstance();
+    }
+    rethrow;
   }
 });
 
@@ -47,7 +51,12 @@ final streamProviderRegistryProvider = FutureProvider<StreamProviderRegistry>((r
   final direct = DirectUrlProvider(registry);
   final jellyfin = JellyfinProvider(registry);
 
-  return StreamProviderRegistry(prefs, [megavid, demo, direct, jellyfin]);
+  registry.register(megavid);
+  registry.register(demo);
+  registry.register(direct);
+  registry.register(jellyfin);
+
+  return registry;
 });
 
 /// Provider for list of all registered StreamProvider implementations.
@@ -118,7 +127,7 @@ class StreamResolutionParams {
 
 /// State notifier for managing active stream playback variant and choices.
 class ActiveStreamStateNotifier
-    extends FamilyAsyncNotifier<StreamResolutionResult, StreamResolutionParams> {
+    extends AutoDisposeFamilyAsyncNotifier<StreamResolutionResult, StreamResolutionParams> {
   @override
   Future<StreamResolutionResult> build(StreamResolutionParams arg) async {
     final orchestrator = await ref.watch(streamOrchestratorProvider.future);
@@ -267,7 +276,7 @@ class ActiveStreamStateNotifier
 }
 
 /// Active stream resolution provider for an anime episode.
-final activeStreamProvider = AsyncNotifierProvider.family<ActiveStreamStateNotifier,
+final activeStreamProvider = AsyncNotifierProvider.autoDispose.family<ActiveStreamStateNotifier,
     StreamResolutionResult, StreamResolutionParams>(
   ActiveStreamStateNotifier.new,
 );

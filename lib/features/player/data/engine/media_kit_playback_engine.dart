@@ -36,17 +36,19 @@ class MediaKitPlaybackEngine implements VideoPlaybackEngine {
         bufferSize: 32 * 1024 * 1024,
       ),
     );
-    player.stream.error.listen((err) => print('[ENGINE_ERROR] $err'));
-    player.stream.log.listen((log) => print('[ENGINE_MPV] [${log.prefix}] ${log.text}'));
-    player.stream.buffering.listen((b) => print('[ENGINE_BUFFERING] $b'));
-    player.stream.duration.listen((d) => print('[ENGINE_DURATION] ${d.inSeconds}s'));
-    player.stream.position.listen((p) => print('[ENGINE_POSITION] ${p.inSeconds}s'));
-
     final videoController = VideoController(player);
-    return MediaKitPlaybackEngine._(
+    final engine = MediaKitPlaybackEngine._(
       player,
       videoController,
     );
+    engine._subscriptions.addAll([
+      player.stream.error.listen((err) => print('[ENGINE_ERROR] $err')),
+      player.stream.log.listen((log) => print('[ENGINE_MPV] [${log.prefix}] ${log.text}')),
+      player.stream.buffering.listen((b) => print('[ENGINE_BUFFERING] $b')),
+      player.stream.duration.listen((d) => print('[ENGINE_DURATION] ${d.inSeconds}s')),
+      player.stream.position.listen((p) => print('[ENGINE_POSITION] ${p.inSeconds}s')),
+    ]);
+    return engine;
   }
 
   @override
@@ -149,41 +151,47 @@ class MediaKitPlaybackEngine implements VideoPlaybackEngine {
 
     try {
       final platform = _player.platform as dynamic;
-
-      await platform?.setProperty('hwdec', 'auto');
-      await platform?.setProperty('keep-open', 'yes'); // Prevent MPV from blacking out or closing on EOF
+      final properties = <Future<dynamic>>[
+        platform?.setProperty('hwdec', 'auto'),
+        platform?.setProperty('keep-open', 'yes'), // Prevent MPV from blacking out or closing on EOF
+      ];
 
       if (isHls) {
-        await platform?.setProperty('demuxer-lavf-format', 'hls');
-        await platform?.setProperty('demuxer-lavf-probesize', '500000'); // Fast 500 KB probe
-        await platform?.setProperty('demuxer-lavf-analyzeduration', '0.5'); // Fast 0.5s analyze duration for instant start
-        await platform?.setProperty(
-          'demuxer-lavf-o',
-          'allowed_segment_extensions=ALL,allowed_extensions=ALL,extension_picky=0,seg_max_retry=5,reconnect_streamed=1,reconnect_delay_max=4,reconnect_on_http_error=403\\,404\\,5xx,fflags=+genpts+discardcorrupt+fastseek',
-        );
-        await platform?.setProperty('correct-pts', 'yes'); // Normalize timestamps across HLS discontinuities
-        await platform?.setProperty('demuxer-readahead-secs', '30'); // Fast 30s buffer ahead
-        await platform?.setProperty('cache-secs', '60');
-        await platform?.setProperty('cache-pause-initial', 'no'); // Do not pause to fill cache before starting
-        await platform?.setProperty('cache-pause-wait', '1'); // Auto-resume promptly once 1s is buffered
-        await platform?.setProperty('demuxer-max-bytes', '67108864'); // 64 MB demuxer memory buffer
-        await platform?.setProperty('demuxer-lavf-buffersize', '524288'); // 512 KB buffer for immediate first frame
-        await platform?.setProperty('prefetch-playlist', 'yes');
-        await platform?.setProperty('hls-bitrate', 'max');
-        await platform?.setProperty('network-timeout', '10');
-        await platform?.setProperty('force-seekable', 'yes');
+        properties.addAll([
+          platform?.setProperty('demuxer-lavf-format', 'hls'),
+          platform?.setProperty('demuxer-lavf-probesize', '500000'), // Fast 500 KB probe
+          platform?.setProperty('demuxer-lavf-analyzeduration', '0.5'), // Fast 0.5s analyze duration for instant start
+          platform?.setProperty(
+            'demuxer-lavf-o',
+            'allowed_segment_extensions=ALL,allowed_extensions=ALL,extension_picky=0,seg_max_retry=5,reconnect_streamed=1,reconnect_delay_max=4,reconnect_on_http_error=403\\,404\\,5xx,fflags=+genpts+discardcorrupt+fastseek',
+          ),
+          platform?.setProperty('correct-pts', 'yes'), // Normalize timestamps across HLS discontinuities
+          platform?.setProperty('demuxer-readahead-secs', '30'), // Fast 30s buffer ahead
+          platform?.setProperty('cache-secs', '60'),
+          platform?.setProperty('cache-pause-initial', 'no'), // Do not pause to fill cache before starting
+          platform?.setProperty('cache-pause-wait', '1'), // Auto-resume promptly once 1s is buffered
+          platform?.setProperty('demuxer-max-bytes', '67108864'), // 64 MB demuxer memory buffer
+          platform?.setProperty('demuxer-lavf-buffersize', '524288'), // 512 KB buffer for immediate first frame
+          platform?.setProperty('prefetch-playlist', 'yes'),
+          platform?.setProperty('network-timeout', '10'),
+          platform?.setProperty('force-seekable', 'yes'),
+        ]);
       } else {
-        await platform?.setProperty('demuxer-lavf-format', '');
-        await platform?.setProperty(
-          'demuxer-lavf-o',
-          'allowed_segment_extensions=ALL,allowed_extensions=ALL,extension_picky=0,reconnect_streamed=1,reconnect_delay_max=4,fflags=+genpts+discardcorrupt+fastseek',
-        );
-        await platform?.setProperty('correct-pts', 'yes');
+        properties.addAll([
+          platform?.setProperty('demuxer-lavf-format', ''),
+          platform?.setProperty(
+            'demuxer-lavf-o',
+            'allowed_segment_extensions=ALL,allowed_extensions=ALL,extension_picky=0,reconnect_streamed=1,reconnect_delay_max=4,fflags=+genpts+discardcorrupt+fastseek',
+          ),
+          platform?.setProperty('correct-pts', 'yes'),
+        ]);
       }
 
       final ref = headers?['Referer'] ?? headers?['referer'] ?? 'https://megavid.buzz/';
-      await platform?.setProperty('referrer', ref);
-      await platform?.setProperty('user-agent', ua);
+      properties.add(platform?.setProperty('referrer', ref));
+      properties.add(platform?.setProperty('user-agent', ua));
+
+      await Future.wait(properties.whereType<Future<dynamic>>());
       print('[ENGINE_OPEN] Configured platform properties successfully');
     } catch (e, st) {
       print('[ENGINE_CONFIG_ERROR] Failed to configure platform properties: $e\n$st');
@@ -275,7 +283,11 @@ class MediaKitPlaybackEngine implements VideoPlaybackEngine {
 
   @override
   Future<void> seek(Duration position) async {
-    await _player.seek(position);
+    final dur = duration;
+    final clamped = position < Duration.zero
+        ? Duration.zero
+        : (dur > Duration.zero && position > dur ? dur : position);
+    await _player.seek(clamped);
   }
 
   @override

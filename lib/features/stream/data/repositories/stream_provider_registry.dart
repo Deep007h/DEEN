@@ -13,6 +13,10 @@ class StreamProviderRegistry {
     }
   }
 
+  void register(StreamProvider provider) {
+    _registered[provider.id] = provider;
+  }
+
   static const _kPriorityOrder = 'stream_providers_priority_order';
   static const _kEnabledPrefix = 'stream_provider_enabled_';
   static const _kDirectUrlPattern = 'stream_direct_url_pattern';

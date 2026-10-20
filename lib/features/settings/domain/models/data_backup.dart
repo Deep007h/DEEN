@@ -37,14 +37,14 @@ class DataBackup {
 
     final favoritesRaw = json['favorites'] as List<dynamic>? ?? [];
     final favorites = favoritesRaw
-        .whereType<Map<String, dynamic>>()
-        .map((e) => FollowedAnime.fromJson(e))
+        .whereType<Map>()
+        .map((e) => FollowedAnime.fromJson(Map<String, dynamic>.from(e)))
         .toList();
 
     final historyRaw = json['history'] as List<dynamic>? ?? [];
     final history = historyRaw
-        .whereType<Map<String, dynamic>>()
-        .map((e) => WatchHistoryItem.fromJson(e))
+        .whereType<Map>()
+        .map((e) => WatchHistoryItem.fromJson(Map<String, dynamic>.from(e)))
         .toList();
 
     return DataBackup(
@@ -58,8 +58,8 @@ class DataBackup {
   static DataBackup? tryParse(String jsonStr) {
     try {
       final decoded = jsonDecode(jsonStr);
-      if (decoded is Map<String, dynamic>) {
-        return DataBackup.fromJson(decoded);
+      if (decoded is Map) {
+        return DataBackup.fromJson(Map<String, dynamic>.from(decoded));
       }
     } catch (_) {}
     return null;

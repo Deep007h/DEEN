@@ -324,13 +324,83 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _startStallWatchdog();
     setState(() {});
     _resetControlsHideTimer();
+
+    final currentResult = ref.read(activeStreamProvider(_params)).valueOrNull;
+    if (currentResult != null) {
+      _openStreamIfReady(currentResult);
+    }
+  }
+
+  void _openStreamIfReady(StreamResolutionResult result) {
+    if (_useEmbedPlayer) {
+      _engine?.pause();
+      return;
+    }
+    if (!_isEngineReady || _engine == null) return;
+
+    final activeUrl = (result.selectedQuality.url != null && result.selectedQuality.url!.isNotEmpty)
+        ? result.selectedQuality.url!
+        : result.selectedVariant.url;
+
+    if (_currentlyLoadedUrl != activeUrl) {
+      final isStreamSwitch = _currentlyLoadedUrl != null && _position > Duration.zero;
+      if (isStreamSwitch) {
+        _languageSwitchSeekTarget = _position;
+        _isSwitchingAudio = true;
+      }
+      _currentlyLoadedUrl = activeUrl;
+      _hasCheckedResume = false;
+      final startPos = _position > Duration.zero ? _position : null;
+      _engine!.setTrackPreferences(
+        audioLanguage: result.selectedAudio.code,
+        qualityPreference: result.selectedQuality.label,
+      );
+      _engine!.open(
+        activeUrl,
+        headers: result.selectedVariant.headers,
+        startPosition: startPos,
+      );
+    } else {
+      _engine!.setTrackPreferences(
+        audioLanguage: result.selectedAudio.code,
+        qualityPreference: result.selectedQuality.label,
+      );
+    }
+    if (_currentlyLoadedSubtitle != result.selectedSubtitle) {
+      _currentlyLoadedSubtitle = result.selectedSubtitle;
+      _engine!.setSubtitleTrack(result.selectedSubtitle);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant PlayerScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.episodeNumber != widget.episodeNumber ||
+        oldWidget.animeId != widget.animeId ||
+        oldWidget.preferredProviderId != widget.preferredProviderId) {
+      _currentlyLoadedUrl = null;
+      _currentlyLoadedSubtitle = null;
+      _hasCheckedResume = false;
+      _position = Duration.zero;
+      _duration = Duration.zero;
+      _bufferingStuckSeconds = 0;
+      final currentResult = ref.read(activeStreamProvider(_params)).valueOrNull;
+      if (currentResult != null) {
+        _openStreamIfReady(currentResult);
+      }
+    }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden) {
       _engine?.pause();
       _saveCurrentProgress();
+    } else if (state == AppLifecycleState.resumed) {
+      _lockLandscape();
     }
   }
 
@@ -368,12 +438,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       // Detect continuous buffering stall (e.g. infinite loading animation)
       if (_isBuffering) {
         _bufferingStuckSeconds += 2;
-        if (_bufferingStuckSeconds == 10 && _position > Duration.zero) {
-          // Attempt soft wakeup nudge to prompt demuxer forward only if already playing
-          print('[BUFFERING_WATCHDOG] Buffer stall at 10s. Nudging position forward...');
-          _engine?.seek(_position + const Duration(seconds: 1));
-          _engine?.play();
-        } else if (_bufferingStuckSeconds >= 28 && !_isScrubbing && !_isUserSeeking) {
+        if (_bufferingStuckSeconds >= 28 && !_isScrubbing && !_isUserSeeking) {
           _bufferingStuckSeconds = 0;
           print('[BUFFERING_WATCHDOG] Buffer stall at 28s. Auto-reloading stream at ${_position.inSeconds}s...');
           setState(() {
@@ -647,7 +712,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       if (zone == HorizontalZone.centerThird) {
         _engine?.togglePlay();
       } else {
-        final seekTarget = _position + Duration(seconds: zone == HorizontalZone.leftThird ? -step : step);
+        final target = _position + Duration(seconds: zone == HorizontalZone.leftThird ? -step : step);
+        final seekTarget = target < Duration.zero
+            ? Duration.zero
+            : (_duration > Duration.zero && target > _duration ? _duration : target);
         setState(() => _position = seekTarget);
         _engine?.seek(seekTarget);
         _showDoubleTapBadge(offset);
@@ -804,6 +872,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AsyncValue<StreamResolutionResult>>(
+      activeStreamProvider(_params),
+      (previous, next) {
+        final result = next.valueOrNull;
+        if (result != null) {
+          _openStreamIfReady(result);
+        }
+      },
+    );
+
     final streamAsync = ref.watch(activeStreamProvider(_params));
     final streamNotifier = ref.read(activeStreamProvider(_params).notifier);
     final screenSize = MediaQuery.sizeOf(context);
@@ -833,36 +911,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         ),
         error: (err, _) => _buildErrorScreen(err),
         data: (result) {
-          // Open stream in engine once resolved
-          if (_isEngineReady && _engine != null) {
-            final activeUrl = (result.selectedQuality.url != null && result.selectedQuality.url!.isNotEmpty)
-                ? result.selectedQuality.url!
-                : result.selectedVariant.url;
-            if (_currentlyLoadedUrl != activeUrl) {
-              final isStreamSwitch = _currentlyLoadedUrl != null && _position > Duration.zero;
-              if (isStreamSwitch) {
-                _languageSwitchSeekTarget = _position;
-                _isSwitchingAudio = true;
-              }
-              _currentlyLoadedUrl = activeUrl;
-              _hasCheckedResume = false;
-              final startPos = _position > Duration.zero ? _position : null;
-              _engine!.setTrackPreferences(
-                audioLanguage: result.selectedAudio.code,
-                qualityPreference: result.selectedQuality.label,
-              );
-              _engine!.open(
-                activeUrl,
-                headers: result.selectedVariant.headers,
-                startPosition: startPos,
-              );
-            }
-            if (_currentlyLoadedSubtitle != result.selectedSubtitle) {
-              _currentlyLoadedSubtitle = result.selectedSubtitle;
-              _engine!.setSubtitleTrack(result.selectedSubtitle);
-            }
-          }
-
           final matchTitle = result.match.title;
           final epSubtitle = 'Episode ${widget.episodeNumber.toString().padLeft(2, '0')} • ${result.activeProvider.displayName}';
 
@@ -889,6 +937,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
               onBack: () => context.pop(),
               onSwitchToNative: () {
                 setState(() => _useEmbedPlayer = false);
+                _openStreamIfReady(result);
                 _engine?.play();
               },
               isLocked: _isLocked,
@@ -1172,7 +1221,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                             },
                             onReplay10: () {
                               final step = ref.read(appSettingsProvider).skipStepSeconds;
-                              final target = _position - Duration(seconds: step);
+                              final raw = _position - Duration(seconds: step);
+                              final target = raw < Duration.zero ? Duration.zero : raw;
                               setState(() => _position = target);
                               _engine?.seek(target);
                               _showDoubleTapBadge(-step);
@@ -1180,7 +1230,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                             },
                             onForward10: () {
                               final step = ref.read(appSettingsProvider).skipStepSeconds;
-                              final target = _position + Duration(seconds: step);
+                              final raw = _position + Duration(seconds: step);
+                              final target = (_duration > Duration.zero && raw > _duration) ? _duration : raw;
                               setState(() => _position = target);
                               _engine?.seek(target);
                               _showDoubleTapBadge(step);
@@ -1197,7 +1248,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                           bottom: 74,
                           child: SkipIntroButton(
                             onSkip: () {
-                              final target = _position + const Duration(seconds: 85);
+                              final raw = _position + const Duration(seconds: 85);
+                              final target = (_duration > Duration.zero && raw > _duration) ? _duration : raw;
                               setState(() => _position = target);
                               _engine?.seek(target);
                               _resetControlsHideTimer();
@@ -1588,12 +1640,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                   ),
                 ),
                 ElevatedButton.icon(
-                  onPressed: () => ref.invalidate(activeStreamProvider(_params)),
+                  onPressed: () {
+                    _currentlyLoadedUrl = null;
+                    ref.invalidate(activeStreamProvider(_params));
+                  },
                   icon: const Icon(Icons.refresh_rounded, size: 16),
                   label: const Text('Retry'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.accent,
-                    foregroundColor: Colors.white,
+                    foregroundColor: const Color(0xFF0F150D),
                   ),
                 ),
               ],

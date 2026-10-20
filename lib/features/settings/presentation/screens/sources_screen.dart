@@ -130,6 +130,9 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                 sliver: SliverReorderableList(
                   itemCount: orderedProviders.length,
                   onReorderItem: (oldIndex, newIndex) async {
+                    if (oldIndex < newIndex) {
+                      newIndex -= 1;
+                    }
                     final item = orderedProviders.removeAt(oldIndex);
                     orderedProviders.insert(newIndex, item);
 
@@ -396,13 +399,16 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
             child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.accent,
+              foregroundColor: const Color(0xFF0F150D),
+            ),
             onPressed: () async {
               await registry.setDirectUrlPattern(controller.text.trim());
               if (ctx.mounted) Navigator.pop(ctx);
               setState(() {});
             },
-            child: const Text('Save', style: TextStyle(color: Colors.white)),
+            child: const Text('Save'),
           ),
         ],
       ),
@@ -450,14 +456,17 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
             child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.accent,
+              foregroundColor: const Color(0xFF0F150D),
+            ),
             onPressed: () async {
               await registry.setJellyfinHost(hostController.text.trim());
               await registry.setJellyfinToken(tokenController.text.trim());
               if (ctx.mounted) Navigator.pop(ctx);
               setState(() {});
             },
-            child: const Text('Save', style: TextStyle(color: Colors.white)),
+            child: const Text('Save'),
           ),
         ],
       ),

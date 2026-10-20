@@ -15,6 +15,7 @@ class MetadataRepositoryImpl implements MetadataRepository {
   final BangumiRemoteDataSource bangumiDataSource;
   final AniListRemoteDataSource anilistDataSource;
   final MetadataCache cache;
+  final Map<int, String> _idSourceMap = {};
 
   MetadataRepositoryImpl({
     BangumiRemoteDataSource? bangumi,
@@ -39,7 +40,12 @@ class MetadataRepositoryImpl implements MetadataRepository {
     final tagsKey = (tags ?? []).join(',');
     final cacheKey = 'search_${trimmed}_${tagsKey}_${sort.name}_${limit}_$offset';
     final cached = cache.get<List<AnimeSummary>>(cacheKey);
-    if (cached != null) return cached;
+    if (cached != null) {
+      for (final s in cached) {
+        _idSourceMap.putIfAbsent(s.id, () => 'anilist');
+      }
+      return cached;
+    }
 
     final isLatin = trimmed.isNotEmpty && AnimeTitles.isPrimarilyLatin(trimmed);
 
@@ -54,6 +60,9 @@ class MetadataRepositoryImpl implements MetadataRepository {
           cancelToken: cancelToken,
         );
         if (anilistResults.isNotEmpty) {
+          for (final s in anilistResults) {
+            _idSourceMap[s.id] = 'anilist';
+          }
           cache.set(cacheKey, anilistResults, MetadataCache.searchTtl);
           return anilistResults;
         }
@@ -73,9 +82,17 @@ class MetadataRepositoryImpl implements MetadataRepository {
         cancelToken: cancelToken,
       ).timeout(const Duration(seconds: 4));
 
+      for (final s in results) {
+        _idSourceMap[s.id] = 'bangumi';
+      }
+
       // If English title is missing on top results, try to enrich asynchronously from AniList
-      final enrichedResults = await Future.wait(
-        results.map((summary) async {
+      // Throttle to top 4 items to prevent exhausting AniList's 90 req/min rate limit
+      final topToEnrich = results.take(4).toList();
+      final remaining = results.skip(4).toList();
+
+      final enrichedTop = await Future.wait(
+        topToEnrich.map((summary) async {
           if (summary.titles.english != null &&
               summary.titles.english!.isNotEmpty &&
               AnimeTitles.isPrimarilyLatin(summary.titles.english!)) {
@@ -105,6 +122,7 @@ class MetadataRepositoryImpl implements MetadataRepository {
         }),
       );
 
+      final enrichedResults = [...enrichedTop, ...remaining];
       cache.set(cacheKey, enrichedResults, MetadataCache.searchTtl);
       return enrichedResults;
     } catch (e) {
@@ -140,6 +158,61 @@ class MetadataRepositoryImpl implements MetadataRepository {
     final cacheKey = 'detail_$id';
     final cached = cache.get<AnimeDetail>(cacheKey);
     if (cached != null) return cached;
+
+    final sourceOrigin = _idSourceMap[id];
+
+    // If this ID is known to be from Bangumi, prioritize Bangumi to avoid AniList ID space collisions
+    if (sourceOrigin == 'bangumi') {
+      try {
+        final detailFuture = bangumiDataSource.getSubjectDetail(id, cancelToken: cancelToken).timeout(const Duration(seconds: 4));
+        final episodesFuture = bangumiDataSource.getEpisodes(id, cancelToken: cancelToken).timeout(const Duration(seconds: 4));
+        final relationsFuture = bangumiDataSource.getRelations(id, cancelToken: cancelToken).timeout(const Duration(seconds: 4));
+
+        final detail = await detailFuture;
+        final episodes = await episodesFuture;
+        final seasons = await relationsFuture;
+
+        var titles = detail.titles;
+        String? bannerUrl = detail.bannerUrl;
+        String? summary = detail.summary;
+        var tags = detail.tags;
+
+        try {
+          final queryTitle = (titles.english != null && titles.english!.isNotEmpty)
+              ? titles.english!
+              : titles.original;
+          final anilist = await anilistDataSource.searchMedia(
+            queryTitle,
+            cancelToken: cancelToken,
+          );
+          if (anilist != null) {
+            final enTitle = anilist.titles.english ?? anilist.titles.localized;
+            if (enTitle != null && enTitle.isNotEmpty) {
+              titles = titles.copyWith(
+                english: enTitle,
+                localized: anilist.titles.localized ?? titles.localized,
+              );
+            }
+            bannerUrl ??= anilist.bannerImage;
+            summary ??= anilist.description;
+            if (tags.isEmpty && anilist.genres != null) {
+              tags = anilist.genres!.map((g) => AnimeTag(name: g, count: 100)).toList();
+            }
+          }
+        } catch (_) {}
+
+        final fullDetail = detail.copyWith(
+          titles: titles,
+          bannerUrl: bannerUrl,
+          summary: summary,
+          tags: tags,
+          episodes: episodes,
+          seasons: seasons,
+        );
+        cache.set(cacheKey, fullDetail, MetadataCache.detailTtl);
+        return fullDetail;
+      } catch (_) {}
+    }
 
     // 1. Try AniList first (fast worldwide Cloudflare CDN, full English metadata)
     try {
