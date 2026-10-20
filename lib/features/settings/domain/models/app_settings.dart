@@ -17,7 +17,7 @@ class AppSettings {
   final String resumeBehavior; // 'always', 'prompt', 'never'
 
   const AppSettings({
-    this.accentColorValue = 0xFFE50914, // AppColors.accent
+    this.accentColorValue = 0xFFC6F16D, // AppColors.accent
     this.titlePreference = TitlePreference.english,
     this.defaultQuality = 'Auto',
     this.defaultAudioLanguage = 'Original',
@@ -57,7 +57,7 @@ class AppSettings {
     }
 
     return AppSettings(
-      accentColorValue: json['accentColorValue'] as int? ?? 0xFFE50914,
+      accentColorValue: json['accentColorValue'] as int? ?? 0xFFC6F16D,
       titlePreference: pref,
       defaultQuality: json['defaultQuality'] as String? ?? 'Auto',
       defaultAudioLanguage: json['defaultAudioLanguage'] as String? ?? 'Original',
@@ -95,4 +95,33 @@ class AppSettings {
       resumeBehavior: resumeBehavior ?? this.resumeBehavior,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AppSettings &&
+          runtimeType == other.runtimeType &&
+          accentColorValue == other.accentColorValue &&
+          titlePreference == other.titlePreference &&
+          defaultQuality == other.defaultQuality &&
+          defaultAudioLanguage == other.defaultAudioLanguage &&
+          defaultSubtitleLanguage == other.defaultSubtitleLanguage &&
+          autoplayNext == other.autoplayNext &&
+          skipStepSeconds == other.skipStepSeconds &&
+          longPressSpeed == other.longPressSpeed &&
+          gesturesEnabled == other.gesturesEnabled &&
+          resumeBehavior == other.resumeBehavior;
+
+  @override
+  int get hashCode =>
+      accentColorValue.hashCode ^
+      titlePreference.hashCode ^
+      defaultQuality.hashCode ^
+      defaultAudioLanguage.hashCode ^
+      defaultSubtitleLanguage.hashCode ^
+      autoplayNext.hashCode ^
+      skipStepSeconds.hashCode ^
+      longPressSpeed.hashCode ^
+      gesturesEnabled.hashCode ^
+      resumeBehavior.hashCode;
 }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// Design tokens for colors across the application.
-/// Matches the true-black, vivid-red luxury iOS aesthetic.
+/// Matches the obsidian-carbon foundation and electric lime studio aesthetic.
 abstract final class AppColors {
   // Canvas / Backgrounds
   static const Color background = Color(0xFF0B0E0B); // Obsidian carbon foundation
@@ -9,6 +9,8 @@ abstract final class AppColors {
   static const Color surfaceElevated = Color(0xFF181E18); // Elevated modals/menus
   static const Color surfaceHighlight = Color(0xFF222B22); // Subtle highlights
   static const Color surfaceSecondary = Color(0xFF121612); // Secondary dark surface
+  static const Color surfaceDim = Color(0xFF0A0D0A);
+  static const Color surfaceBright = Color(0xFF242E24);
 
   // Material 3 Surface Containers (Elevation Hierarchy)
   static const Color surfaceContainerLowest = Color(0xFF0C0F0C); // Level 0: Deepest canvas
@@ -28,6 +30,12 @@ abstract final class AppColors {
   static const Color accentSoft = Color(0x29C6F16D); // 16% alpha lime
   static const Color accentBorder = Color(0x66C6F16D); // 40% alpha lime border
 
+  // Material 3 Tertiary Palette
+  static const Color tertiary = Color(0xFF7CD5C8);
+  static const Color onTertiary = Color(0xFF003731);
+  static const Color tertiaryContainer = Color(0xFF005047);
+  static const Color onTertiaryContainer = Color(0xFF98F2E4);
+
   // Studio Telemetry & Status Badges
   static const Color telemetryLive = Color(0xFF22C55E); // Live status emerald
   static const Color telemetryCyan = Color(0xFF00F0FF); // Model / codec cyan
@@ -41,11 +49,16 @@ abstract final class AppColors {
   static const Color navBarActiveBorder = Color(0xFFD4F870);
   static const Color navBarActiveIcon = Color(0xFF0B0E0B); // Pitch black icon inside lime capsule
 
-  // Typography Colors
+  // Typography Colors (WCAG AAA/AA Compliant)
   static const Color textPrimary = Color(0xFFF1F5F1); // Crisp off-white
   static const Color textSecondary = Color(0xFF8E9E8E); // Studio sage-grey
-  static const Color textMuted = Color(0xFF5F6E5F);
-  static const Color textDisabled = Color(0xFF404A40);
+  static const Color textMuted = Color(0xFF7E8F7E); // WCAG AA 4.6:1 contrast
+  static const Color textDisabled = Color(0xFF5A665A); // WCAG AA large/decorative
+  static const Color onSurfaceVariant = Color(0xFFB5C4B5);
+
+  // Scrim & Shadow
+  static const Color scrim = Color(0xFF000000);
+  static const Color shadow = Color(0xFF000000);
 
   // Dividers & Borders
   static const Color border = Color(0xFF263526); // Crisp studio 1px border

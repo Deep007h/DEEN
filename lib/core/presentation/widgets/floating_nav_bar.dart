@@ -1,6 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../../theme/app_colors.dart';
+import 'package:flutter/services.dart';
 import '../../theme/app_motion.dart';
 import '../../theme/app_spacing.dart';
 import 'pressable_scale.dart';
@@ -38,6 +38,9 @@ class FloatingNavBar extends StatelessWidget {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     final screenWidth = MediaQuery.sizeOf(context).width;
 
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     // Responsive horizontal margin for small screens (down to 360px)
     final horizontalMargin = screenWidth < 380 ? 12.0 : AppSpacing.floatingBarMarginHorizontal;
 
@@ -52,12 +55,12 @@ class FloatingNavBar extends StatelessWidget {
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 24.0, sigmaY: 24.0),
           child: Container(
-            height: 66.0,
+            height: AppSpacing.floatingBarHeight,
             decoration: BoxDecoration(
-              color: const Color(0xE8101510),
+              color: colorScheme.surfaceContainer.withValues(alpha: 0.88),
               borderRadius: BorderRadius.circular(34.0),
               border: Border.all(
-                color: const Color(0xFFC6F16D).withValues(alpha: 0.20),
+                color: colorScheme.outlineVariant.withValues(alpha: 0.5),
                 width: 1.0,
               ),
               boxShadow: [
@@ -68,7 +71,7 @@ class FloatingNavBar extends StatelessWidget {
                   offset: Offset(0, 10),
                 ),
                 BoxShadow(
-                  color: AppColors.accent.withValues(alpha: 0.12),
+                  color: colorScheme.primary.withValues(alpha: 0.12),
                   blurRadius: 18,
                   offset: const Offset(0, 2),
                 ),
@@ -83,7 +86,10 @@ class FloatingNavBar extends StatelessWidget {
                   child: _NavBarTabButton(
                     item: item,
                     isSelected: isSelected,
-                    onTap: () => onTap(index),
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      onTap(index);
+                    },
                   ),
                 );
               }),
@@ -108,6 +114,9 @@ class _NavBarTabButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Semantics(
       selected: isSelected,
       button: true,
@@ -119,17 +128,17 @@ class _NavBarTabButton extends StatelessWidget {
           child: AnimatedContainer(
             duration: AppMotion.medium1,
             curve: Curves.easeOutCubic,
-            padding: EdgeInsets.symmetric(
-              horizontal: isSelected ? 18.0 : 10.0,
-              vertical: isSelected ? 7.0 : 6.0,
+            padding: const EdgeInsets.symmetric(
+              horizontal: 14.0,
+              vertical: 6.0,
             ),
             decoration: BoxDecoration(
-              color: isSelected ? AppColors.accent : Colors.transparent,
+              color: isSelected ? colorScheme.primary : Colors.transparent,
               borderRadius: BorderRadius.circular(24.0),
               boxShadow: isSelected
                   ? [
                       BoxShadow(
-                        color: AppColors.accent.withValues(alpha: 0.45),
+                        color: colorScheme.primary.withValues(alpha: 0.35),
                         blurRadius: 14,
                         offset: const Offset(0, 2),
                       ),
@@ -148,7 +157,7 @@ class _NavBarTabButton extends StatelessWidget {
                     isSelected ? item.activeIcon : item.icon,
                     key: ValueKey(isSelected),
                     size: 21,
-                    color: isSelected ? const Color(0xFF0B0E0B) : const Color(0xFFA0ACA0),
+                    color: isSelected ? colorScheme.onPrimary : colorScheme.onSurfaceVariant,
                   ),
                 ),
                 const SizedBox(height: 2.5),
@@ -157,8 +166,8 @@ class _NavBarTabButton extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: isSelected ? const Color(0xFF0B0E0B) : const Color(0xFFA0ACA0),
-                    fontWeight: isSelected ? FontWeight.w900 : FontWeight.w500,
+                    color: isSelected ? colorScheme.onPrimary : colorScheme.onSurfaceVariant,
+                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
                     fontSize: 10.5,
                     letterSpacing: 0.1,
                   ),

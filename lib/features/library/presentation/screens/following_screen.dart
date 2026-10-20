@@ -158,7 +158,7 @@ class FollowingScreen extends ConsumerWidget {
                   childAspectRatio: 0.58,
                 ),
                 delegate: SliverChildBuilderDelegate(
-                  (context, index) => ShimmerBox(
+                  (context, index) => const ShimmerBox(
                     width: double.infinity,
                     height: 220,
                     borderRadius: AppRadius.cardBorder,
@@ -437,7 +437,7 @@ class _FollowedAnimeCard extends ConsumerWidget {
                       bottom: 8,
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
+                        decoration: const BoxDecoration(
                           color: AppColors.ratingBadge,
                           borderRadius: AppRadius.pillBorder,
                         ),
@@ -497,7 +497,7 @@ class _FollowedAnimeCard extends ConsumerWidget {
       builder: (dialogCtx) {
         return AlertDialog(
           backgroundColor: AppColors.surfaceElevated,
-          shape: RoundedRectangleBorder(borderRadius: AppRadius.cardBorder),
+          shape: const RoundedRectangleBorder(borderRadius: AppRadius.cardBorder),
           title: Text('Unfollow ${anime.title}?', style: AppText.sectionTitle),
           content: const Text(
             'Remove this anime from your followed list?',

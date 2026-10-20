@@ -35,8 +35,13 @@ abstract final class AppMotion {
   static const Duration long3 = Duration(milliseconds: 550);
   static const Duration long4 = Duration(milliseconds: 600);
 
-  // 5. Material 3 Scroll Physics (Stretching overscroll on Android 12+, clamping base)
-  static const ScrollPhysics m3ScrollPhysics = ClampingScrollPhysics(
+  static const Duration extraLong1 = Duration(milliseconds: 700);
+  static const Duration extraLong2 = Duration(milliseconds: 800);
+  static const Duration extraLong3 = Duration(milliseconds: 900);
+  static const Duration extraLong4 = Duration(milliseconds: 1000);
+
+  // 5. Material 3 Scroll Physics (Expressive stretching/bouncing overscroll)
+  static const ScrollPhysics m3ScrollPhysics = BouncingScrollPhysics(
     parent: AlwaysScrollableScrollPhysics(),
   );
 }

@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'app_colors.dart';
@@ -21,21 +22,30 @@ abstract final class AppTheme {
     final colorScheme = baseScheme.copyWith(
       primary: accentColor,
       onPrimary: const Color(0xFF0B0E0B),
-      primaryContainer: accentColor.withValues(alpha: 0.22),
-      onPrimaryContainer: accentColor,
-      secondary: accentColor,
-      onSecondary: const Color(0xFF0B0E0B),
-      secondaryContainer: accentColor.withValues(alpha: 0.18),
-      onSecondaryContainer: accentColor,
+      primaryContainer: accentColor.withValues(alpha: 0.20),
+      onPrimaryContainer: const Color(0xFFE2FDB0),
+      secondary: baseScheme.secondary,
+      onSecondary: baseScheme.onSecondary,
+      secondaryContainer: baseScheme.secondaryContainer,
+      onSecondaryContainer: baseScheme.onSecondaryContainer,
+      tertiary: AppColors.tertiary,
+      onTertiary: AppColors.onTertiary,
+      tertiaryContainer: AppColors.tertiaryContainer,
+      onTertiaryContainer: AppColors.onTertiaryContainer,
       surface: AppColors.background,
       onSurface: AppColors.textPrimary,
+      surfaceDim: AppColors.surfaceDim,
+      surfaceBright: AppColors.surfaceBright,
       surfaceContainerLowest: AppColors.surfaceContainerLowest,
       surfaceContainerLow: AppColors.surfaceContainerLow,
       surfaceContainer: AppColors.surfaceContainer,
       surfaceContainerHigh: AppColors.surfaceContainerHigh,
       surfaceContainerHighest: AppColors.surfaceContainerHighest,
+      onSurfaceVariant: AppColors.onSurfaceVariant,
       outline: AppColors.outline,
       outlineVariant: AppColors.outlineVariant,
+      scrim: AppColors.scrim,
+      shadow: AppColors.shadow,
       error: const Color(0xFFFFB4AB),
       onError: const Color(0xFF690005),
       errorContainer: const Color(0xFF93000A),
@@ -186,20 +196,89 @@ abstract final class AppTheme {
       // 9. Material 3 Buttons
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
+          backgroundColor: colorScheme.primary,
+          foregroundColor: colorScheme.onPrimary,
           shape: const StadiumBorder(),
           textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         ),
       ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: colorScheme.primary,
+          foregroundColor: colorScheme.onPrimary,
+          elevation: 1,
+          shape: const StadiumBorder(),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        ),
+      ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
+          foregroundColor: colorScheme.onSurface,
           shape: const StadiumBorder(),
           side: BorderSide(color: colorScheme.outlineVariant, width: 1),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         ),
       ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: colorScheme.primary,
+          shape: const StadiumBorder(),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        ),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          foregroundColor: colorScheme.onSurface,
+          visualDensity: VisualDensity.standard,
+        ),
+      ),
 
-      // 10. Material 3 Slider & Switch
+      // 10. Material 3 Input Decoration
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: colorScheme.surfaceContainerHigh,
+        hintStyle: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 14),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderSide: BorderSide(color: colorScheme.outlineVariant, width: 0.8),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderSide: BorderSide(color: colorScheme.outlineVariant, width: 0.8),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderSide: BorderSide(color: colorScheme.primary, width: 1.6),
+        ),
+      ),
+
+      // 11. Material 3 Menus & SnackBars
+      popupMenuTheme: PopupMenuThemeData(
+        color: colorScheme.surfaceContainerHigh,
+        elevation: 3,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          side: BorderSide(color: colorScheme.outlineVariant, width: 0.8),
+        ),
+        textStyle: TextStyle(color: colorScheme.onSurface, fontSize: 14),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: colorScheme.surfaceContainerHighest,
+        contentTextStyle: TextStyle(color: colorScheme.onSurface, fontSize: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
+        behavior: SnackBarBehavior.floating,
+      ),
+      listTileTheme: ListTileThemeData(
+        iconColor: colorScheme.onSurfaceVariant,
+        textColor: colorScheme.onSurface,
+        titleTextStyle: AppText.titleMedium.copyWith(color: colorScheme.onSurface),
+        subtitleTextStyle: AppText.bodyMedium.copyWith(color: colorScheme.onSurfaceVariant),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      ),
+
+      // 12. Material 3 Slider & Switch
       sliderTheme: SliderThemeData(
         activeTrackColor: colorScheme.primary,
         inactiveTrackColor: colorScheme.surfaceContainerHighest,
@@ -229,7 +308,7 @@ abstract final class AppTheme {
         }),
       ),
 
-      // 11. Progress Indicator & Badges
+      // 13. Progress Indicator & Badges
       progressIndicatorTheme: ProgressIndicatorThemeData(
         color: colorScheme.primary,
         linearTrackColor: colorScheme.surfaceContainerHighest,
@@ -241,7 +320,7 @@ abstract final class AppTheme {
         textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
       ),
 
-      // 12. Tooltip & Divider
+      // 14. Tooltip & Divider
       tooltipTheme: TooltipThemeData(
         decoration: BoxDecoration(
           color: colorScheme.surfaceContainerHighest,
@@ -257,12 +336,14 @@ abstract final class AppTheme {
         space: 1,
       ),
 
-      // 13. Material 3 Motion Page Transitions & Splash
+      // 15. Material 3 Motion Page Transitions & Splash
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: ZoomPageTransitionsBuilder(),
-          TargetPlatform.iOS: ZoomPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
           TargetPlatform.linux: ZoomPageTransitionsBuilder(),
+          TargetPlatform.windows: ZoomPageTransitionsBuilder(),
+          TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
         },
       ),
       splashFactory: InkSparkle.splashFactory,

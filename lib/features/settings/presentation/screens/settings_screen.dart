@@ -582,7 +582,7 @@ class SettingsScreen extends ConsumerWidget {
       builder: (dialogCtx) {
         return AlertDialog(
           backgroundColor: AppColors.surfaceElevated,
-          shape: RoundedRectangleBorder(borderRadius: AppRadius.cardBorder),
+          shape: const RoundedRectangleBorder(borderRadius: AppRadius.cardBorder),
           title: const Text('Export Data (JSON)', style: AppText.sectionTitle),
           content: SizedBox(
             width: double.maxFinite,
@@ -652,7 +652,7 @@ class SettingsScreen extends ConsumerWidget {
       builder: (dialogCtx) {
         return AlertDialog(
           backgroundColor: AppColors.surfaceElevated,
-          shape: RoundedRectangleBorder(borderRadius: AppRadius.cardBorder),
+          shape: const RoundedRectangleBorder(borderRadius: AppRadius.cardBorder),
           title: const Text('Import Data (JSON)', style: AppText.sectionTitle),
           content: SizedBox(
             width: double.maxFinite,
@@ -678,9 +678,9 @@ class SettingsScreen extends ConsumerWidget {
                     hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 12),
                     filled: true,
                     fillColor: AppColors.surface,
-                    border: OutlineInputBorder(
+                    border: const OutlineInputBorder(
                       borderRadius: AppRadius.cardBorder,
-                      borderSide: const BorderSide(color: AppColors.border),
+                      borderSide: BorderSide(color: AppColors.border),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: AppRadius.cardBorder,

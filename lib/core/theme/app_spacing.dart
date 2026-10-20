@@ -16,5 +16,5 @@ abstract final class AppSpacing {
   static const double floatingBarBottomPadding = 110.0; // Space for content behind floating bar
   static const double floatingBarMarginHorizontal = 18.0;
   static const double floatingBarMarginBottom = 20.0;
-  static const double floatingBarHeight = 64.0;
+  static const double floatingBarHeight = 66.0;
 }

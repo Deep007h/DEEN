@@ -637,7 +637,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                                       color: isSelected ? AppColors.accent : AppColors.textPrimary,
                                       fontSize: 12.5,
                                     ),
-                                    shape: RoundedRectangleBorder(
+                                    shape: const RoundedRectangleBorder(
                                       borderRadius: AppRadius.pillBorder,
                                     ),
                                     onSelected: (selected) {
@@ -1227,9 +1227,9 @@ class _DetailLoadingSkeleton extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: AppSpacing.xl),
-              ShimmerBox(width: double.infinity, height: 48, borderRadius: AppRadius.pillBorder),
+              const ShimmerBox(width: double.infinity, height: 48, borderRadius: AppRadius.pillBorder),
               const SizedBox(height: AppSpacing.xl),
-              ShimmerBox(width: double.infinity, height: 80, borderRadius: AppRadius.cardBorder),
+              const ShimmerBox(width: double.infinity, height: 80, borderRadius: AppRadius.cardBorder),
               const SizedBox(height: AppSpacing.xl),
               Expanded(
                 child: ListView.separated(

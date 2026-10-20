@@ -22,6 +22,7 @@ void main() async {
   }
 
   // Set system UI styling for edge-to-edge dark theme
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -53,7 +54,9 @@ class DeenApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'DEEN',
       debugShowCheckedModeBanner: false,
+      themeMode: ThemeMode.dark,
       theme: AppTheme.buildDarkTheme(accentColor),
+      darkTheme: AppTheme.buildDarkTheme(accentColor),
       routerConfig: appRouter,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,

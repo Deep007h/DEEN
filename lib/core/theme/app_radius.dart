@@ -26,15 +26,15 @@ abstract final class AppRadius {
   static const double pill = 999.0;     // M3 Full shape
   static const double floatingBar = 34.0;
 
-  // BorderRadius helpers
-  static final BorderRadius cardBorder = BorderRadius.circular(card);
-  static final BorderRadius posterBorder = BorderRadius.circular(poster);
-  static final BorderRadius modalBorder = BorderRadius.circular(modal);
-  static final BorderRadius pillBorder = BorderRadius.circular(pill);
-  static final BorderRadius floatingBarBorder = BorderRadius.circular(floatingBar);
-  static final BorderRadius smBorder = BorderRadius.circular(sm);
-  static final BorderRadius mdBorder = BorderRadius.circular(md);
-  static final BorderRadius lgBorder = BorderRadius.circular(lg);
-  static final BorderRadius xlBorder = BorderRadius.circular(xl);
-  static final BorderRadius m3ExtraLargeBorder = BorderRadius.circular(m3ExtraLarge);
+  // BorderRadius helpers (static const enables const widget tree optimizations)
+  static const BorderRadius cardBorder = BorderRadius.all(Radius.circular(card));
+  static const BorderRadius posterBorder = BorderRadius.all(Radius.circular(poster));
+  static const BorderRadius modalBorder = BorderRadius.all(Radius.circular(modal));
+  static const BorderRadius pillBorder = BorderRadius.all(Radius.circular(pill));
+  static const BorderRadius floatingBarBorder = BorderRadius.all(Radius.circular(floatingBar));
+  static const BorderRadius smBorder = BorderRadius.all(Radius.circular(sm));
+  static const BorderRadius mdBorder = BorderRadius.all(Radius.circular(md));
+  static const BorderRadius lgBorder = BorderRadius.all(Radius.circular(lg));
+  static const BorderRadius xlBorder = BorderRadius.all(Radius.circular(xl));
+  static const BorderRadius m3ExtraLargeBorder = BorderRadius.all(Radius.circular(m3ExtraLarge));
 }

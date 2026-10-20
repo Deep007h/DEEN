@@ -135,8 +135,8 @@ class RecentScreen extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate(
-                  (context, index) => Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                  (context, index) => const Padding(
+                    padding: EdgeInsets.only(bottom: AppSpacing.md),
                     child: ShimmerBox(
                       width: double.infinity,
                       height: 84,
@@ -222,7 +222,7 @@ class RecentScreen extends ConsumerWidget {
       builder: (dialogCtx) {
         return AlertDialog(
           backgroundColor: AppColors.surfaceElevated,
-          shape: RoundedRectangleBorder(borderRadius: AppRadius.cardBorder),
+          shape: const RoundedRectangleBorder(borderRadius: AppRadius.cardBorder),
           title: const Text('Clear Watch History', style: AppText.sectionTitle),
           content: const Text(
             'Are you sure you want to clear your entire watch history? This action cannot be undone.',
