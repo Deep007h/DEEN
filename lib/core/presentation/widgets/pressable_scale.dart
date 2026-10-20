@@ -33,6 +33,7 @@ class PressableScale extends StatefulWidget {
 
 class _PressableScaleState extends State<PressableScale> {
   bool _isPressed = false;
+  int _lastTapTimestamp = 0;
 
   void _handleTapDown(TapDownDetails details) {
     if (widget.onTap == null && widget.onLongPress == null) return;
@@ -51,6 +52,14 @@ class _PressableScaleState extends State<PressableScale> {
     }
   }
 
+  void _handleTap() {
+    if (widget.onTap == null) return;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (now - _lastTapTimestamp < 400) return;
+    _lastTapTimestamp = now;
+    widget.onTap!();
+  }
+
   @override
   Widget build(BuildContext context) {
     final isInteractive = widget.onTap != null || widget.onLongPress != null;
@@ -61,7 +70,7 @@ class _PressableScaleState extends State<PressableScale> {
       onTapDown: _handleTapDown,
       onTapUp: _handleTapUp,
       onTapCancel: _handleTapCancel,
-      onTap: widget.onTap,
+      onTap: _handleTap,
       onLongPress: widget.onLongPress,
       child: AnimatedScale(
         scale: _isPressed ? widget.targetScale : 1.0,

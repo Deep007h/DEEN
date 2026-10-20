@@ -42,6 +42,16 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
   bool _isSynopsisExpanded = false;
   bool _isGridView = true;
   int _selectedSeasonId = 0;
+  int _lastEpisodeNavTime = 0;
+
+  void _playEpisode(int currentId, int epNum, String? selectedProviderId) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (now - _lastEpisodeNavTime < 500) return;
+    _lastEpisodeNavTime = now;
+    ref.read(playbackHistoryRepositoryProvider).setLastWatchedEpisode(currentId, epNum);
+    ref.invalidate(lastWatchedEpisodeProvider(currentId));
+    context.push('/player?animeId=$currentId&ep=$epNum&provider=$selectedProviderId');
+  }
 
   @override
   void initState() {
@@ -53,6 +63,10 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final topPadding = MediaQuery.paddingOf(context).top;
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final epCrossAxisCount = screenWidth >= 1000
+        ? 10
+        : (screenWidth >= 700 ? 8 : (screenWidth >= 480 ? 6 : 5));
     final currentId = _selectedSeasonId != 0 ? _selectedSeasonId : (int.tryParse(widget.animeId) ?? 0);
 
     final detailAsync = ref.watch(animeDetailProvider(currentId));
@@ -389,7 +403,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                                   child: FilledButton.icon(
                                     onPressed: () {
                                       final epToPlay = lastWatchedEp ?? 1;
-                                      context.push('/player?animeId=$currentId&ep=$epToPlay&provider=$selectedProviderId');
+                                      _playEpisode(currentId, epToPlay, selectedProviderId);
                                     },
                                     icon: const Icon(
                                       Icons.play_arrow_rounded,
@@ -716,8 +730,8 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                   SliverPadding(
                     padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
                     sliver: SliverGrid(
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 5,
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: epCrossAxisCount,
                         childAspectRatio: 1.15,
                         crossAxisSpacing: 8,
                         mainAxisSpacing: 8,
@@ -741,11 +755,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                               clipBehavior: Clip.antiAlias,
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(12),
-                                onTap: () {
-                                  ref.read(playbackHistoryRepositoryProvider).setLastWatchedEpisode(currentId, epNum);
-                                  ref.invalidate(lastWatchedEpisodeProvider(currentId));
-                                  context.push('/player?animeId=$currentId&ep=$epNum&provider=$selectedProviderId');
-                                },
+                                onTap: () => _playEpisode(currentId, epNum, selectedProviderId),
                                 child: Container(
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(12),
@@ -798,11 +808,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                               borderRadius: BorderRadius.circular(12),
                               clipBehavior: Clip.antiAlias,
                               child: InkWell(
-                                onTap: () {
-                                  ref.read(playbackHistoryRepositoryProvider).setLastWatchedEpisode(currentId, epNum);
-                                  ref.invalidate(lastWatchedEpisodeProvider(currentId));
-                                  context.push('/player?animeId=$currentId&ep=$epNum&provider=$selectedProviderId');
-                                },
+                                onTap: () => _playEpisode(currentId, epNum, selectedProviderId),
                                 child: Container(
                                   padding: const EdgeInsets.all(AppSpacing.md),
                                   decoration: BoxDecoration(

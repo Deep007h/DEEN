@@ -60,7 +60,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     super.dispose();
   }
 
+  int _kshowSearchId = 0;
+
   Future<void> _searchKShows(String query) async {
+    final searchId = ++_kshowSearchId;
     final trimmed = query.trim();
     if (trimmed.isEmpty) {
       setState(() {
@@ -76,14 +79,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     });
     try {
       final results = await ref.read(megaVidProvider).searchKShows(trimmed);
-      if (mounted) {
+      if (mounted && searchId == _kshowSearchId) {
         setState(() {
           _kshowResults = results;
           _isKShowLoading = false;
         });
       }
     } catch (_) {
-      if (mounted) {
+      if (mounted && searchId == _kshowSearchId) {
         setState(() {
           _isKShowLoading = false;
           _kshowError = 'Failed to load K-Shows';
@@ -118,6 +121,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     ];
 
     final theme = Theme.of(context);
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final gridCrossAxisCount = screenWidth >= 1000
+        ? 5
+        : (screenWidth >= 700 ? 4 : (screenWidth >= 480 ? 3 : 2));
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -432,8 +439,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
                 sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: gridCrossAxisCount,
                     childAspectRatio: 0.62,
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 14,
@@ -502,8 +509,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
                 sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: gridCrossAxisCount,
                     childAspectRatio: 0.62,
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 14,
@@ -525,8 +532,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
                 sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: gridCrossAxisCount,
                     childAspectRatio: 0.62,
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 14,
@@ -603,8 +610,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
                 sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: gridCrossAxisCount,
                     childAspectRatio: 0.60,
                     crossAxisSpacing: 10,
                     mainAxisSpacing: 11,

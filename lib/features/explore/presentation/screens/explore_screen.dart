@@ -85,6 +85,10 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
     final topRatedAsync = ref.watch(genreTopRatedProvider(selectedGenre));
     final popularAsync = ref.watch(genrePopularProvider(selectedGenre));
     final catalogState = ref.watch(genreCatalogProvider(selectedGenre));
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final gridCrossAxisCount = screenWidth >= 1000
+        ? 5
+        : (screenWidth >= 700 ? 4 : (screenWidth >= 480 ? 3 : 2));
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -445,8 +449,8 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
                 sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: gridCrossAxisCount,
                     childAspectRatio: 0.60,
                     crossAxisSpacing: 11,
                     mainAxisSpacing: 13,
