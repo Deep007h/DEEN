@@ -258,7 +258,7 @@ class LocalHlsServer {
   }
 
   void _cacheSegment(_HlsSession session, String url, List<int> bytes) {
-    if (session._segmentCache.length > 20) {
+    if (session._segmentCache.length >= 8) {
       session._segmentCache.remove(session._segmentCache.keys.first);
     }
     session._segmentCache[url] = bytes;
