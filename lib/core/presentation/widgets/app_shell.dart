@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:anime_stream/l10n/app_localizations.dart';
 import 'package:go_router/go_router.dart';
 import '../../theme/app_motion.dart';
@@ -84,21 +83,20 @@ class _AppShellState extends State<AppShell> {
             return false;
           }
 
+          // If at the bottom boundary (over-scrolling), prevent bar toggling
+          if (notification.metrics.extentAfter == 0) {
+            return false;
+          }
+
           // Real-time scroll updates with hysteresis to prevent flutter/jitter
           if (notification is ScrollUpdateNotification) {
             final delta = notification.scrollDelta;
             if (delta != null) {
-              if (delta > 14.0 && _isNavBarVisibleNotifier.value) {
+              if (delta > 12.0 && _isNavBarVisibleNotifier.value) {
                 _isNavBarVisibleNotifier.value = false;
               } else if (delta < -10.0 && !_isNavBarVisibleNotifier.value) {
                 _isNavBarVisibleNotifier.value = true;
               }
-            }
-          } else if (notification is UserScrollNotification) {
-            if (notification.direction == ScrollDirection.reverse && _isNavBarVisibleNotifier.value) {
-              _isNavBarVisibleNotifier.value = false;
-            } else if (notification.direction == ScrollDirection.forward && !_isNavBarVisibleNotifier.value) {
-              _isNavBarVisibleNotifier.value = true;
             }
           }
           return false;
@@ -119,15 +117,16 @@ class _AppShellState extends State<AppShell> {
                 child: ValueListenableBuilder<bool>(
                   valueListenable: _isNavBarVisibleNotifier,
                   builder: (context, isVisible, child) {
+                    final duration = isVisible ? AppMotion.medium2 : AppMotion.medium1;
                     return AnimatedSlide(
                       offset: isVisible ? Offset.zero : const Offset(0, 1.25),
-                      duration: isVisible ? AppMotion.medium2 : AppMotion.medium1,
+                      duration: duration,
                       curve: isVisible
                           ? AppMotion.expressiveFastSpatial
                           : AppMotion.emphasizedAccelerate,
                       child: AnimatedOpacity(
                         opacity: isVisible ? 1.0 : 0.0,
-                        duration: AppMotion.short4,
+                        duration: duration,
                         curve: AppMotion.standard,
                         child: IgnorePointer(
                           ignoring: !isVisible,
