@@ -1,0 +1,151 @@
+{
+  "@@locale": "en",
+  "tabHome": "Home",
+  "@tabHome": {
+    "description": "Label for the Home bottom navigation tab"
+  },
+  "tabFollowing": "Following",
+  "@tabFollowing": {
+    "description": "Label for the Following (追番) bottom navigation tab"
+  },
+  "tabRecent": "Recent",
+  "@tabRecent": {
+    "description": "Label for the Recent watch history bottom navigation tab"
+  },
+  "tabSettings": "Settings",
+  "@tabSettings": {
+    "description": "Label for the Settings bottom navigation tab"
+  },
+  "homeTitle": "DEEN",
+  "@homeTitle": {
+    "description": "Title displayed on the Home screen header"
+  },
+  "homePopularHeader": "Popular Anime",
+  "@homePopularHeader": {
+    "description": "Section header for popular/trending anime"
+  },
+  "homeEmptySearchPrompt": "Search for an anime to get started",
+  "@homeEmptySearchPrompt": {
+    "description": "Prompt on Home screen encouraging user to search"
+  },
+  "homeEmptySearchSubtext": "Explore thousands of titles, track what you love, and enjoy smooth playback.",
+  "@homeEmptySearchSubtext": {
+    "description": "Subtext on Home screen under the search prompt"
+  },
+  "searchAction": "Search",
+  "@searchAction": {
+    "description": "Label for search action button"
+  },
+  "searchTitle": "Search",
+  "@searchTitle": {
+    "description": "Top bar title on search screen"
+  },
+  "bangumiSearchTitle": "Anime Search",
+  "@bangumiSearchTitle": {
+    "description": "Large header on search page"
+  },
+  "searchInstruction": "Filter anime by keyword and sorting, then pick available stream sources in detail.",
+  "@searchInstruction": {
+    "description": "Subtitle explaining how search works"
+  },
+  "searchHint": "Search by anime title...",
+  "@searchHint": {
+    "description": "Placeholder hint inside search input field"
+  },
+  "filterMatch": "Match",
+  "@filterMatch": {
+    "description": "Sort/filter option for keyword match"
+  },
+  "filterPopularity": "Popular",
+  "@filterPopularity": {
+    "description": "Sort/filter option for popularity"
+  },
+  "filterRating": "Rating",
+  "@filterRating": {
+    "description": "Sort/filter option for rating"
+  },
+  "tagFilter": "Tags",
+  "@tagFilter": {
+    "description": "Tag filter label"
+  },
+  "playAction": "Play",
+  "@playAction": {
+    "description": "Play episode button"
+  },
+  "followAction": "Follow",
+  "@followAction": {
+    "description": "Follow/Bookmark anime button"
+  },
+  "followedAction": "Followed",
+  "@followedAction": {
+    "description": "Already followed anime state"
+  },
+  "episodesTitle": "Episodes",
+  "@episodesTitle": {
+    "description": "Title for the episodes list section"
+  },
+  "tagsTitle": "Tags",
+  "@tagsTitle": {
+    "description": "Title for tags section"
+  },
+  "followingTitle": "Following",
+  "@followingTitle": {
+    "description": "Title displayed on Following screen header"
+  },
+  "followingEmpty": "No followed anime yet",
+  "@followingEmpty": {
+    "description": "Empty state title on Following screen"
+  },
+  "followingEmptyDesc": "Bookmark your favorite anime to receive updates on new episodes.",
+  "@followingEmptyDesc": {
+    "description": "Empty state description on Following screen"
+  },
+  "recentTitle": "Recent",
+  "@recentTitle": {
+    "description": "Title displayed on Recent watch history header"
+  },
+  "recentEmpty": "No watch history",
+  "@recentEmpty": {
+    "description": "Empty state title on Recent screen"
+  },
+  "recentEmptyDesc": "Anime you've watched will show up here so you can easily pick up where you left off.",
+  "@recentEmptyDesc": {
+    "description": "Empty state description on Recent screen"
+  },
+  "settingsTitle": "Settings",
+  "@settingsTitle": {
+    "description": "Title displayed on Settings screen header"
+  },
+  "appearanceSection": "Appearance",
+  "@appearanceSection": {
+    "description": "Appearance section in settings"
+  },
+  "themeOption": "Dark Theme",
+  "@themeOption": {
+    "description": "Theme option title"
+  },
+  "streamSourceSection": "Stream Sources",
+  "@streamSourceSection": {
+    "description": "Stream sources section title in settings"
+  },
+  "manageSources": "Manage Providers",
+  "@manageSources": {
+    "description": "Manage stream providers option"
+  },
+  "aboutSection": "About",
+  "@aboutSection": {
+    "description": "About section in settings"
+  },
+  "appVersion": "Version 1.0.0",
+  "@appVersion": {
+    "description": "App version label"
+  },
+  "retry": "Retry",
+  "@retry": {
+    "description": "Retry action button"
+  },
+  "errorLoading": "Failed to load content",
+  "@errorLoading": {
+    "description": "Generic error message"
+  }
+}
