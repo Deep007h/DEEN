@@ -167,8 +167,8 @@ class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
                         selectedColor: AppColors.accent,
                         backgroundColor: AppColors.surfaceElevated,
                         labelStyle: TextStyle(
-                          color: isSelected ? Colors.white : AppColors.textSecondary,
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                          color: isSelected ? const Color(0xFF0F150D) : AppColors.textSecondary,
+                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.normal,
                           fontSize: 11.5,
                         ),
                         padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -329,7 +329,8 @@ class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
               selectedColor: AppColors.accent,
               backgroundColor: AppColors.surfaceElevated,
               labelStyle: TextStyle(
-                color: isSelected ? Colors.white : AppColors.textSecondary,
+                color: isSelected ? const Color(0xFF0F150D) : AppColors.textSecondary,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.normal,
                 fontSize: 11,
               ),
               onSelected: (_) => widget.onUpdateSubtitleSettings(
@@ -402,8 +403,8 @@ class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
           selectedColor: AppColors.accent,
           backgroundColor: AppColors.surfaceElevated,
           labelStyle: TextStyle(
-            color: isSelected ? Colors.white : AppColors.textSecondary,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+            color: isSelected ? const Color(0xFF0F150D) : AppColors.textSecondary,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.normal,
             fontSize: 12,
           ),
           onSelected: (_) => widget.onSelectSpeed(speed),

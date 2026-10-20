@@ -177,9 +177,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   void _restoreOrientations() {
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
-      DeviceOrientation.portraitDown,
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
     ]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   }
@@ -1063,9 +1060,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                   } else if (selectedVar.hasOutro &&
                       posSec >= selectedVar.outroStart! &&
                       posSec < selectedVar.outroEnd!) {
+                    final skipBottom = _showNextEpisodeCountdown
+                        ? (_controlsVisible ? 168.0 : 138.0)
+                        : (_controlsVisible ? 86.0 : 28.0);
                     return Positioned(
                       right: 24,
-                      bottom: _controlsVisible ? 86 : 28,
+                      bottom: skipBottom,
                       child: _buildSkipPill(
                         label: 'Skip Outro',
                         onSkip: () {
@@ -1374,6 +1374,24 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                           ),
                         ),
                       ),
+                    ),
+                  ),
+                ),
+
+              // Side Panel Backdrop Scrim
+              if ((_showSettingsSheet || _showEpisodeSheet) && !_isLocked && !_isHolding2x)
+                Positioned.fill(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      setState(() {
+                        _showSettingsSheet = false;
+                        _showEpisodeSheet = false;
+                      });
+                      _resetControlsHideTimer();
+                    },
+                    child: Container(
+                      color: Colors.black.withValues(alpha: 0.5),
                     ),
                   ),
                 ),

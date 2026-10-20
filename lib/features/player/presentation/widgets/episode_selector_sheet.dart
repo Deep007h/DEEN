@@ -97,7 +97,7 @@ class EpisodeSelectorSheet extends StatelessWidget {
                         child: Text(
                           '$ep',
                           style: TextStyle(
-                            color: isCurrent ? Colors.white : AppColors.textPrimary,
+                            color: isCurrent ? const Color(0xFF0F150D) : AppColors.textPrimary,
                             fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
                             fontSize: 14,
                           ),

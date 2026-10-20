@@ -95,11 +95,11 @@ class NextEpisodeCountdownCard extends StatelessWidget {
             onPressed: onPlayNow,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.accent,
-              foregroundColor: Colors.white,
+              foregroundColor: const Color(0xFF0F150D),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             ),
-            child: const Text('Play Now', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            child: const Text('Play Now', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
           ),
         ],
       ),
