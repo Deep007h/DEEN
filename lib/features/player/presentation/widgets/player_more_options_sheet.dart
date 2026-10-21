@@ -3,9 +3,6 @@ import 'package:flutter/material.dart';
 /// Landscape side panel for 3-dot overflow options.
 /// Shares the identical dark squircle geometry, animations, and typography tokens as [PlayerSettingsSheet].
 class PlayerMoreOptionsSheet extends StatelessWidget {
-  final int episodeNumber;
-  final VoidCallback? onPlayPrevious;
-  final VoidCallback onPlayNext;
   final VoidCallback onLockPlayer;
   final VoidCallback onPictureInPicture;
   final VoidCallback onSwitchToEmbed;
@@ -16,9 +13,6 @@ class PlayerMoreOptionsSheet extends StatelessWidget {
 
   const PlayerMoreOptionsSheet({
     super.key,
-    required this.episodeNumber,
-    this.onPlayPrevious,
-    required this.onPlayNext,
     required this.onLockPlayer,
     required this.onPictureInPicture,
     required this.onSwitchToEmbed,
@@ -107,19 +101,6 @@ class PlayerMoreOptionsSheet extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               physics: const BouncingScrollPhysics(),
               children: [
-                if (episodeNumber > 1 && onPlayPrevious != null)
-                  _buildOptionCard(
-                    icon: Icons.skip_previous_rounded,
-                    title: 'Previous Episode',
-                    subtitle: 'Play episode ${episodeNumber - 1}',
-                    onTap: onPlayPrevious!,
-                  ),
-                _buildOptionCard(
-                  icon: Icons.skip_next_rounded,
-                  title: 'Next Episode',
-                  subtitle: 'Play episode ${episodeNumber + 1}',
-                  onTap: onPlayNext,
-                ),
                 _buildOptionCard(
                   icon: Icons.lock_outline_rounded,
                   title: 'Lock Controls',

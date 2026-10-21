@@ -24,8 +24,6 @@ class PlayerBottomBar extends StatefulWidget {
   final VoidCallback? onPreviousEpisode;
   final VoidCallback? onNextEpisode;
   final VoidCallback? onCast;
-  final VoidCallback? onPip;
-  final VoidCallback? onLock;
   final bool isSettingsOpen;
 
   const PlayerBottomBar({
@@ -45,8 +43,6 @@ class PlayerBottomBar extends StatefulWidget {
     this.onPreviousEpisode,
     this.onNextEpisode,
     this.onCast,
-    this.onPip,
-    this.onLock,
     this.isSettingsOpen = false,
   });
 
@@ -282,17 +278,6 @@ class _PlayerBottomBarState extends State<PlayerBottomBar> {
             ),
             const SizedBox(width: 16),
 
-            // PiP button if available
-            if (widget.onPip != null) ...[
-              _FrostedBarButton(
-                icon: Icons.picture_in_picture_alt_rounded,
-                size: 19,
-                onPressed: widget.onPip!,
-                tooltip: 'Picture in Picture',
-              ),
-              const SizedBox(width: 8),
-            ],
-
             // Episodes button (matching rectangle with 2 bars)
             _FrostedBarButton(
               icon: Icons.subtitles_outlined,
@@ -301,17 +286,6 @@ class _PlayerBottomBarState extends State<PlayerBottomBar> {
               tooltip: 'Episodes',
             ),
             const SizedBox(width: 8),
-
-            // Lock button if present
-            if (widget.onLock != null) ...[
-              _FrostedBarButton(
-                icon: Icons.lock_outline_rounded,
-                size: 19,
-                onPressed: widget.onLock!,
-                tooltip: 'Lock Screen',
-              ),
-              const SizedBox(width: 8),
-            ],
 
             // Settings gear button (active state when settings sheet open)
             _FrostedBarButton(

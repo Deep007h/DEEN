@@ -143,6 +143,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   SubtitleTrack? _currentlyLoadedSubtitle;
   Duration? _languageSwitchSeekTarget;
   bool _isSwitchingAudio = false;
+  Duration? _savedResumePosition;
   late PlaybackHistoryRepository _historyRepo;
 
   // Watchdog for auto-recovering timestamp stalls and stream discontinuities
@@ -219,6 +220,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     // Listen to physical volume buttons to update state and show HUD
     _deviceControls.addVolumeListener((newVol) {
       if (mounted) {
+        if (_isLocked) return;
         setState(() {
           _volume = newVol;
           _isVerticalHudVolume = true;
@@ -483,7 +485,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     }
   }
 
-  void _openStreamIfReady(StreamResolutionResult result) {
+  Future<void> _openStreamIfReady(StreamResolutionResult result) async {
     if (_useEmbedPlayer) {
       _engine?.pause();
       return;
@@ -502,7 +504,26 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       }
       _currentlyLoadedUrl = activeUrl;
       _hasCheckedResume = false;
-      final startPos = _position > Duration.zero ? _position : null;
+
+      Duration? startPos;
+      if (_position > Duration.zero) {
+        startPos = _position;
+      } else {
+        final settings = ref.read(appSettingsProvider);
+        if (settings.resumeBehavior != 'never') {
+          final savedSeconds = await _historyRepo.getEpisodePositionSeconds(
+            widget.animeId,
+            widget.episodeNumber,
+          );
+          if (savedSeconds != null && savedSeconds > 5) {
+            _savedResumePosition = Duration(seconds: savedSeconds);
+            startPos = _savedResumePosition;
+          }
+        }
+      }
+
+      if (!mounted) return;
+
       _engine!.setTrackPreferences(
         audioLanguage: result.selectedAudio.code,
         qualityPreference: result.selectedQuality.label,
@@ -512,6 +533,24 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         headers: result.selectedVariant.headers,
         startPosition: startPos,
       );
+
+      if (_savedResumePosition != null && mounted) {
+        final resumePos = _savedResumePosition!;
+        final minutes = resumePos.inMinutes.remainder(60).toString().padLeft(2, '0');
+        final seconds = resumePos.inSeconds.remainder(60).toString().padLeft(2, '0');
+        final timeStr = resumePos.inHours > 0
+            ? '${resumePos.inHours}:$minutes:$seconds'
+            : '$minutes:$seconds';
+
+        setState(() {
+          _resumeToastMessage = 'Resumed from $timeStr';
+        });
+
+        _resumeToastTimer?.cancel();
+        _resumeToastTimer = Timer(const Duration(seconds: 4), () {
+          if (mounted) setState(() => _resumeToastMessage = null);
+        });
+      }
     } else {
       _engine!.setTrackPreferences(
         audioLanguage: result.selectedAudio.code,
@@ -533,6 +572,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       _currentlyLoadedUrl = null;
       _currentlyLoadedSubtitle = null;
       _hasCheckedResume = false;
+      _savedResumePosition = null;
       _position = Duration.zero;
       _duration = Duration.zero;
       _bufferingStuckSeconds = 0;
@@ -714,7 +754,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
           : 0.0;
       if (fraction < 0.90) {
         final resumePos = Duration(seconds: savedSeconds);
+        _savedResumePosition = resumePos;
         await _engine?.seek(resumePos);
+        _position = resumePos;
+        _positionNotifier.value = resumePos;
 
         final minutes = resumePos.inMinutes.remainder(60).toString().padLeft(2, '0');
         final seconds = resumePos.inSeconds.remainder(60).toString().padLeft(2, '0');
@@ -727,7 +770,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         });
 
         _resumeToastTimer?.cancel();
-        _resumeToastTimer = Timer(const Duration(seconds: 3), () {
+        _resumeToastTimer = Timer(const Duration(seconds: 4), () {
           if (mounted) setState(() => _resumeToastMessage = null);
         });
       }
@@ -819,9 +862,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     if (_controlsVisible) {
       _resetControlsHideTimer();
     } else {
-      if (_showSettingsSheet || _showEpisodeSheet || _showMoreSheet) {
-        _closeSidePanel();
-      }
       _controlsHideTimer?.cancel();
     }
   }
@@ -951,15 +991,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _singleTapTimer?.cancel();
     _rateBeforeHold = _playbackRate;
     _engine?.setRate(settings.longPressSpeed);
-    if (_showSettingsSheet || _showEpisodeSheet || _showMoreSheet) {
-      _sidePanelController.reverse();
-    }
     setState(() {
       _isHolding2x = true;
       _controlsVisible = false;
-      _showSettingsSheet = false;
-      _showEpisodeSheet = false;
-      _showMoreSheet = false;
       _showVerticalHud = false;
       _doubleTapOffsetSeconds = null;
       _isScrubbing = false;
@@ -1039,6 +1073,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   void _handleVerticalDragUpdate(DragUpdateDetails details, double screenHeight) {
+    if (_isLocked || _isHolding2x || !_showVerticalHud) return;
     final deltaY = details.localPosition.dy - _verticalDragStartY;
     final newVal = _gestureMath.calculateVerticalDelta(
       currentValue: _verticalDragStartVal,
@@ -1059,6 +1094,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   void _handleVerticalDragEnd() {
+    if (_isLocked || _isHolding2x || !_showVerticalHud) return;
     _verticalHudTimer?.cancel();
     _verticalHudTimer = Timer(const Duration(milliseconds: 1000), () {
       if (mounted) {
@@ -1246,12 +1282,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                         : _showMoreSheet
                             ? PlayerMoreOptionsSheet(
                                 key: const ValueKey('more_sheet'),
-                                episodeNumber: widget.episodeNumber,
-                                onPlayPrevious: widget.episodeNumber > 1 ? _playPreviousEpisode : null,
-                                onPlayNext: _playNextEpisode,
                                 onLockPlayer: _lockPlayer,
                                 onPictureInPicture: () {
-                                  _closeSidePanel();
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
                                       content: Text('Picture in Picture activated'),
@@ -1265,7 +1297,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                                   _engine?.pause();
                                 },
                                 onCopyEmbedUrl: () {
-                                  _closeSidePanel();
                                   final matchId = result.match.id.isNotEmpty ? result.match.id : widget.animeId.toString();
                                   final isDub = result.selectedAudio.code == AudioLanguage.englishDub.code;
                                   final lang = isDub ? 'dub' : 'sub';
@@ -1700,7 +1731,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                               _sidePanelAnimation.value > 0.3,
                           onPreviousEpisode: _playPreviousEpisode,
                           onNextEpisode: _playNextEpisode,
-                          onLock: _lockPlayer,
                           onSeekStart: (target) {
                             _isUserSeeking = true;
                             _controlsHideTimer?.cancel();
@@ -1737,15 +1767,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                             );
                             _resetControlsHideTimer();
                           },
-                          onPip: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Picture in Picture activated'),
-                                duration: Duration(seconds: 2),
-                              ),
-                            );
-                            _resetControlsHideTimer();
-                          },
                         ),
                       ),
                     ],
@@ -1764,37 +1785,31 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                       color: Colors.transparent,
                       child: InkWell(
                         onTap: _unlockPlayer,
-                        borderRadius: BorderRadius.circular(28),
+                        borderRadius: BorderRadius.circular(20),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                           decoration: BoxDecoration(
-                            color: const Color(0xF0101510),
-                            borderRadius: BorderRadius.circular(28),
-                            border: Border.all(color: const Color(0xFFC6F16D), width: 1.5),
+                            color: const Color(0xEE141914),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: const Color(0xFF263526), width: 1.0),
                             boxShadow: const [
                               BoxShadow(
-                                color: Color(0x66C6F16D),
-                                blurRadius: 16,
-                                spreadRadius: 1,
+                                color: Color(0x66000000),
+                                blurRadius: 10,
                                 offset: Offset(0, 2),
-                              ),
-                              BoxShadow(
-                                color: Color(0x99000000),
-                                blurRadius: 18,
-                                offset: Offset(0, 4),
                               ),
                             ],
                           ),
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.lock_open_rounded, color: Color(0xFFC6F16D), size: 20),
+                              Icon(Icons.lock_open_rounded, color: Colors.white, size: 18),
                               SizedBox(width: 8),
                               Text(
                                 'Tap to Unlock',
                                 style: TextStyle(
                                   color: Colors.white,
-                                  fontWeight: FontWeight.w700,
+                                  fontWeight: FontWeight.w600,
                                   fontSize: 13,
                                   letterSpacing: 0.3,
                                 ),
@@ -1826,8 +1841,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
               final animProgress = _sidePanelAnimation.value;
               final showPanel =
                   (_showSettingsSheet || _showEpisodeSheet || _showMoreSheet) &&
-                      !_isLocked &&
-                      !_isHolding2x;
+                      !_isLocked;
 
               final panelCard = SizedBox(
                 width: sidePanelWidth,
@@ -1982,22 +1996,44 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         alignment: Alignment.topCenter,
         child: Container(
           margin: EdgeInsets.only(top: _controlsVisible ? 68.0 : 18.0),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.8),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white24, width: 0.8),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.history_rounded, size: 16, color: AppColors.accent),
-              const SizedBox(width: 8),
-              Text(
-                _resumeToastMessage!,
-                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () async {
+                if (_savedResumePosition != null) {
+                  await _engine?.seek(_savedResumePosition!);
+                  _position = _savedResumePosition!;
+                  _positionNotifier.value = _savedResumePosition!;
+                }
+              },
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xEE141914),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFF263526), width: 1.0),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x66000000),
+                      blurRadius: 8,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.history_rounded, size: 16, color: AppColors.accent),
+                    const SizedBox(width: 8),
+                    Text(
+                      _resumeToastMessage!,
+                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
               ),
-            ],
+            ),
           ),
         ),
       ),
