@@ -20,6 +20,7 @@ import '../../../stream/presentation/providers/stream_providers.dart';
 import '../../../metadata/presentation/providers/metadata_providers.dart';
 import '../../../settings/data/repositories/app_settings_repository.dart';
 import '../../data/repositories/playback_history_repository.dart';
+import '../../data/services/device_controls_service.dart';
 import '../../domain/engine/video_playback_engine.dart';
 import '../../domain/gestures/player_gesture_math.dart';
 import '../providers/player_engine_provider.dart';
@@ -183,6 +184,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
     _useEmbedPlayer = widget.defaultToEmbed ?? false;
     _historyRepo = ref.read(playbackHistoryRepositoryProvider);
+    _deviceControls = ref.read(deviceControlsServiceProvider);
     WidgetsBinding.instance.addObserver(this);
 
     // Lock to landscape & hide system bars
@@ -194,6 +196,40 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     // Initialize engine & periodic progress saving
     _initEngine();
     _startProgressSavingTimer();
+    _initDeviceControls();
+  }
+
+  late final DeviceControlsService _deviceControls;
+
+  void _initDeviceControls() {
+    _deviceControls.hideSystemVolumeUI();
+
+    // Query real current brightness and volume from the physical device
+    _deviceControls.getScreenBrightness().then((b) {
+      if (mounted) setState(() => _brightness = b);
+    });
+
+    _deviceControls.getVolume().then((v) {
+      if (mounted) setState(() => _volume = v);
+    });
+
+    // Listen to physical volume buttons to update state and show HUD
+    _deviceControls.addVolumeListener((newVol) {
+      if (mounted) {
+        setState(() {
+          _volume = newVol;
+          _isVerticalHudVolume = true;
+          _showVerticalHud = true;
+        });
+        _engine?.setVolume(newVol);
+        _verticalHudTimer?.cancel();
+        _verticalHudTimer = Timer(const Duration(milliseconds: 1000), () {
+          if (mounted) {
+            setState(() => _showVerticalHud = false);
+          }
+        });
+      }
+    });
   }
 
   void _lockLandscape() {
@@ -514,6 +550,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _resumeToastTimer?.cancel();
     _stallWatchdogTimer?.cancel();
     _unlockButtonTimer?.cancel();
+
+    try {
+      _deviceControls.removeVolumeListener();
+      _deviceControls.resetScreenBrightness();
+      _deviceControls.showSystemVolumeUI();
+    } catch (_) {}
 
     _saveCurrentProgress();
 
@@ -981,8 +1023,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     setState(() {
       if (_verticalDragHalf == ScreenHalf.left) {
         _brightness = newVal;
+        _deviceControls.setScreenBrightness(newVal);
       } else {
         _volume = newVal;
+        _deviceControls.setVolume(newVal);
         _engine?.setVolume(newVal);
       }
     });
@@ -1151,6 +1195,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                           context.pushReplacement(
                             '/player?animeId=${widget.animeId}&ep=${widget.episodeNumber}&provider=${p.id}',
                           );
+                        },
+                        currentVolume: _volume,
+                        onSelectVolume: (vol) {
+                          setState(() => _volume = vol);
+                          _deviceControls.setVolume(vol);
+                          _engine?.setVolume(vol);
                         },
                         onClose: _closeSidePanel,
                       )

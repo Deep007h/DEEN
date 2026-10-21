@@ -888,21 +888,21 @@ class SettingsScreen extends ConsumerWidget {
       final release = await repo.checkForUpdate(currentVersion);
 
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).clearSnackBars();
 
       if (release != null) {
         UpdateDialog.show(context, release);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             backgroundColor: AppColors.surfaceElevated,
-            content: Text('DEEN is up to date (v1)'),
+            content: Text('DEEN is up to date (v$currentVersion)'),
           ),
         );
       }
     } catch (_) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).clearSnackBars();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           backgroundColor: AppColors.surfaceElevated,

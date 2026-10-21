@@ -69,6 +69,17 @@ void main() {
       );
       expect(cappedBottom, 0.0);
     });
+
+    test('default sensitivity of 0.6 provides reduced, fine-grained control', () {
+      // Dragging up 100px on 500px height with default sensitivity (0.6):
+      // change = (100 / 500) * 0.6 = +0.12
+      final change = math.calculateVerticalDelta(
+        currentValue: 0.5,
+        deltaY: -100,
+        totalHeight: 500,
+      );
+      expect(change, closeTo(0.62, 0.001));
+    });
   });
 
   group('PlayerGestureMath - Scrubbing Math', () {

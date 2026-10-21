@@ -15,6 +15,7 @@ import 'package:anime_stream/features/metadata/domain/models/search_sort.dart';
 import 'package:anime_stream/features/metadata/domain/models/season.dart';
 import 'package:anime_stream/features/metadata/domain/repositories/metadata_repository.dart';
 import 'package:anime_stream/features/metadata/presentation/providers/metadata_providers.dart';
+import 'package:anime_stream/features/player/data/services/device_controls_service.dart';
 
 class FakeFlowMetadataRepository extends MetadataRepository {
   @override
@@ -122,6 +123,7 @@ void main() {
       ProviderScope(
         overrides: [
           metadataRepositoryProvider.overrideWithValue(fakeRepo),
+          deviceControlsServiceProvider.overrideWithValue(MockDeviceControlsService()),
         ],
         child: const AnimeStreamApp(),
       ),

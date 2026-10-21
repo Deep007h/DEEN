@@ -59,6 +59,9 @@ class PlayerSettingsSheet extends StatefulWidget {
   final StreamProvider activeProvider;
   final ValueChanged<StreamProvider> onSelectProvider;
 
+  final double? currentVolume;
+  final ValueChanged<double>? onSelectVolume;
+
   final VoidCallback onClose;
 
   const PlayerSettingsSheet({
@@ -81,6 +84,8 @@ class PlayerSettingsSheet extends StatefulWidget {
     required this.availableProviders,
     required this.activeProvider,
     required this.onSelectProvider,
+    this.currentVolume,
+    this.onSelectVolume,
     required this.onClose,
   });
 
@@ -481,6 +486,72 @@ class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (widget.onSelectVolume != null) ...[
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF141A14),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFF242E24), width: 1.0),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          (widget.currentVolume ?? 1.0) <= 0.0
+                              ? Icons.volume_off_rounded
+                              : (widget.currentVolume ?? 1.0) < 0.5
+                                  ? Icons.volume_down_rounded
+                                  : Icons.volume_up_rounded,
+                          color: const Color(0xFFC6F16D),
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Media Volume',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      '${(((widget.currentVolume ?? 1.0).clamp(0.0, 1.0)) * 100).round()}%',
+                      style: const TextStyle(
+                        color: Color(0xFFC6F16D),
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    activeTrackColor: const Color(0xFFC6F16D),
+                    inactiveTrackColor: const Color(0xFF263326),
+                    thumbColor: const Color(0xFFC6F16D),
+                    trackHeight: 4,
+                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+                  ),
+                  child: Slider(
+                    value: (widget.currentVolume ?? 1.0).clamp(0.0, 1.0),
+                    onChanged: (v) => widget.onSelectVolume?.call(v),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
         _buildSectionHeader(
           Icons.volume_up_rounded,
           'Audio Track',

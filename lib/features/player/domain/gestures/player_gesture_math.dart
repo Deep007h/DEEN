@@ -52,12 +52,12 @@ class PlayerGestureMath {
   /// [currentValue]: 0.0 to 1.0
   /// [deltaY]: drag displacement in pixels (negative = up)
   /// [totalHeight]: total height of gesture area
-  /// [sensitivity]: multiplier (default 1.2 for responsive feel)
+  /// [sensitivity]: multiplier (default 0.6 for smooth, controlled gesture tracking)
   double calculateVerticalDelta({
     required double currentValue,
     required double deltaY,
     required double totalHeight,
-    double sensitivity = 1.2,
+    double sensitivity = 0.6,
   }) {
     if (totalHeight <= 0) return currentValue;
     final change = (-deltaY / totalHeight) * sensitivity;

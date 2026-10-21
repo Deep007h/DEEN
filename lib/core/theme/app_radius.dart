@@ -25,6 +25,8 @@ abstract final class AppRadius {
   static const double modal = 28.0;     // M3 Extra-Large shape
   static const double pill = 999.0;     // M3 Full shape
   static const double floatingBar = 34.0;
+  static const double squircleModal = 28.0; // M3 Extra-Large modal/dialog container
+  static const double squircleInner = 14.0; // Inner icon & nested card containers
 
   // BorderRadius helpers (static const enables const widget tree optimizations)
   static const BorderRadius cardBorder = BorderRadius.all(Radius.circular(card));
@@ -37,4 +39,6 @@ abstract final class AppRadius {
   static const BorderRadius lgBorder = BorderRadius.all(Radius.circular(lg));
   static const BorderRadius xlBorder = BorderRadius.all(Radius.circular(xl));
   static const BorderRadius m3ExtraLargeBorder = BorderRadius.all(Radius.circular(m3ExtraLarge));
+  static const BorderRadius squircleModalBorder = BorderRadius.all(Radius.circular(squircleModal));
+  static const BorderRadius squircleInnerBorder = BorderRadius.all(Radius.circular(squircleInner));
 }

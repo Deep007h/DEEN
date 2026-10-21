@@ -133,13 +133,14 @@ final GoRouter appRouter = GoRouter(
       name: 'anime_detail',
       pageBuilder: (context, state) {
         final animeId = state.pathParameters['id'] ?? '';
-        final heroTag = state.uri.queryParameters['heroTag'];
+        String? heroTag = state.uri.queryParameters['heroTag'];
         String? previewPoster = state.uri.queryParameters['poster'];
         String? previewTitle = state.uri.queryParameters['title'];
         if (state.extra is Map) {
           final extraMap = state.extra as Map;
-          previewPoster ??= extraMap['posterUrl'] as String?;
-          previewTitle ??= extraMap['title'] as String?;
+          heroTag ??= extraMap['heroTag'] as String?;
+          previewPoster ??= (extraMap['posterUrl'] ?? extraMap['previewPoster']) as String?;
+          previewTitle ??= (extraMap['title'] ?? extraMap['previewTitle']) as String?;
         }
         return CustomTransitionPage(
           key: state.pageKey,

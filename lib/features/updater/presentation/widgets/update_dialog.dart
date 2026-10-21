@@ -31,12 +31,16 @@ class UpdateDialog extends StatelessWidget {
     final fallbackUri = Uri.tryParse(release.htmlUrl);
 
     bool launched = false;
-    if (apkUri != null && await canLaunchUrl(apkUri)) {
-      launched = await launchUrl(apkUri, mode: LaunchMode.externalApplication);
+    if (apkUri != null) {
+      try {
+        launched = await launchUrl(apkUri, mode: LaunchMode.externalApplication);
+      } catch (_) {}
     }
 
-    if (!launched && fallbackUri != null && await canLaunchUrl(fallbackUri)) {
-      await launchUrl(fallbackUri, mode: LaunchMode.externalApplication);
+    if (!launched && fallbackUri != null) {
+      try {
+        await launchUrl(fallbackUri, mode: LaunchMode.externalApplication);
+      } catch (_) {}
     }
 
     if (context.mounted) {
@@ -55,8 +59,8 @@ class UpdateDialog extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: 400),
         decoration: BoxDecoration(
           color: AppColors.surfaceElevated,
-          borderRadius: BorderRadius.circular(AppRadius.modal),
-          border: Border.all(color: AppColors.surfaceBright, width: 1.2),
+          borderRadius: AppRadius.squircleModalBorder,
+          border: Border.all(color: AppColors.outlineVariant, width: 1.0),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.6),
@@ -78,7 +82,7 @@ class UpdateDialog extends StatelessWidget {
                   height: 44,
                   decoration: BoxDecoration(
                     color: AppColors.accentSoft,
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: AppRadius.squircleInnerBorder,
                     border: Border.all(color: AppColors.accentBorder, width: 1),
                   ),
                   child: const Icon(
@@ -147,7 +151,7 @@ class UpdateDialog extends StatelessWidget {
               constraints: const BoxConstraints(maxHeight: 180),
               decoration: BoxDecoration(
                 color: AppColors.surfaceDim,
-                borderRadius: BorderRadius.circular(AppRadius.md),
+                borderRadius: AppRadius.squircleInnerBorder,
                 border: Border.all(color: AppColors.outlineVariant, width: 0.8),
               ),
               padding: const EdgeInsets.all(AppSpacing.md),
@@ -178,10 +182,8 @@ class UpdateDialog extends StatelessWidget {
                     },
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.textSecondary,
-                      side: const BorderSide(color: AppColors.surfaceBright, width: 1),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppRadius.md),
-                      ),
+                      side: const BorderSide(color: AppColors.outlineVariant, width: 1.0),
+                      shape: const StadiumBorder(),
                       padding: const EdgeInsets.symmetric(vertical: 13),
                     ),
                     child: Text(
@@ -201,9 +203,7 @@ class UpdateDialog extends StatelessWidget {
                       backgroundColor: AppColors.accent,
                       foregroundColor: Colors.black,
                       elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppRadius.md),
-                      ),
+                      shape: const StadiumBorder(),
                       padding: const EdgeInsets.symmetric(vertical: 13),
                     ),
                     child: Text(

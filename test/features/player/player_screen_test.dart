@@ -15,6 +15,7 @@ import 'package:anime_stream/features/metadata/domain/repositories/metadata_repo
 import 'package:anime_stream/features/metadata/presentation/providers/metadata_providers.dart';
 import 'package:anime_stream/features/player/data/engine/mock_playback_engine.dart';
 import 'package:anime_stream/features/player/data/repositories/playback_history_repository.dart';
+import 'package:anime_stream/features/player/data/services/device_controls_service.dart';
 import 'package:anime_stream/features/player/presentation/providers/player_engine_provider.dart';
 import 'package:anime_stream/features/player/presentation/screens/player_screen.dart';
 import 'package:anime_stream/features/player/presentation/widgets/next_episode_card.dart';
@@ -100,6 +101,7 @@ void main() {
       overrides: [
         metadataRepositoryProvider.overrideWithValue(TestMetadataRepo()),
         videoPlaybackEngineFactoryProvider.overrideWithValue(() async => mockEngine),
+        deviceControlsServiceProvider.overrideWithValue(MockDeviceControlsService()),
         if (customRepo != null)
           playbackHistoryRepositoryProvider.overrideWithValue(customRepo),
       ],
@@ -117,7 +119,8 @@ void main() {
     testWidgets('renders all reference mockup controls and elements', (tester) async {
       tester.view.physicalSize = const Size(1920, 1080); // Landscape
       tester.view.devicePixelRatio = 2.0;
-      addTearDown(() {
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox());
         tester.view.resetPhysicalSize();
         tester.view.resetDevicePixelRatio();
       });
@@ -148,6 +151,8 @@ void main() {
 
       // 4. Intro skip button (+85s) visible during first 90s
       expect(find.byType(SkipIntroButton), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox());
     });
   });
 
@@ -265,6 +270,30 @@ void main() {
 
       // Right half (volume): x = 650, vertical center y = 225
       final gesture = await tester.startGesture(const Offset(650, 225));
+      await tester.pump(const Duration(milliseconds: 50));
+      await gesture.moveBy(const Offset(0, -100)); // drag up
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(find.byType(VerticalSliderHud), findsOneWidget);
+
+      await gesture.up();
+      await tester.pump(const Duration(milliseconds: 100));
+    });
+
+    testWidgets('vertical drag on left half adjusts brightness HUD', (tester) async {
+      tester.view.physicalSize = const Size(1800, 900);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(buildPlayerScreen());
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // Left half (brightness): x = 250, vertical center y = 225
+      final gesture = await tester.startGesture(const Offset(250, 225));
       await tester.pump(const Duration(milliseconds: 50));
       await gesture.moveBy(const Offset(0, -100)); // drag up
       await tester.pump(const Duration(milliseconds: 50));
