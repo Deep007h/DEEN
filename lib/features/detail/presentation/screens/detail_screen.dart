@@ -16,24 +16,7 @@ import 'package:anime_stream/features/metadata/domain/models/anime_titles.dart';
 import 'package:anime_stream/features/metadata/domain/models/anime_detail.dart';
 import 'package:anime_stream/features/stream/presentation/providers/stream_providers.dart';
 import 'package:anime_stream/features/library/domain/models/followed_anime.dart';
-
-Widget smoothDetailHeroFlightShuttleBuilder(
-  BuildContext flightContext,
-  Animation<double> animation,
-  HeroFlightDirection flightDirection,
-  BuildContext fromHeroContext,
-  BuildContext toHeroContext,
-) {
-  final Widget toHeroWidget = (toHeroContext.widget as Hero).child;
-  return Material(
-    type: MaterialType.transparency,
-    child: ClipRRect(
-      borderRadius: BorderRadius.circular(14),
-      clipBehavior: Clip.antiAlias,
-      child: toHeroWidget,
-    ),
-  );
-}
+import '../../../../core/presentation/widgets/hero_shuttle_builder.dart';
 
 /// Detail screen matching reference Screen 2.
 /// Features blurred backdrop fade, sharp hero poster, rating and rank badges,
@@ -102,10 +85,13 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
     final currentId = _selectedSeasonId != 0 ? _selectedSeasonId : (int.tryParse(widget.animeId) ?? 0);
 
     final detailAsync = ref.watch(animeDetailProvider(currentId));
-    if (detailAsync.hasValue) {
+    if (detailAsync.hasValue && detailAsync.value?.id == currentId) {
       _lastLoadedDetail = detailAsync.value;
+    } else if (_lastLoadedDetail != null && _lastLoadedDetail!.id != currentId) {
+      _lastLoadedDetail = null;
     }
-    final detail = detailAsync.valueOrNull ?? _lastLoadedDetail;
+    final detail = detailAsync.valueOrNull ??
+        (_lastLoadedDetail?.id == currentId ? _lastLoadedDetail : null);
     final titlePref = ref.watch(titlePreferenceProvider);
     final isFollowedAsync = ref.watch(isFollowingProvider(currentId));
     final lastWatchedEpAsync = ref.watch(lastWatchedEpisodeProvider(currentId));
@@ -239,7 +225,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 // Spacer reserving room for the persistent floating back button
-                                SizedBox(height: MediaQuery.paddingOf(context).top + 48),
+                                const SizedBox(height: 48),
 
                                 const SizedBox(height: AppSpacing.md),
 
@@ -251,7 +237,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                                 Hero(
                                   tag: widget.heroTag ?? 'poster_${detail.id}',
                                   createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
-                                  flightShuttleBuilder: smoothDetailHeroFlightShuttleBuilder,
+                                  flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
                                   child: Container(
                                     width: 115,
                                     height: 165,
@@ -660,19 +646,30 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                         children: [
                           Text('Synopsis', style: AppText.sectionTitle.copyWith(fontSize: 16)),
                           const SizedBox(height: AppSpacing.xs),
-                          AnimatedSize(
-                            duration: AppMotion.medium2,
-                            curve: Curves.easeOutCubic,
-                            alignment: Alignment.topLeft,
-                            child: Text(
+                          AnimatedCrossFade(
+                            firstChild: Text(
                               detail.summary!,
-                              maxLines: _isSynopsisExpanded ? null : 3,
-                              overflow: _isSynopsisExpanded ? null : TextOverflow.ellipsis,
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
                               style: AppText.bodySecondary.copyWith(
                                 height: 1.45,
                                 color: AppColors.textSecondary,
                               ),
                             ),
+                            secondChild: Text(
+                              detail.summary!,
+                              style: AppText.bodySecondary.copyWith(
+                                height: 1.45,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            crossFadeState: _isSynopsisExpanded
+                                ? CrossFadeState.showSecond
+                                : CrossFadeState.showFirst,
+                            duration: AppMotion.medium2,
+                            firstCurve: Curves.easeOutCubic,
+                            secondCurve: Curves.easeOutCubic,
+                            sizeCurve: Curves.easeOutCubic,
                           ),
                           if (detail.summary!.length > 120) ...[
                             const SizedBox(height: 4),
@@ -730,6 +727,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                                 return Container(
                                   margin: const EdgeInsets.only(right: 8),
                                   child: ChoiceChip(
+                                    showCheckmark: false,
                                     label: Text(season.name),
                                     selected: isSelected,
                                     selectedColor: AppColors.accentSoft,
@@ -1214,36 +1212,41 @@ class _FloatingBackButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return ConstrainedBox(
       constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(22),
-          child: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.60),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.20),
-                width: 0.9,
-              ),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x7A000000),
-                  blurRadius: 12,
-                  offset: Offset(0, 2),
+      child: ClipOval(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onPressed,
+              borderRadius: BorderRadius.circular(22),
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.50),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.20),
+                    width: 0.9,
+                  ),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x7A000000),
+                      blurRadius: 12,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: const Center(
-              child: Tooltip(
-                message: 'Back',
-                child: Icon(
-                  Icons.arrow_back_ios_new_rounded,
-                  color: AppColors.textPrimary,
-                  size: 16,
+                child: const Center(
+                  child: Tooltip(
+                    message: 'Back',
+                    child: Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      color: AppColors.textPrimary,
+                      size: 16,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -1331,7 +1334,7 @@ class _DetailLoadingSkeleton extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Spacer matching the persistent floating back button
-                SizedBox(height: MediaQuery.paddingOf(context).top + 48),
+                const SizedBox(height: 48),
                 const SizedBox(height: AppSpacing.md),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1340,7 +1343,7 @@ class _DetailLoadingSkeleton extends StatelessWidget {
                       Hero(
                         tag: heroTag!,
                         createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
-                        flightShuttleBuilder: smoothDetailHeroFlightShuttleBuilder,
+                        flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
                         child: Container(
                           width: 115,
                           height: 165,
@@ -1398,20 +1401,43 @@ class _DetailLoadingSkeleton extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: AppSpacing.xl),
-                const ShimmerBox(width: double.infinity, height: 48, borderRadius: AppRadius.pillBorder),
+                const Row(
+                  children: [
+                    Expanded(
+                      flex: 6,
+                      child: ShimmerBox(width: double.infinity, height: 48, borderRadius: AppRadius.pillBorder),
+                    ),
+                    SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      flex: 5,
+                      child: ShimmerBox(width: double.infinity, height: 48, borderRadius: AppRadius.pillBorder),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: AppSpacing.xl),
                 const ShimmerBox(width: double.infinity, height: 80, borderRadius: AppRadius.cardBorder),
                 const SizedBox(height: AppSpacing.xl),
-                ...List.generate(
-                  4,
-                  (index) => Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                    child: ShimmerBox(
-                      width: double.infinity,
-                      height: 56,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isLandscape = MediaQuery.orientationOf(context) == Orientation.landscape;
+                    final epCount = isLandscape ? 8 : 5;
+                    return GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: epCount * 2,
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: epCount,
+                        childAspectRatio: 1.15,
+                        crossAxisSpacing: 8,
+                        mainAxisSpacing: 8,
+                      ),
+                      itemBuilder: (context, index) => ShimmerBox(
+                        width: double.infinity,
+                        height: double.infinity,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),

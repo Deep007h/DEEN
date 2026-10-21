@@ -1,4 +1,5 @@
 // ignore_for_file: deprecated_member_use
+import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -817,15 +818,41 @@ class _HeroSpotlightBillboard extends ConsumerStatefulWidget {
 class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard> {
   late final PageController _pageController;
   final ValueNotifier<int> _currentPageNotifier = ValueNotifier<int>(0);
+  Timer? _autoScrollTimer;
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController();
+    _startAutoScroll();
+  }
+
+  void _startAutoScroll() {
+    _autoScrollTimer?.cancel();
+    _autoScrollTimer = Timer.periodic(const Duration(seconds: 6), (_) {
+      if (!mounted || !_pageController.hasClients || widget.items.isEmpty) return;
+      final count = widget.items.length.clamp(1, 5);
+      if (count <= 1) return;
+      final next = (_currentPageNotifier.value + 1) % count;
+      _pageController.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 600),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+
+  void _pauseAutoScroll() {
+    _autoScrollTimer?.cancel();
+  }
+
+  void _resumeAutoScroll() {
+    _startAutoScroll();
   }
 
   @override
   void dispose() {
+    _autoScrollTimer?.cancel();
     _pageController.dispose();
     _currentPageNotifier.dispose();
     super.dispose();
@@ -878,9 +905,13 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(21),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
+          child: Listener(
+            onPointerDown: (_) => _pauseAutoScroll(),
+            onPointerUp: (_) => _resumeAutoScroll(),
+            onPointerCancel: (_) => _resumeAutoScroll(),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
               // PageView for Billboard Items
               PageView.builder(
                 controller: _pageController,
@@ -1155,43 +1186,45 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
                         ),
                       ),
 
-                      // 5. Pagination Dots anchored at bottom right
-                      Positioned(
-                        right: 16,
-                        bottom: 22,
-                        child: ValueListenableBuilder<int>(
-                          valueListenable: _currentPageNotifier,
-                          builder: (context, activeIndex, _) {
-                            return Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: List.generate(count, (dotIdx) {
-                                final isActive = dotIdx == activeIndex;
-                                return AnimatedContainer(
-                                  duration: const Duration(milliseconds: 220),
-                                  curve: Curves.easeOutCubic,
-                                  margin: const EdgeInsets.symmetric(horizontal: 1.5),
-                                  width: isActive ? 16 : 4,
-                                  height: 4,
-                                  decoration: BoxDecoration(
-                                    color: isActive ? const Color(0xFFC6F16D) : const Color(0xFF556055),
-                                    borderRadius: BorderRadius.circular(2),
-                                  ),
-                                );
-                              }),
-                            );
-                          },
-                        ),
-                      ),
                     ],
                   ),
                 );
               },
             ),
-            ],
-          ),
+
+            // 5. Pagination Dots anchored at bottom right (stationary overlay)
+            Positioned(
+              right: 16,
+              bottom: 22,
+              child: ValueListenableBuilder<int>(
+                valueListenable: _currentPageNotifier,
+                builder: (context, activeIndex, _) {
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: List.generate(count, (dotIdx) {
+                      final isActive = dotIdx == activeIndex;
+                      return AnimatedContainer(
+                        duration: const Duration(milliseconds: 220),
+                        curve: Curves.easeOutCubic,
+                        margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                        width: isActive ? 16 : 4,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: isActive ? const Color(0xFFC6F16D) : const Color(0xFF556055),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      );
+                    }),
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 }
 

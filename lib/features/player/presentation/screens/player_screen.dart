@@ -29,6 +29,7 @@ import '../widgets/next_episode_card.dart';
 import '../widgets/player_bottom_bar.dart';
 import '../widgets/player_center_controls.dart';
 import '../widgets/player_hud_overlays.dart';
+import '../widgets/player_more_options_sheet.dart';
 import '../widgets/player_settings_sheet.dart';
 import '../widgets/player_top_bar.dart';
 import '../widgets/skip_intro_button.dart';
@@ -127,6 +128,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   // Side panels
   bool _showSettingsSheet = false;
   bool _showEpisodeSheet = false;
+  bool _showMoreSheet = false;
 
   // Screen lock system
   bool _isLocked = false;
@@ -172,6 +174,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         setState(() {
           _showSettingsSheet = false;
           _showEpisodeSheet = false;
+          _showMoreSheet = false;
         });
         _resetControlsHideTimer();
       }
@@ -265,6 +268,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     setState(() {
       _showSettingsSheet = true;
       _showEpisodeSheet = false;
+      _showMoreSheet = false;
       _controlsVisible = true;
     });
     _sidePanelController.forward(from: 0.0);
@@ -274,6 +278,17 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     setState(() {
       _showEpisodeSheet = true;
       _showSettingsSheet = false;
+      _showMoreSheet = false;
+      _controlsVisible = true;
+    });
+    _sidePanelController.forward(from: 0.0);
+  }
+
+  void _openMore() {
+    setState(() {
+      _showMoreSheet = true;
+      _showSettingsSheet = false;
+      _showEpisodeSheet = false;
       _controlsVisible = true;
     });
     _sidePanelController.forward(from: 0.0);
@@ -296,6 +311,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       _closeSidePanel();
     } else {
       _openEpisodes();
+    }
+  }
+
+  void _toggleMore() {
+    if (_showMoreSheet && _sidePanelController.value > 0.0) {
+      _closeSidePanel();
+    } else {
+      _openMore();
     }
   }
 
@@ -776,6 +799,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         _isHolding2x ||
         _showSettingsSheet ||
         _showEpisodeSheet ||
+        _showMoreSheet ||
         _sidePanelController.value > 0.0) {
       return;
     }
@@ -795,7 +819,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     if (_controlsVisible) {
       _resetControlsHideTimer();
     } else {
-      if (_showSettingsSheet || _showEpisodeSheet) {
+      if (_showSettingsSheet || _showEpisodeSheet || _showMoreSheet) {
         _closeSidePanel();
       }
       _controlsHideTimer?.cancel();
@@ -819,6 +843,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       _controlsVisible = false;
       _showSettingsSheet = false;
       _showEpisodeSheet = false;
+      _showMoreSheet = false;
     });
     _controlsHideTimer?.cancel();
     _showLockedPrompt();
@@ -926,7 +951,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _singleTapTimer?.cancel();
     _rateBeforeHold = _playbackRate;
     _engine?.setRate(settings.longPressSpeed);
-    if (_showSettingsSheet || _showEpisodeSheet) {
+    if (_showSettingsSheet || _showEpisodeSheet || _showMoreSheet) {
       _sidePanelController.reverse();
     }
     setState(() {
@@ -934,6 +959,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       _controlsVisible = false;
       _showSettingsSheet = false;
       _showEpisodeSheet = false;
+      _showMoreSheet = false;
       _showVerticalHud = false;
       _doubleTapOffsetSeconds = null;
       _isScrubbing = false;
@@ -1082,6 +1108,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       child: Scaffold(
         backgroundColor: Colors.black,
         body: streamAsync.when(
+          skipLoadingOnReload: true,
           loading: () => const Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -1204,17 +1231,68 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                         },
                         onClose: _closeSidePanel,
                       )
-                    : EpisodeSelectorSheet(
-                        key: const ValueKey('episode_sheet'),
-                        totalEpisodes: result.match.episodeCount ?? 24,
-                        currentEpisode: widget.episodeNumber,
-                        onSelectEpisode: (ep) {
-                          _closeSidePanel();
-                          _saveCurrentProgress();
-                          context.pushReplacement('/player?animeId=${widget.animeId}&ep=$ep');
-                        },
-                        onClose: _closeSidePanel,
-                      ),
+                    : _showEpisodeSheet
+                        ? EpisodeSelectorSheet(
+                            key: const ValueKey('episode_sheet'),
+                            totalEpisodes: result.match.episodeCount ?? 24,
+                            currentEpisode: widget.episodeNumber,
+                            onSelectEpisode: (ep) {
+                              _closeSidePanel();
+                              _saveCurrentProgress();
+                              context.pushReplacement('/player?animeId=${widget.animeId}&ep=$ep');
+                            },
+                            onClose: _closeSidePanel,
+                          )
+                        : _showMoreSheet
+                            ? PlayerMoreOptionsSheet(
+                                key: const ValueKey('more_sheet'),
+                                episodeNumber: widget.episodeNumber,
+                                onPlayPrevious: widget.episodeNumber > 1 ? _playPreviousEpisode : null,
+                                onPlayNext: _playNextEpisode,
+                                onLockPlayer: _lockPlayer,
+                                onPictureInPicture: () {
+                                  _closeSidePanel();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Picture in Picture activated'),
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                },
+                                onSwitchToEmbed: () {
+                                  _closeSidePanel();
+                                  setState(() => _useEmbedPlayer = true);
+                                  _engine?.pause();
+                                },
+                                onCopyEmbedUrl: () {
+                                  _closeSidePanel();
+                                  final matchId = result.match.id.isNotEmpty ? result.match.id : widget.animeId.toString();
+                                  final isDub = result.selectedAudio.code == AudioLanguage.englishDub.code;
+                                  final lang = isDub ? 'dub' : 'sub';
+                                  final kisskhEpId = result.episode.customData['kisskhEpId'];
+                                  final embedUrl = kisskhEpId != null
+                                      ? 'https://megavid.buzz/kisskh/$kisskhEpId'
+                                      : 'https://megavid.buzz/ani/$matchId/${widget.episodeNumber}/$lang';
+                                  Clipboard.setData(ClipboardData(text: embedUrl));
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Copied embed URL: $embedUrl'),
+                                      duration: const Duration(seconds: 2),
+                                      backgroundColor: AppColors.surfaceElevated,
+                                    ),
+                                  );
+                                },
+                                onSelectServer: () {
+                                  _closeSidePanel();
+                                  _showServerSelectionSheet(context, result);
+                                },
+                                onDiagnostics: () {
+                                  _closeSidePanel();
+                                  _showDiagnosticsSheet(context);
+                                },
+                                onClose: _closeSidePanel,
+                              )
+                            : const SizedBox.shrink(),
               );
 
           final videoStack = LayoutBuilder(
@@ -1249,28 +1327,86 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                 ),
               ),
 
-              // Center Buffering Spinner (visible when controls are hidden or during audio switch)
-              if ((_isBuffering || _isSwitchingAudio) && !_controlsVisible && !_isHolding2x && !_isLocked)
+              // Unified Center Buffering Spinner (visible whenever buffering or switching audio)
+              if ((_isBuffering || _isSwitchingAudio) && !_isHolding2x && !_isLocked)
                 Center(
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.65),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const SizedBox(
-                      width: 38,
-                      height: 38,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 3.5,
-                        valueColor: AlwaysStoppedAnimation<Color>(AppColors.accent),
+                  child: IgnorePointer(
+                    child: Container(
+                      width: 78,
+                      height: 78,
+                      decoration: BoxDecoration(
+                        color: const Color(0x5A000000),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: const Color(0x40FFFFFF),
+                          width: 1.2,
+                        ),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x40000000),
+                            blurRadius: 16,
+                          ),
+                        ],
+                      ),
+                      child: const Center(
+                        child: SizedBox(
+                          width: 34,
+                          height: 34,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 3.2,
+                            valueColor: AlwaysStoppedAnimation<Color>(AppColors.accent),
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
 
-              // 2. Center Hold Speed Pill ("2X Speed ▶▶") - Sole overlay visible while holding
-              if (_isHolding2x) const IgnorePointer(child: HoldSpeedPill()),
+              // Floating Audio Switch HUD Pill
+              if (streamAsync.isLoading && !_isHolding2x && !_isLocked)
+                Positioned(
+                  top: MediaQuery.paddingOf(context).top + 16,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.75),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AppColors.accent.withValues(alpha: 0.5)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(AppColors.accent),
+                            ),
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Switching audio track...',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+              // 2. Center Hold Speed Pill ("1.5X Speed ▶▶") - Sole overlay visible while holding
+              if (_isHolding2x)
+                IgnorePointer(
+                  child: HoldSpeedPill(speed: ref.watch(appSettingsProvider).longPressSpeed),
+                ),
 
               // 3. Double-tap seek badges (<< -20s or +30s >>)
               if (_doubleTapOffsetSeconds != null && !_isHolding2x && !_isLocked)
@@ -1325,9 +1461,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                   if (selectedVar.hasIntro &&
                       posSec >= selectedVar.introStart! &&
                       posSec < selectedVar.introEnd!) {
-                    return Positioned(
+                    return AnimatedPositioned(
                       right: 24,
-                      bottom: _controlsVisible ? 86 : 28,
+                      bottom: _controlsVisible ? 94.0 : 28.0,
+                      duration: AppMotion.medium1,
+                      curve: Curves.easeOutCubic,
                       child: _buildSkipPill(
                         label: 'Skip Intro',
                         onSkip: () {
@@ -1343,10 +1481,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                       posSec < selectedVar.outroEnd!) {
                     final skipBottom = _showNextEpisodeCountdown
                         ? (_controlsVisible ? 168.0 : 138.0)
-                        : (_controlsVisible ? 86.0 : 28.0);
-                    return Positioned(
+                        : (_controlsVisible ? 94.0 : 28.0);
+                    return AnimatedPositioned(
                       right: 24,
                       bottom: skipBottom,
+                      duration: AppMotion.medium1,
+                      curve: Curves.easeOutCubic,
                       child: _buildSkipPill(
                         label: 'Skip Outro',
                         onSkip: () {
@@ -1407,7 +1547,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                             );
                             _resetControlsHideTimer();
                           },
-                          onOpenMore: () => _showMoreOptionsSheet(context, result),
+                          onOpenMore: _toggleMore,
                           onOpenEpisodes: _openEpisodes,
                           onOpenDiagnostics: () => _showDiagnosticsSheet(context),
                           onSwitchToEmbed: () {
@@ -1436,7 +1576,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
                       // Floating Screen Lock Button (Left Side Dock - Safe from camera punch holes)
                       Positioned(
-                        left: math.max(MediaQuery.paddingOf(context).left + 28, 68),
+                        left: math.max(MediaQuery.paddingOf(context).left + 24, 64),
                         top: 0,
                         bottom: 0,
                         child: Center(
@@ -1556,7 +1696,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                           buffer: _buffer,
                           hasPreviousEpisode: widget.episodeNumber > 1,
                           hasNextEpisode: true,
-                          isSettingsOpen: _showSettingsSheet && _sidePanelAnimation.value > 0.3,
+                          isSettingsOpen: (_showSettingsSheet || _showEpisodeSheet || _showMoreSheet) &&
+                              _sidePanelAnimation.value > 0.3,
                           onPreviousEpisode: _playPreviousEpisode,
                           onNextEpisode: _playNextEpisode,
                           onLock: _lockPlayer,
@@ -1570,11 +1711,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                             _position = target;
                             _positionNotifier.value = target;
                           },
-                          onSeekEnd: (target) {
+                          onSeekEnd: (target) async {
                             _position = target;
                             _positionNotifier.value = target;
-                            _engine?.seek(target);
-                            _isUserSeeking = false;
+                            try {
+                              await _engine?.seek(target);
+                            } finally {
+                              Future.delayed(const Duration(milliseconds: 200), () {
+                                if (mounted) {
+                                  _isUserSeeking = false;
+                                }
+                              });
+                            }
                             _resetControlsHideTimer();
                           },
                           onOpenEpisodes: _toggleEpisodes,
@@ -1608,7 +1756,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
               // 10. Floating Unlock Button (visible when tapped while locked)
               if (_isLocked && _showUnlockButton && !_isHolding2x)
                 Positioned(
-                  left: 24,
+                  left: math.max(MediaQuery.paddingOf(context).left + 24, 64),
                   top: 0,
                   bottom: 0,
                   child: Center(
@@ -1677,7 +1825,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
               final isClosing = _sidePanelController.status == AnimationStatus.reverse;
               final animProgress = _sidePanelAnimation.value;
               final showPanel =
-                  (_showSettingsSheet || _showEpisodeSheet) &&
+                  (_showSettingsSheet || _showEpisodeSheet || _showMoreSheet) &&
                       !_isLocked &&
                       !_isHolding2x;
 
@@ -1698,41 +1846,34 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                 ),
               );
 
-              if (isLandscape) {
-                final currentPanelWidth = sidePanelWidth * animProgress;
-                return Row(
-                  children: [
-                    Expanded(child: videoStack),
-                    if (showPanel)
-                      SizedBox(
-                        width: currentPanelWidth,
-                        child: ClipRect(
-                          child: OverflowBox(
-                            alignment: Alignment.centerRight,
-                            minWidth: sidePanelWidth,
-                            maxWidth: sidePanelWidth,
-                            child: panelCard,
-                          ),
-                        ),
-                      ),
-                  ],
-                );
-              } else {
-                return Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    videoStack,
-                    if (showPanel)
-                      Positioned(
-                        top: 0,
-                        bottom: 0,
-                        right: 0,
-                        width: math.min(screenSize.width * 0.88, 430.0),
-                        child: panelCard,
-                      ),
-                  ],
-                );
-              }
+              final effectivePanelWidth = isLandscape
+                  ? sidePanelWidth
+                  : math.min(screenSize.width * 0.88, 430.0);
+
+              final videoRightInset = (showPanel && isLandscape)
+                  ? (sidePanelWidth * animProgress)
+                  : 0.0;
+
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  Positioned(
+                    top: 0,
+                    bottom: 0,
+                    left: 0,
+                    right: videoRightInset,
+                    child: videoStack,
+                  ),
+                  if (showPanel)
+                    Positioned(
+                      top: 0,
+                      bottom: 0,
+                      right: 0,
+                      width: effectivePanelWidth,
+                      child: panelCard,
+                    ),
+                ],
+              );
             },
           );
         },
@@ -2049,147 +2190,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       ),
     );
     _resetControlsHideTimer();
-  }
-
-  void _showMoreOptionsSheet(BuildContext context, StreamResolutionResult result) {
-    _controlsHideTimer?.cancel();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Material(
-        color: const Color(0xFA141416),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        child: Container(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.85,
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: SafeArea(
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 38,
-                    height: 4,
-                    margin: const EdgeInsets.only(bottom: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'More Options',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close_rounded, color: Colors.white70),
-                        onPressed: () => Navigator.of(ctx).pop(),
-                      ),
-                    ],
-                  ),
-                  const Divider(color: Colors.white12),
-                  if (widget.episodeNumber > 1)
-                    ListTile(
-                      leading: const Icon(Icons.skip_previous_rounded, color: Colors.white),
-                      title: const Text('Previous Episode', style: TextStyle(color: Colors.white, fontSize: 14)),
-                      onTap: () {
-                        Navigator.of(ctx).pop();
-                        _playPreviousEpisode();
-                      },
-                    ),
-                  ListTile(
-                    leading: const Icon(Icons.skip_next_rounded, color: Colors.white),
-                    title: const Text('Next Episode', style: TextStyle(color: Colors.white, fontSize: 14)),
-                    onTap: () {
-                      Navigator.of(ctx).pop();
-                      _playNextEpisode();
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.lock_outline_rounded, color: Colors.white),
-                    title: const Text('Lock Controls', style: TextStyle(color: Colors.white, fontSize: 14)),
-                    onTap: () {
-                      Navigator.of(ctx).pop();
-                      _lockPlayer();
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.picture_in_picture_alt_rounded, color: Colors.white),
-                    title: const Text('Picture in Picture', style: TextStyle(color: Colors.white, fontSize: 14)),
-                    onTap: () {
-                      Navigator.of(ctx).pop();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Picture in Picture activated'), duration: Duration(seconds: 2)),
-                      );
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.language_rounded, color: Colors.white),
-                    title: const Text('Switch to Web Embed Player', style: TextStyle(color: Colors.white, fontSize: 14)),
-                    onTap: () {
-                      Navigator.of(ctx).pop();
-                      setState(() => _useEmbedPlayer = true);
-                      _engine?.pause();
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.link_rounded, color: Colors.white),
-                    title: const Text('Copy Embed URL', style: TextStyle(color: Colors.white, fontSize: 14)),
-                    onTap: () {
-                      Navigator.of(ctx).pop();
-                      final matchId = result.match.id.isNotEmpty ? result.match.id : widget.animeId.toString();
-                      final isDub = result.selectedAudio.code == AudioLanguage.englishDub.code;
-                      final lang = isDub ? 'dub' : 'sub';
-                      final kisskhEpId = result.episode.customData['kisskhEpId'];
-                      final embedUrl = kisskhEpId != null
-                          ? 'https://megavid.buzz/kisskh/$kisskhEpId'
-                          : 'https://megavid.buzz/ani/$matchId/${widget.episodeNumber}/$lang';
-                      Clipboard.setData(ClipboardData(text: embedUrl));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Copied embed URL: $embedUrl'),
-                          duration: const Duration(seconds: 2),
-                          backgroundColor: AppColors.surfaceElevated,
-                        ),
-                      );
-                    },
-                  ),
-                   ListTile(
-                    leading: const Icon(Icons.dns_rounded, color: Colors.white),
-                    title: const Text('Stream Server / Mirror', style: TextStyle(color: Colors.white, fontSize: 14)),
-                    subtitle: Text(
-                      'Switch servers (Zuna, Sora, Loli, Nero)',
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12),
-                    ),
-                    onTap: () {
-                      Navigator.of(ctx).pop();
-                      _showServerSelectionSheet(context, result);
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.bug_report_outlined, color: Colors.white),
-                    title: const Text('Stream Diagnostics', style: TextStyle(color: Colors.white, fontSize: 14)),
-                    onTap: () {
-                      Navigator.of(ctx).pop();
-                      _showDiagnosticsSheet(context);
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
   }
 
   void _showServerSelectionSheet(BuildContext context, StreamResolutionResult result) {

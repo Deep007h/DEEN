@@ -3,12 +3,21 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_text.dart';
 
-/// Top-center "2X Speed ▶▶" pill indicator shown during temporary 2x hold gesture.
+/// Top-center speed pill indicator shown during temporary hold gesture (e.g. "1.5X Speed ▶▶").
 class HoldSpeedPill extends StatelessWidget {
-  const HoldSpeedPill({super.key});
+  final double speed;
+
+  const HoldSpeedPill({
+    super.key,
+    this.speed = 1.5,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final speedText = speed == speed.roundToDouble()
+        ? '${speed.toInt()}X Speed'
+        : '${speed.toStringAsFixed(1)}X Speed';
+
     return SafeArea(
       child: Align(
         alignment: Alignment.topCenter,
@@ -30,18 +39,18 @@ class HoldSpeedPill extends StatelessWidget {
               ),
             ],
           ),
-          child: const Row(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
+              const Icon(
                 Icons.fast_forward_rounded,
                 size: 16,
                 color: Colors.white,
               ),
-              SizedBox(width: 6),
+              const SizedBox(width: 6),
               Text(
-                '2X Speed',
-                style: TextStyle(
+                speedText,
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 13,
                   fontWeight: FontWeight.w700,

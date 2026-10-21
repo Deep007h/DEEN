@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_motion.dart';
 
 /// Full-screen in-app WebView player that renders the authorized megavid.buzz
 /// iframe embed technique. This is the primary/default player for 100% reliable
@@ -205,14 +206,21 @@ class _WebEmbedPlayerViewState extends State<WebEmbedPlayerView> {
               ),
             ),
 
-          // 2. Loading Spinner
-          if (_isLoading)
-            const Center(
-              child: CircularProgressIndicator(
-                strokeWidth: 3,
-                valueColor: AlwaysStoppedAnimation<Color>(AppColors.accent),
+          // 2. Loading Spinner with smooth fade-out
+          IgnorePointer(
+            ignoring: !_isLoading,
+            child: AnimatedOpacity(
+              opacity: _isLoading ? 1.0 : 0.0,
+              duration: AppMotion.short4,
+              curve: Curves.easeOut,
+              child: const Center(
+                child: CircularProgressIndicator(
+                  strokeWidth: 3,
+                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.accent),
+                ),
               ),
             ),
+          ),
 
           // 3. Floating Overlay Top Bar
           if (_controlsVisible && !widget.isLocked)
@@ -424,7 +432,7 @@ class _WebEmbedPlayerViewState extends State<WebEmbedPlayerView> {
           // 5. Floating Unlock Button (when locked)
           if (widget.isLocked && _showUnlockButton)
             Positioned(
-              left: 24,
+              left: math.max(MediaQuery.paddingOf(context).left + 24, 64),
               top: 0,
               bottom: 0,
               child: Center(

@@ -118,14 +118,19 @@ class _PlayerBottomBarState extends State<PlayerBottomBar> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             // Elapsed time (e.g. 07:49)
-            Text(
-              _formatDuration(displayPosition),
-              style: const TextStyle(
-                fontFamily: 'monospace',
-                color: Color(0xFFC6F16D),
-                fontSize: 12.0,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.4,
+            SizedBox(
+              width: widget.duration.inHours > 0 ? 64 : 46,
+              child: Text(
+                _formatDuration(displayPosition),
+                textAlign: TextAlign.start,
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontFeatures: [FontFeature.tabularFigures()],
+                  color: Color(0xFFC6F16D),
+                  fontSize: 12.0,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.4,
+                ),
               ),
             ),
             const SizedBox(width: 14),
@@ -260,14 +265,19 @@ class _PlayerBottomBarState extends State<PlayerBottomBar> {
             const SizedBox(width: 14),
 
             // Total duration (e.g. 23:40)
-            Text(
-              _formatDuration(widget.duration),
-              style: const TextStyle(
-                fontFamily: 'monospace',
-                color: Color(0xFF8E9E8E),
-                fontSize: 12.0,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.3,
+            SizedBox(
+              width: widget.duration.inHours > 0 ? 64 : 46,
+              child: Text(
+                _formatDuration(widget.duration),
+                textAlign: TextAlign.end,
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontFeatures: [FontFeature.tabularFigures()],
+                  color: Color(0xFF8E9E8E),
+                  fontSize: 12.0,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.3,
+                ),
               ),
             ),
             const SizedBox(width: 16),

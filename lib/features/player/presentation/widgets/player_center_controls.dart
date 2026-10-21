@@ -34,36 +34,6 @@ class PlayerCenterControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (isBuffering) {
-      return Center(
-        child: Container(
-          width: 78,
-          height: 78,
-          decoration: BoxDecoration(
-            color: const Color(0x5A000000),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: const Color(0x40FFFFFF),
-              width: 1.2,
-            ),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x40000000),
-                blurRadius: 16,
-              ),
-            ],
-          ),
-          child: const Padding(
-            padding: EdgeInsets.all(22.0),
-            child: CircularProgressIndicator(
-              strokeWidth: 3,
-              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFC6F16D)),
-            ),
-          ),
-        ),
-      );
-    }
-
     return Center(
       child: FittedBox(
         fit: BoxFit.scaleDown,
@@ -90,42 +60,57 @@ class PlayerCenterControls extends StatelessWidget {
               ),
               const SizedBox(width: 28),
 
-              // 3. Big translucent play/pause button with white border
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: onTogglePlay,
-                  borderRadius: BorderRadius.circular(39),
-                  child: Container(
-                    width: 78,
-                    height: 78,
-                    decoration: BoxDecoration(
-                      color: const Color(0x5A000000),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: const Color(0x59FFFFFF),
-                        width: 1.2,
-                      ),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x40000000),
-                          blurRadius: 16,
-                          offset: Offset(0, 4),
+              // 3. Big translucent play/pause button with white border (or 78x78 placeholder during buffering)
+              isBuffering
+                  ? const SizedBox(width: 78, height: 78)
+                  : Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: onTogglePlay,
+                        borderRadius: BorderRadius.circular(39),
+                        child: Container(
+                          width: 78,
+                          height: 78,
+                          decoration: BoxDecoration(
+                            color: const Color(0x5A000000),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: const Color(0x59FFFFFF),
+                              width: 1.2,
+                            ),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x40000000),
+                                blurRadius: 16,
+                                offset: Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Center(
+                            child: AnimatedSwitcher(
+                              duration: AppMotion.short3,
+                              transitionBuilder: (child, animation) {
+                                return FadeTransition(
+                                  opacity: animation,
+                                  child: ScaleTransition(
+                                    scale: Tween<double>(begin: 0.8, end: 1.0).animate(animation),
+                                    child: child,
+                                  ),
+                                );
+                              },
+                              child: Icon(
+                                isPlaying
+                                    ? Icons.pause_rounded
+                                    : Icons.play_arrow_rounded,
+                                key: ValueKey<bool>(isPlaying),
+                                size: 44,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
                         ),
-                      ],
-                    ),
-                    child: Center(
-                      child: Icon(
-                        isPlaying
-                            ? Icons.pause_rounded
-                            : Icons.play_arrow_rounded,
-                        size: 44,
-                        color: Colors.white,
                       ),
                     ),
-                  ),
-                ),
-              ),
               const SizedBox(width: 28),
 
               // 4. Forward 10s frosted circle

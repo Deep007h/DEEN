@@ -165,7 +165,7 @@ class ActiveStreamStateNotifier
 
     // If requested audio variant is not in the currently resolved list, re-resolve for this audio
     if (newVariant.audio.code != audio.code) {
-      state = const AsyncLoading();
+      state = const AsyncLoading<StreamResolutionResult>().copyWithPrevious(state);
       try {
         final prefsRepo = await ref.read(streamPreferencesRepositoryProvider.future);
         await prefsRepo.setAnimeAudioLanguage(arg.animeId, audio.code);

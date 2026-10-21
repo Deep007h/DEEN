@@ -24,7 +24,7 @@ class AppSettings {
     this.defaultSubtitleLanguage = 'English',
     this.autoplayNext = true,
     this.skipStepSeconds = 10,
-    this.longPressSpeed = 2.0,
+    this.longPressSpeed = 1.5,
     this.gesturesEnabled = true,
     this.resumeBehavior = 'always',
   });
@@ -64,7 +64,7 @@ class AppSettings {
       defaultSubtitleLanguage: json['defaultSubtitleLanguage'] as String? ?? 'English',
       autoplayNext: json['autoplayNext'] as bool? ?? true,
       skipStepSeconds: json['skipStepSeconds'] as int? ?? 10,
-      longPressSpeed: (json['longPressSpeed'] as num?)?.toDouble() ?? 2.0,
+      longPressSpeed: (json['longPressSpeed'] as num?)?.toDouble() ?? 1.5,
       gesturesEnabled: json['gesturesEnabled'] as bool? ?? true,
       resumeBehavior: json['resumeBehavior'] as String? ?? 'always',
     );

@@ -20,6 +20,7 @@ import 'package:anime_stream/features/player/presentation/providers/player_engin
 import 'package:anime_stream/features/player/presentation/screens/player_screen.dart';
 import 'package:anime_stream/features/player/presentation/widgets/next_episode_card.dart';
 import 'package:anime_stream/features/player/presentation/widgets/player_hud_overlays.dart';
+import 'package:anime_stream/features/player/presentation/widgets/player_more_options_sheet.dart';
 import 'package:anime_stream/features/player/presentation/widgets/player_settings_sheet.dart';
 import 'package:anime_stream/features/player/presentation/widgets/player_top_bar.dart';
 import 'package:anime_stream/features/player/presentation/widgets/skip_intro_button.dart';
@@ -243,9 +244,9 @@ void main() {
       // Wait past 500ms long-press threshold
       await tester.pump(const Duration(milliseconds: 300));
 
-      // Verify 2x pill is shown and rate is accelerated
+      // Verify 1.5x pill is shown and rate is accelerated
       expect(find.byType(HoldSpeedPill), findsOneWidget);
-      expect(mockEngine.playbackRate, 2.0);
+      expect(mockEngine.playbackRate, 1.5);
 
       // Release gesture
       await gesture.up();
@@ -376,6 +377,24 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
 
       expect(find.textContaining('Episodes'), findsWidgets);
+    });
+
+    testWidgets('opens more options side panel when 3-dot button tapped', (tester) async {
+      tester.view.physicalSize = const Size(1800, 900);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(buildPlayerScreen());
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      await tester.tap(find.byTooltip('More Options'));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.byType(PlayerMoreOptionsSheet), findsOneWidget);
     });
   });
 

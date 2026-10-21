@@ -163,12 +163,12 @@ class SearchPaginationNotifier extends StateNotifier<SearchPaginationState> {
     search();
   }
 
-  Future<void> search() async {
+  Future<void> search([String? directQuery]) async {
     _cancelToken?.cancel('New search initiated');
     final thisToken = CancelToken();
     _cancelToken = thisToken;
 
-    final debouncedQuery = _ref.read(debouncedSearchQueryProvider).valueOrNull;
+    final debouncedQuery = directQuery ?? _ref.read(debouncedSearchQueryProvider).valueOrNull;
     final query = (debouncedQuery != null && debouncedQuery.isNotEmpty)
         ? debouncedQuery
         : _ref.read(searchQueryProvider).trim();
