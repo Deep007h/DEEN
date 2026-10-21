@@ -49,17 +49,23 @@ class _RetryInterceptor extends Interceptor {
   @override
   Future<void> onError(DioException err, ErrorInterceptorHandler handler) async {
     final requestOptions = err.requestOptions;
+    final statusCode = err.response?.statusCode;
+    final isRateLimited = statusCode == 429;
+    final isRetryableStatus =
+        statusCode != null && (statusCode >= 500 || statusCode == 408 || isRateLimited);
 
-    // Do not retry cancelled requests or non-retryable errors (e.g. 400 Bad Request, 404 Not Found)
+    // Do not retry cancelled requests or non-retryable client errors (e.g. 400 Bad Request, 404 Not Found)
     if (err.type == DioExceptionType.cancel ||
-        (err.response != null && err.response!.statusCode != null && err.response!.statusCode! < 500)) {
+        (statusCode != null && !isRetryableStatus)) {
       return handler.next(err);
     }
 
     final retryCount = (requestOptions.extra['retryCount'] as int? ?? 0);
     if (retryCount < maxRetries) {
       requestOptions.extra['retryCount'] = retryCount + 1;
-      final backoff = retryInterval * (retryCount + 1);
+      final backoff = isRateLimited
+          ? Duration(milliseconds: 1200 * (retryCount + 1))
+          : retryInterval * (retryCount + 1);
       await Future.delayed(backoff);
 
       try {

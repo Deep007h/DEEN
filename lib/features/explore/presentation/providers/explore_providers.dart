@@ -19,13 +19,13 @@ final selectedExploreGenreProvider = StateProvider<String>((ref) => 'Action');
 final exploreViewModeProvider = StateProvider<ExploreViewMode>((ref) => ExploreViewMode.grid);
 
 /// Top hero anime for the active genre with banner art and synopsis.
-final genreHeroProvider = FutureProvider.family<FeaturedAnimeItem?, String>((ref, genre) async {
+final genreHeroProvider = FutureProvider.autoDispose.family<FeaturedAnimeItem?, String>((ref, genre) async {
   final repo = ref.watch(metadataRepositoryProvider);
   return repo.getFeaturedAnimeByGenre(genre);
 });
 
 /// Trending titles in the selected genre (TRENDING_DESC).
-final genreTrendingProvider = FutureProvider.family<List<AnimeSummary>, String>((ref, genre) async {
+final genreTrendingProvider = FutureProvider.autoDispose.family<List<AnimeSummary>, String>((ref, genre) async {
   final repo = ref.watch(metadataRepositoryProvider);
   return repo.getAnimeByGenreCatalog(
     genre: genre,
@@ -35,7 +35,7 @@ final genreTrendingProvider = FutureProvider.family<List<AnimeSummary>, String>(
 });
 
 /// All-time masterpieces in the selected genre (SCORE_DESC).
-final genreTopRatedProvider = FutureProvider.family<List<AnimeSummary>, String>((ref, genre) async {
+final genreTopRatedProvider = FutureProvider.autoDispose.family<List<AnimeSummary>, String>((ref, genre) async {
   final repo = ref.watch(metadataRepositoryProvider);
   return repo.getAnimeByGenreCatalog(
     genre: genre,
@@ -45,7 +45,7 @@ final genreTopRatedProvider = FutureProvider.family<List<AnimeSummary>, String>(
 });
 
 /// Popular community hits in the selected genre (POPULARITY_DESC).
-final genrePopularProvider = FutureProvider.family<List<AnimeSummary>, String>((ref, genre) async {
+final genrePopularProvider = FutureProvider.autoDispose.family<List<AnimeSummary>, String>((ref, genre) async {
   final repo = ref.watch(metadataRepositoryProvider);
   return repo.getAnimeByGenreCatalog(
     genre: genre,

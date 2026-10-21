@@ -69,6 +69,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   // Playback state
   Duration _position = Duration.zero;
+  final ValueNotifier<Duration> _positionNotifier = ValueNotifier<Duration>(Duration.zero);
   Duration _duration = Duration.zero;
   Duration _buffer = Duration.zero;
   bool _isPlaying = true;
@@ -206,6 +207,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   void _restoreOrientations() {
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
     ]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   }
@@ -296,9 +300,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         _eofRecoveryAttempts = 0;
         _consecutiveErrors = 0;
       }
-      setState(() {
-        _position = pos;
-      });
+      _position = pos;
+      _positionNotifier.value = pos;
       _checkEpisodeEndCountdown(pos, _duration);
     }));
 
@@ -487,9 +490,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         state == AppLifecycleState.detached ||
         state == AppLifecycleState.inactive ||
         state == AppLifecycleState.hidden) {
+      _disableWakelock();
       _engine?.pause();
       _saveCurrentProgress();
     } else if (state == AppLifecycleState.resumed) {
+      _enableWakelock();
       _lockLandscape();
     }
   }
@@ -512,10 +517,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
     _saveCurrentProgress();
 
+    _positionNotifier.dispose();
+
     for (final sub in _engineSubscriptions) {
       sub.cancel();
     }
-    _engine?.dispose();
+    final engineToDispose = _engine;
+    _engine = null;
+    if (engineToDispose != null) {
+      unawaited(engineToDispose.dispose().catchError((e) {
+        debugPrint('[ENGINE_DISPOSE_ERROR] $e');
+      }));
+    }
     _sidePanelController.dispose();
 
     super.dispose();
@@ -583,7 +596,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   void _startProgressSavingTimer() {
-    _progressSaveTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+    _progressSaveTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       _saveCurrentProgress();
     });
   }
@@ -1458,20 +1471,28 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                       ),
 
                       // Skip Intro (+85s) Chip
-                      if (_position.inSeconds < 90 && _duration.inSeconds > 120)
-                        Positioned(
-                          left: 24,
-                          bottom: 74,
-                          child: SkipIntroButton(
-                            onSkip: () {
-                              final raw = _position + const Duration(seconds: 85);
-                              final target = (_duration > Duration.zero && raw > _duration) ? _duration : raw;
-                              setState(() => _position = target);
-                              _engine?.seek(target);
-                              _resetControlsHideTimer();
-                            },
-                          ),
+                      Positioned(
+                        left: 24,
+                        bottom: 74,
+                        child: ValueListenableBuilder<Duration>(
+                          valueListenable: _positionNotifier,
+                          builder: (context, currentPos, _) {
+                            if (currentPos.inSeconds < 90 && _duration.inSeconds > 120) {
+                              return SkipIntroButton(
+                                onSkip: () {
+                                  final raw = currentPos + const Duration(seconds: 85);
+                                  final target = (_duration > Duration.zero && raw > _duration) ? _duration : raw;
+                                  _position = target;
+                                  _positionNotifier.value = target;
+                                  _engine?.seek(target);
+                                  _resetControlsHideTimer();
+                                },
+                              );
+                            }
+                            return const SizedBox.shrink();
+                          },
                         ),
+                      ),
 
                       // Bottom Bar (Seek bar + action buttons)
                       Positioned(
@@ -1480,6 +1501,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                         right: 0,
                         child: PlayerBottomBar(
                           position: _isScrubbing ? _scrubTargetPosition : _position,
+                          positionNotifier: _positionNotifier,
                           duration: _duration,
                           buffer: _buffer,
                           hasPreviousEpisode: widget.episodeNumber > 1,
@@ -1488,15 +1510,19 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                           onPreviousEpisode: _playPreviousEpisode,
                           onNextEpisode: _playNextEpisode,
                           onLock: _lockPlayer,
-                          onSeekStart: (_) {
+                          onSeekStart: (target) {
                             _isUserSeeking = true;
                             _controlsHideTimer?.cancel();
+                            _position = target;
+                            _positionNotifier.value = target;
                           },
                           onSeek: (target) {
-                            setState(() => _position = target);
+                            _position = target;
+                            _positionNotifier.value = target;
                           },
                           onSeekEnd: (target) {
-                            setState(() => _position = target);
+                            _position = target;
+                            _positionNotifier.value = target;
                             _engine?.seek(target);
                             _isUserSeeking = false;
                             _resetControlsHideTimer();

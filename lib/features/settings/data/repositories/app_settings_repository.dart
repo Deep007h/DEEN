@@ -180,6 +180,8 @@ final appSettingsProvider =
 
 /// Convenience provider returning the active Accent Color.
 final accentColorProvider = Provider<Color>((ref) {
-  final settings = ref.watch(appSettingsProvider);
-  return Color(settings.accentColorValue);
+  final accentValue = ref.watch(
+    appSettingsProvider.select((s) => s.accentColorValue),
+  );
+  return Color(accentValue);
 });

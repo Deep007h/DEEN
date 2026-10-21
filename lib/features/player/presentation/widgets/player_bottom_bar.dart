@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 /// - Frosted circular Fullscreen expand button
 class PlayerBottomBar extends StatefulWidget {
   final Duration position;
+  final ValueNotifier<Duration>? positionNotifier;
   final Duration duration;
   final Duration buffer;
   final ValueChanged<Duration> onSeek;
@@ -30,6 +31,7 @@ class PlayerBottomBar extends StatefulWidget {
   const PlayerBottomBar({
     super.key,
     required this.position,
+    this.positionNotifier,
     required this.duration,
     required this.buffer,
     required this.onSeek,
@@ -71,10 +73,20 @@ class _PlayerBottomBarState extends State<PlayerBottomBar> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.positionNotifier != null) {
+      return ValueListenableBuilder<Duration>(
+        valueListenable: widget.positionNotifier!,
+        builder: (context, notifPos, _) => _buildBar(context, notifPos),
+      );
+    }
+    return _buildBar(context, widget.position);
+  }
+
+  Widget _buildBar(BuildContext context, Duration currentPos) {
     final totalMillis = widget.duration.inMilliseconds;
     final currentMillis = _isDragging
         ? (_dragPositionFraction * totalMillis).round()
-        : widget.position.inMilliseconds.clamp(0, totalMillis > 0 ? totalMillis : 0);
+        : currentPos.inMilliseconds.clamp(0, totalMillis > 0 ? totalMillis : 0);
 
     final displayPosition = Duration(milliseconds: currentMillis);
     final bufferMillis = widget.buffer.inMilliseconds.clamp(0, totalMillis > 0 ? totalMillis : 0);

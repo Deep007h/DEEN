@@ -62,6 +62,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
   bool _isGridView = true;
   int _selectedSeasonId = 0;
   int _lastEpisodeNavTime = 0;
+  final Set<String> _prewarmedEpisodes = {};
 
   void _playEpisode(int currentId, int epNum, String? selectedProviderId) {
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -122,12 +123,16 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
               final hasDub = dubAvailableAsync.valueOrNull ?? false;
 
               // Pre-resolve target episode stream in background for instant 0ms playback
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                ref.read(streamOrchestratorProvider.future).then((orch) {
-                  final targetEp = lastWatchedEp ?? 1;
-                  orch.prewarmEpisode(anime: detail, episodeNumber: targetEp);
+              final targetEp = lastWatchedEp ?? 1;
+              final prewarmKey = '${detail.id}_$targetEp';
+              if (!_prewarmedEpisodes.contains(prewarmKey)) {
+                _prewarmedEpisodes.add(prewarmKey);
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  ref.read(streamOrchestratorProvider.future).then((orch) {
+                    orch.prewarmEpisode(anime: detail, episodeNumber: targetEp);
+                  });
                 });
-              });
+              }
 
               return RefreshIndicator(
                 color: AppColors.accent,

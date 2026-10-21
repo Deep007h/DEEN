@@ -41,7 +41,7 @@ final watchHistoryListProvider = FutureProvider<List<WatchHistoryItem>>((ref) as
 });
 
 /// Computes remaining unwatched episodes for a given anime.
-final unwatchedCountProvider = FutureProvider.family<int, int>((ref, animeId) async {
+final unwatchedCountProvider = FutureProvider.autoDispose.family<int, int>((ref, animeId) async {
   final historyRepo = ref.watch(playbackHistoryRepositoryProvider);
   final lastWatchedEp = await historyRepo.getLastWatchedEpisode(animeId);
   final list = await ref.watch(followedAnimeListProvider.future);

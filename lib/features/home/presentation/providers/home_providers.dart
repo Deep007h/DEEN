@@ -28,7 +28,7 @@ final recentlyAddedAnimeProvider = FutureProvider<List<AnimeSummary>>((ref) asyn
 });
 
 /// Anime list filtered by genre / category.
-final categoryAnimeProvider = FutureProvider.family<List<AnimeSummary>, String>((ref, genre) async {
+final categoryAnimeProvider = FutureProvider.autoDispose.family<List<AnimeSummary>, String>((ref, genre) async {
   final repo = ref.watch(metadataRepositoryProvider);
   return repo.getAnimeByGenre(genre, limit: 10);
 });

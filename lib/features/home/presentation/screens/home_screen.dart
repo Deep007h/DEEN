@@ -822,7 +822,7 @@ class _HeroSpotlightBillboard extends ConsumerStatefulWidget {
 
 class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard> {
   late final PageController _pageController;
-  int _currentPage = 0;
+  final ValueNotifier<int> _currentPageNotifier = ValueNotifier<int>(0);
 
   @override
   void initState() {
@@ -833,6 +833,7 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
   @override
   void dispose() {
     _pageController.dispose();
+    _currentPageNotifier.dispose();
     super.dispose();
   }
 
@@ -854,6 +855,7 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
     if (widget.items.isEmpty) return const SizedBox.shrink();
 
     final count = widget.items.length.clamp(1, 5);
+    final followedIds = ref.watch(followedAnimeIdsProvider).value ?? const <int>{};
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
@@ -890,7 +892,7 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
                 controller: _pageController,
                 itemCount: count,
                 onPageChanged: (index) {
-                  setState(() => _currentPage = index);
+                  _currentPageNotifier.value = index;
                 },
                 itemBuilder: (context, index) {
                   final item = widget.items[index];
@@ -900,7 +902,6 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
                   final format = item.format ?? 'TV';
                   final eps = item.eps != null ? '${item.eps} Episodes' : 'Ongoing';
                   final summary = _cleanSummary(item.summary);
-                  final followedIds = ref.watch(followedAnimeIdsProvider).value ?? const <int>{};
                   final isFollowed = followedIds.contains(item.id);
                   final heroTag = 'poster_${item.id}_home_spotlight';
 
@@ -1164,22 +1165,27 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
                       Positioned(
                         right: 16,
                         bottom: 22,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: List.generate(count, (dotIdx) {
-                            final isActive = dotIdx == _currentPage;
-                            return AnimatedContainer(
-                              duration: const Duration(milliseconds: 220),
-                              curve: Curves.easeOutCubic,
-                              margin: const EdgeInsets.symmetric(horizontal: 1.5),
-                              width: isActive ? 16 : 4,
-                              height: 4,
-                              decoration: BoxDecoration(
-                                color: isActive ? const Color(0xFFC6F16D) : const Color(0xFF556055),
-                                borderRadius: BorderRadius.circular(2),
-                              ),
+                        child: ValueListenableBuilder<int>(
+                          valueListenable: _currentPageNotifier,
+                          builder: (context, activeIndex, _) {
+                            return Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: List.generate(count, (dotIdx) {
+                                final isActive = dotIdx == activeIndex;
+                                return AnimatedContainer(
+                                  duration: const Duration(milliseconds: 220),
+                                  curve: Curves.easeOutCubic,
+                                  margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                                  width: isActive ? 16 : 4,
+                                  height: 4,
+                                  decoration: BoxDecoration(
+                                    color: isActive ? const Color(0xFFC6F16D) : const Color(0xFF556055),
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                );
+                              }),
                             );
-                          }),
+                          },
                         ),
                       ),
                     ],

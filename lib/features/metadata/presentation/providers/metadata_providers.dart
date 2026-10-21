@@ -31,13 +31,13 @@ final followedAnimeIdsProvider = StreamProvider<Set<int>>((ref) {
 });
 
 /// Provider checking if specific anime is followed
-final isFollowingProvider = FutureProvider.family<bool, int>((ref, animeId) async {
+final isFollowingProvider = FutureProvider.autoDispose.family<bool, int>((ref, animeId) async {
   final repo = ref.watch(followRepositoryProvider);
   return repo.isFollowing(animeId);
 });
 
 /// Provider for last watched episode of an anime
-final lastWatchedEpisodeProvider = FutureProvider.family<int?, int>((ref, animeId) async {
+final lastWatchedEpisodeProvider = FutureProvider.autoDispose.family<int?, int>((ref, animeId) async {
   final repo = ref.watch(playbackHistoryRepositoryProvider);
   return repo.getLastWatchedEpisode(animeId);
 });

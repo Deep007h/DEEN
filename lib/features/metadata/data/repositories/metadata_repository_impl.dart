@@ -86,45 +86,8 @@ class MetadataRepositoryImpl implements MetadataRepository {
         _idSourceMap[s.id] = 'bangumi';
       }
 
-      // If English title is missing on top results, try to enrich asynchronously from AniList
-      // Throttle to top 4 items to prevent exhausting AniList's 90 req/min rate limit
-      final topToEnrich = results.take(4).toList();
-      final remaining = results.skip(4).toList();
-
-      final enrichedTop = await Future.wait(
-        topToEnrich.map((summary) async {
-          if (summary.titles.english != null &&
-              summary.titles.english!.isNotEmpty &&
-              AnimeTitles.isPrimarilyLatin(summary.titles.english!)) {
-            return summary;
-          }
-          try {
-            final queryTitle = summary.titles.original.isNotEmpty
-                ? summary.titles.original
-                : trimmed;
-            final anilist = await anilistDataSource.searchMedia(
-              queryTitle,
-              cancelToken: cancelToken,
-            );
-            if (anilist != null) {
-              final enTitle = anilist.titles.english ?? anilist.titles.localized;
-              if (enTitle != null && enTitle.isNotEmpty) {
-                return summary.copyWith(
-                  titles: summary.titles.copyWith(
-                    english: enTitle,
-                    localized: anilist.titles.localized ?? summary.titles.localized,
-                  ),
-                );
-              }
-            }
-          } catch (_) {}
-          return summary;
-        }),
-      );
-
-      final enrichedResults = [...enrichedTop, ...remaining];
-      cache.set(cacheKey, enrichedResults, MetadataCache.searchTtl);
-      return enrichedResults;
+      cache.set(cacheKey, results, MetadataCache.searchTtl);
+      return results;
     } catch (e) {
       // If Bangumi failed or timed out (e.g. connection abort), fall back to AniList
       if (trimmed.isNotEmpty) {
