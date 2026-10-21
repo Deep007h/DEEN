@@ -18,46 +18,60 @@ class HoldSpeedPill extends StatelessWidget {
         ? '${speed.toInt()}X Speed'
         : '${speed.toStringAsFixed(1)}X Speed';
 
-    return SafeArea(
-      child: Align(
-        alignment: Alignment.topCenter,
-        child: Container(
-          margin: const EdgeInsets.only(top: 20),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-          decoration: BoxDecoration(
-            color: const Color(0xE618181B),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: const Color(0x33FFFFFF),
-              width: 0.8,
-            ),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x88000000),
-                blurRadius: 16,
-                offset: Offset(0, 4),
-              ),
-            ],
+    return TweenAnimationBuilder<double>(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutBack,
+      tween: Tween<double>(begin: 0.8, end: 1.0),
+      builder: (context, scale, child) {
+        return Transform.scale(
+          scale: scale,
+          child: Opacity(
+            opacity: ((scale - 0.8) / 0.2).clamp(0.0, 1.0),
+            child: child,
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.fast_forward_rounded,
-                size: 16,
-                color: Colors.white,
+        );
+      },
+      child: SafeArea(
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: Container(
+            margin: const EdgeInsets.only(top: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xE618181B),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: const Color(0x33FFFFFF),
+                width: 0.8,
               ),
-              const SizedBox(width: 6),
-              Text(
-                speedText,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.5,
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x88000000),
+                  blurRadius: 16,
+                  offset: Offset(0, 4),
                 ),
-              ),
-            ],
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.fast_forward_rounded,
+                  size: 16,
+                  color: Colors.white,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  speedText,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -172,48 +186,62 @@ class DoubleTapSeekBadge extends StatelessWidget {
     final isRewind = offsetSeconds < 0;
     final absSeconds = offsetSeconds.abs();
 
-    return Align(
-      alignment: isRewind ? Alignment.centerLeft : Alignment.centerRight,
-      child: Container(
-        margin: EdgeInsets.only(
-          left: isRewind ? 48 : 0,
-          right: isRewind ? 0 : 48,
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.7),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.2),
-            width: 1.0,
+    return TweenAnimationBuilder<double>(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutBack,
+      tween: Tween<double>(begin: 0.75, end: 1.0),
+      builder: (context, scale, child) {
+        return Transform.scale(
+          scale: scale,
+          child: Opacity(
+            opacity: ((scale - 0.75) / 0.25).clamp(0.0, 1.0),
+            child: child,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.4),
-              blurRadius: 16,
+        );
+      },
+      child: Align(
+        alignment: isRewind ? Alignment.centerLeft : Alignment.centerRight,
+        child: Container(
+          margin: EdgeInsets.only(
+            left: isRewind ? 48 : 0,
+            right: isRewind ? 0 : 48,
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.7),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.2),
+              width: 1.0,
             ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (isRewind) ...[
-              const Icon(Icons.fast_rewind_rounded, size: 20, color: Colors.white),
-              const SizedBox(width: 6),
-            ],
-            Text(
-              '${isRewind ? '-' : '+'}${absSeconds}s',
-              style: AppText.sectionTitle.copyWith(
-                color: Colors.white,
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x66000000),
+                blurRadius: 16,
               ),
-            ),
-            if (!isRewind) ...[
-              const SizedBox(width: 6),
-              const Icon(Icons.fast_forward_rounded, size: 20, color: Colors.white),
             ],
-          ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (isRewind) ...[
+                const Icon(Icons.fast_rewind_rounded, size: 20, color: Colors.white),
+                const SizedBox(width: 6),
+              ],
+              Text(
+                '${isRewind ? '-' : '+'}${absSeconds}s',
+                style: AppText.sectionTitle.copyWith(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              if (!isRewind) ...[
+                const SizedBox(width: 6),
+                const Icon(Icons.fast_forward_rounded, size: 20, color: Colors.white),
+              ],
+            ],
+          ),
         ),
       ),
     );

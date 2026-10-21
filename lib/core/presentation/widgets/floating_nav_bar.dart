@@ -122,6 +122,7 @@ class _NavBarTabButton extends StatelessWidget {
       label: item.label,
       child: PressableScale(
         targetScale: 0.92,
+        enableHaptics: false,
         onTap: onTap,
         child: Center(
           child: AnimatedContainer(

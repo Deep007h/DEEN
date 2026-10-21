@@ -207,19 +207,17 @@ class _WebEmbedPlayerViewState extends State<WebEmbedPlayerView> {
             ),
 
           // 2. Loading Spinner with smooth fade-out
-          IgnorePointer(
-            ignoring: !_isLoading,
-            child: AnimatedOpacity(
-              opacity: _isLoading ? 1.0 : 0.0,
-              duration: AppMotion.short4,
-              curve: Curves.easeOut,
-              child: const Center(
-                child: CircularProgressIndicator(
-                  strokeWidth: 3,
-                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.accent),
-                ),
-              ),
-            ),
+          AnimatedSwitcher(
+            duration: AppMotion.short4,
+            child: _isLoading
+                ? const Center(
+                    key: ValueKey('web_embed_loading'),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 3,
+                      valueColor: AlwaysStoppedAnimation<Color>(AppColors.accent),
+                    ),
+                  )
+                : const SizedBox.shrink(key: ValueKey('web_embed_loaded')),
           ),
 
           // 3. Floating Overlay Top Bar

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../stream/domain/models/audio_language.dart';
 import '../../../stream/domain/models/quality_option.dart';
 import '../../../stream/domain/models/stream_provider.dart';
@@ -101,6 +102,8 @@ class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
     'Audio',
     'Subtitles',
     'Speed',
+    'Aspect',
+    'Sources',
   ];
 
   @override
@@ -175,31 +178,34 @@ class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
             ),
           ),
 
-          // Horizontal Pill Tabs matching screenshot: 4 evenly spaced capsules
-          Container(
-            height: 36,
-            margin: const EdgeInsets.fromLTRB(14, 0, 14, 8),
-            child: Row(
-              children: List.generate(_tabs.length, (index) {
-                final isSelected = index == _activeTabIndex;
-                return Expanded(
-                  child: Padding(
+          // Horizontal Pill Tabs: scrollable capsules
+          SizedBox(
+            height: 38,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              physics: const BouncingScrollPhysics(),
+              child: Row(
+                children: List.generate(_tabs.length, (index) {
+                  final isSelected = index == _activeTabIndex;
+                  return Padding(
                     padding: EdgeInsets.only(right: index == _tabs.length - 1 ? 0 : 6),
                     child: Material(
                       color: Colors.transparent,
                       child: InkWell(
                         onTap: () => setState(() => _activeTabIndex = index),
-                        borderRadius: BorderRadius.circular(18),
+                        borderRadius: BorderRadius.circular(19),
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 180),
+                          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? const Color(0xFFC6F16D)
+                                ? AppColors.accent
                                 : const Color(0xFF172017),
-                            borderRadius: BorderRadius.circular(18),
+                            borderRadius: BorderRadius.circular(19),
                             border: Border.all(
                               color: isSelected
-                                  ? const Color(0xFFC6F16D)
+                                  ? AppColors.accent
                                   : const Color(0xFF263326),
                               width: 1.0,
                             ),
@@ -218,9 +224,9 @@ class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
                         ),
                       ),
                     ),
-                  ),
-                );
-              }),
+                  );
+                }),
+              ),
             ),
           ),
           const Divider(color: Color(0xFF202A20), height: 1),
@@ -605,9 +611,10 @@ class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
             final isSelected = widget.subtitleSettings.fontSize == size;
             final label = size == 14.0 ? 'Small' : size == 18.0 ? 'Normal' : 'Large';
             return ChoiceChip(
+              showCheckmark: false,
               label: Text(label),
               selected: isSelected,
-              selectedColor: const Color(0xFFC6F16D),
+              selectedColor: AppColors.accent,
               backgroundColor: const Color(0xFF161E16),
               labelStyle: TextStyle(
                 color: isSelected ? const Color(0xFF0F150D) : const Color(0xFF90A490),
@@ -615,7 +622,7 @@ class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
                 fontSize: 11,
               ),
               side: BorderSide(
-                color: isSelected ? const Color(0xFFC6F16D) : const Color(0xFF263326),
+                color: isSelected ? AppColors.accent : const Color(0xFF263326),
               ),
               onSelected: (_) => widget.onUpdateSubtitleSettings(
                 widget.subtitleSettings.copyWith(fontSize: size),

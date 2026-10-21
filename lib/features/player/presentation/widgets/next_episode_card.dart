@@ -41,22 +41,27 @@ class NextEpisodeCountdownCard extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: AppColors.accent.withValues(alpha: 0.2),
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(
-                '$secondsRemaining',
-                style: AppText.sectionTitle.copyWith(
-                  color: AppColors.accent,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
+          SizedBox(
+            width: 36,
+            height: 36,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                CircularProgressIndicator(
+                  value: (secondsRemaining / 5.0).clamp(0.0, 1.0),
+                  strokeWidth: 2.5,
+                  backgroundColor: AppColors.accent.withValues(alpha: 0.15),
+                  valueColor: const AlwaysStoppedAnimation<Color>(AppColors.accent),
                 ),
-              ),
+                Text(
+                  '$secondsRemaining',
+                  style: AppText.sectionTitle.copyWith(
+                    color: AppColors.accent,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(width: AppSpacing.md),
@@ -87,6 +92,7 @@ class NextEpisodeCountdownCard extends StatelessWidget {
             style: TextButton.styleFrom(
               foregroundColor: AppColors.textSecondary,
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              shape: const StadiumBorder(),
             ),
             child: const Text('Cancel', style: TextStyle(fontSize: 12)),
           ),
@@ -97,7 +103,7 @@ class NextEpisodeCountdownCard extends StatelessWidget {
               backgroundColor: AppColors.accent,
               foregroundColor: const Color(0xFF0F150D),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: const StadiumBorder(),
             ),
             child: const Text('Play Now', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
           ),

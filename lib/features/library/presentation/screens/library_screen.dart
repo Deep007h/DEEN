@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/presentation/widgets/shimmer_box.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_radius.dart';
@@ -29,6 +30,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: CustomScrollView(
+        key: PageStorageKey<String>('library_scroll_$_selectedTab'),
         physics: AppMotion.m3ScrollPhysics,
         slivers: [
           // Header
@@ -264,8 +266,24 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                   ),
                 );
               },
-              loading: () => const SliverFillRemaining(
-                child: Center(child: CircularProgressIndicator(color: AppColors.accent)),
+              loading: () => SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin, vertical: 8),
+                sliver: SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    childAspectRatio: 0.60,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 10,
+                  ),
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) => ShimmerBox(
+                      width: double.infinity,
+                      height: double.infinity,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    childCount: 6,
+                  ),
+                ),
               ),
               error: (e, _) => SliverFillRemaining(
                 child: Center(child: Text('Error: $e', style: const TextStyle(color: Colors.red))),
@@ -427,8 +445,39 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                   ),
                 );
               },
-              loading: () => const SliverFillRemaining(
-                child: Center(child: CircularProgressIndicator(color: AppColors.accent)),
+              loading: () => SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin, vertical: 8),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) => Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        children: [
+                          ShimmerBox(width: 77, height: 77, borderRadius: BorderRadius.circular(10)),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                ShimmerBox(width: 140, height: 16, borderRadius: BorderRadius.circular(4)),
+                                const SizedBox(height: 8),
+                                ShimmerBox(width: 80, height: 12, borderRadius: BorderRadius.circular(4)),
+                                const SizedBox(height: 10),
+                                ShimmerBox(width: double.infinity, height: 4, borderRadius: BorderRadius.circular(2)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    childCount: 4,
+                  ),
+                ),
               ),
               error: (e, _) => SliverFillRemaining(
                 child: Center(child: Text('Error: $e', style: const TextStyle(color: Colors.red))),

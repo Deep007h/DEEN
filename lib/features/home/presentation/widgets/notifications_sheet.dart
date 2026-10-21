@@ -150,10 +150,10 @@ class NotificationsSheet extends StatelessWidget {
                                           color: primary,
                                           borderRadius: BorderRadius.circular(8),
                                         ),
-                                        child: const Text(
+                                        child: Text(
                                           'NEW',
                                           style: TextStyle(
-                                            color: Colors.white,
+                                            color: Theme.of(context).colorScheme.onPrimary,
                                             fontSize: 9,
                                             fontWeight: FontWeight.w800,
                                           ),

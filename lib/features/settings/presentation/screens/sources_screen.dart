@@ -405,109 +405,124 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
     }
   }
 
-  void _showDirectUrlDialog(BuildContext context, dynamic registry) {
+  Future<void> _showDirectUrlDialog(BuildContext context, dynamic registry) async {
     final controller = TextEditingController(text: registry.getDirectUrlPattern());
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: const Text('Direct URL Pattern', style: AppText.sectionTitle),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Supported variables: {id}, {ep}, {ep2}',
-              style: AppText.meta,
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            TextField(
-              controller: controller,
-              style: AppText.body,
-              decoration: const InputDecoration(
-                hintText: 'https://server.com/{id}/{ep}.mp4',
-                hintStyle: AppText.meta,
+    try {
+      await showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: AppColors.surface,
+          shape: const RoundedRectangleBorder(borderRadius: AppRadius.cardBorder),
+          title: const Text('Direct URL Pattern', style: AppText.sectionTitle),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Supported variables: {id}, {ep}, {ep2}',
+                style: AppText.meta,
               ),
+              const SizedBox(height: AppSpacing.sm),
+              TextField(
+                controller: controller,
+                style: AppText.body,
+                decoration: const InputDecoration(
+                  hintText: 'https://server.com/{id}/{ep}.mp4',
+                  hintStyle: AppText.meta,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              style: TextButton.styleFrom(shape: const StadiumBorder()),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.accent,
+                foregroundColor: const Color(0xFF0F150D),
+                shape: const StadiumBorder(),
+              ),
+              onPressed: () async {
+                await registry.setDirectUrlPattern(controller.text.trim());
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (mounted) setState(() {});
+              },
+              child: const Text('Save'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.accent,
-              foregroundColor: const Color(0xFF0F150D),
-            ),
-            onPressed: () async {
-              await registry.setDirectUrlPattern(controller.text.trim());
-              if (ctx.mounted) Navigator.pop(ctx);
-              setState(() {});
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
+      );
+    } finally {
+      controller.dispose();
+    }
   }
 
-  void _showJellyfinDialog(BuildContext context, dynamic registry) {
+  Future<void> _showJellyfinDialog(BuildContext context, dynamic registry) async {
     final hostController = TextEditingController(text: registry.getJellyfinHost());
     final tokenController = TextEditingController(text: registry.getJellyfinToken());
 
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: const Text('Jellyfin Server', style: AppText.sectionTitle),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: hostController,
-              style: AppText.body,
-              decoration: const InputDecoration(
-                labelText: 'Host URL',
-                hintText: 'http://192.168.1.100:8096',
-                labelStyle: AppText.meta,
-                hintStyle: AppText.meta,
+    try {
+      await showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: AppColors.surface,
+          shape: const RoundedRectangleBorder(borderRadius: AppRadius.cardBorder),
+          title: const Text('Jellyfin Server', style: AppText.sectionTitle),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: hostController,
+                style: AppText.body,
+                decoration: const InputDecoration(
+                  labelText: 'Host URL',
+                  hintText: 'http://192.168.1.100:8096',
+                  labelStyle: AppText.meta,
+                  hintStyle: AppText.meta,
+                ),
               ),
+              const SizedBox(height: AppSpacing.sm),
+              TextField(
+                controller: tokenController,
+                style: AppText.body,
+                decoration: const InputDecoration(
+                  labelText: 'API Token / Key',
+                  hintText: 'User or API token',
+                  labelStyle: AppText.meta,
+                  hintStyle: AppText.meta,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              style: TextButton.styleFrom(shape: const StadiumBorder()),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
             ),
-            const SizedBox(height: AppSpacing.sm),
-            TextField(
-              controller: tokenController,
-              style: AppText.body,
-              decoration: const InputDecoration(
-                labelText: 'API Token / Key',
-                hintText: 'User or API token',
-                labelStyle: AppText.meta,
-                hintStyle: AppText.meta,
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.accent,
+                foregroundColor: const Color(0xFF0F150D),
+                shape: const StadiumBorder(),
               ),
+              onPressed: () async {
+                await registry.setJellyfinHost(hostController.text.trim());
+                await registry.setJellyfinToken(tokenController.text.trim());
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (mounted) setState(() {});
+              },
+              child: const Text('Save'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.accent,
-              foregroundColor: const Color(0xFF0F150D),
-            ),
-            onPressed: () async {
-              await registry.setJellyfinHost(hostController.text.trim());
-              await registry.setJellyfinToken(tokenController.text.trim());
-              if (ctx.mounted) Navigator.pop(ctx);
-              setState(() {});
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
+      );
+    } finally {
+      hostController.dispose();
+      tokenController.dispose();
+    }
   }
 }

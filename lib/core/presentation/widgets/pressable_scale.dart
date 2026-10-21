@@ -15,6 +15,7 @@ class PressableScale extends StatefulWidget {
   final Curve curve;
   final Curve pressCurve;
   final HitTestBehavior behavior;
+  final bool enableHaptics;
 
   const PressableScale({
     super.key,
@@ -27,6 +28,7 @@ class PressableScale extends StatefulWidget {
     this.curve = AppMotion.expressiveFastSpatial,
     this.pressCurve = Curves.easeOutQuad,
     this.behavior = HitTestBehavior.opaque,
+    this.enableHaptics = true,
   });
 
   @override
@@ -40,7 +42,7 @@ class _PressableScaleState extends State<PressableScale> {
   void _handleTapDown(TapDownDetails details) {
     if (widget.onTap == null && widget.onLongPress == null) return;
     setState(() => _isPressed = true);
-    if (!kIsWeb) {
+    if (!kIsWeb && widget.enableHaptics) {
       try {
         HapticFeedback.lightImpact();
       } catch (_) {}

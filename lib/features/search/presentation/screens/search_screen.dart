@@ -122,13 +122,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     }
   }
 
-  void _submitSearch() {
-    final query = _searchController.text.trim();
+  void _submitSearch([String? rawQuery]) {
+    FocusScope.of(context).unfocus();
+    final query = (rawQuery ?? _searchController.text).trim();
     if (_selectedKind == SearchCatalogKind.kshow) {
+      _kshowDebounceTimer?.cancel();
       _searchKShows(query);
     } else {
       ref.read(searchQueryProvider.notifier).state = query;
-      ref.read(searchPaginationProvider.notifier).search();
+      ref.read(searchPaginationProvider.notifier).search(query);
     }
   }
 
@@ -352,7 +354,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                       textInputAction: TextInputAction.search,
                                       style: AppText.body,
                                       cursorColor: AppColors.accent,
-                                      onSubmitted: (_) => _submitSearch(),
+                                      onSubmitted: (val) => _submitSearch(val),
                                       onChanged: _onQueryChanged,
                                       decoration: InputDecoration(
                                         hintText: _selectedKind == SearchCatalogKind.kshow
