@@ -19,6 +19,8 @@ import '../../../metadata/domain/models/anime_titles.dart';
 import '../../../metadata/presentation/providers/metadata_providers.dart';
 import '../../data/repositories/app_settings_repository.dart';
 import '../../domain/models/data_backup.dart';
+import '../../../updater/presentation/providers/updater_providers.dart';
+import '../../../updater/presentation/widgets/update_dialog.dart';
 
 /// Available accent colors in the Appearance settings.
 const List<Color> _kAccentColors = [
@@ -555,9 +557,20 @@ class SettingsScreen extends ConsumerWidget {
                         icon: Icons.info_outline_rounded,
                         title: 'App Version',
                         trailing: Text(
-                          'v1.0.0 (Phase 6)',
+                          'v1 (1.0.0)',
                           style: AppText.meta,
                         ),
+                      ),
+                      const Divider(height: 1),
+                      _SettingsTile(
+                        icon: Icons.system_update_rounded,
+                        title: 'Check for Updates',
+                        trailing: const Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          size: 14,
+                          color: AppColors.textMuted,
+                        ),
+                        onTap: () => _handleManualUpdateCheck(context, ref),
                       ),
                       const Divider(height: 1),
                       _SettingsTile(
@@ -845,6 +858,58 @@ class SettingsScreen extends ConsumerWidget {
         );
       },
     );
+  }
+
+  Future<void> _handleManualUpdateCheck(BuildContext context, WidgetRef ref) async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        backgroundColor: AppColors.surfaceElevated,
+        duration: Duration(seconds: 1),
+        content: Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppColors.accent,
+              ),
+            ),
+            SizedBox(width: AppSpacing.md),
+            Text('Checking GitHub releases...'),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final repo = ref.read(updaterRepositoryProvider);
+      final currentVersion = ref.read(currentAppVersionProvider);
+      final release = await repo.checkForUpdate(currentVersion);
+
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      if (release != null) {
+        UpdateDialog.show(context, release);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: AppColors.surfaceElevated,
+            content: Text('DEEN is up to date (v1)'),
+          ),
+        );
+      }
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.surfaceElevated,
+          content: Text('Could not reach GitHub releases'),
+        ),
+      );
+    }
   }
 }
 

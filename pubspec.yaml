@@ -25,6 +25,7 @@ dependencies:
   media_kit_libs_video: ^1.0.7
   wakelock_plus: ^1.2.8
   webview_flutter: ^4.14.1
+  url_launcher: ^6.3.0
 
 dev_dependencies:
   flutter_test:

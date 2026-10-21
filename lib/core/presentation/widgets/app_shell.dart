@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:anime_stream/l10n/app_localizations.dart';
 import 'package:go_router/go_router.dart';
 import '../../theme/app_motion.dart';
 import 'floating_nav_bar.dart';
+import '../../../features/updater/presentation/providers/updater_providers.dart';
+import '../../../features/updater/presentation/widgets/update_dialog.dart';
 
 /// App navigation shell displaying the active tab's branch and the floating pill dashboard.
 /// Dynamically animates the FloatingNavBar on scroll using Material 3 motion physics,
 /// completely isolated from the tab body to prevent scroll stutters.
-class AppShell extends StatefulWidget {
+class AppShell extends ConsumerStatefulWidget {
   final StatefulNavigationShell navigationShell;
 
   const AppShell({
@@ -16,11 +19,38 @@ class AppShell extends StatefulWidget {
   });
 
   @override
-  State<AppShell> createState() => _AppShellState();
+  ConsumerState<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<AppShell> {
+class _AppShellState extends ConsumerState<AppShell> {
   final ValueNotifier<bool> _isNavBarVisibleNotifier = ValueNotifier<bool>(true);
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkOtaUpdateOnColdStart();
+    });
+  }
+
+  Future<void> _checkOtaUpdateOnColdStart() async {
+    final alreadyChecked = ref.read(hasCheckedColdStartProvider);
+    if (alreadyChecked) return;
+
+    ref.read(hasCheckedColdStartProvider.notifier).state = true;
+
+    try {
+      final repo = ref.read(updaterRepositoryProvider);
+      final currentVersion = ref.read(currentAppVersionProvider);
+      final release = await repo.checkForUpdate(currentVersion);
+
+      if (release != null && mounted) {
+        UpdateDialog.show(context, release);
+      }
+    } catch (_) {
+      // Gracefully silent on any network or unexpected failure
+    }
+  }
 
   @override
   void dispose() {

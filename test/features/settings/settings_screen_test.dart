@@ -54,7 +54,8 @@ void main() {
 
       // About
       expect(find.text('App Version'), findsOneWidget);
-      expect(find.text('v1.0.0 (Phase 6)'), findsOneWidget);
+      expect(find.text('v1 (1.0.0)'), findsOneWidget);
+      expect(find.text('Check for Updates'), findsOneWidget);
     });
 
     testWidgets('Changing title preference updates state', (tester) async {
