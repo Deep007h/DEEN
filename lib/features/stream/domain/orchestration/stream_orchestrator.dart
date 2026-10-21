@@ -7,6 +7,8 @@ import '../../data/repositories/diagnostics_repository.dart';
 import '../../data/repositories/stream_preferences_repository.dart';
 import '../../data/repositories/stream_provider_registry.dart';
 import '../../data/repositories/title_match_repository.dart';
+import '../../data/providers/megavid_provider.dart';
+import '../../data/providers/demo_provider.dart';
 import '../models/audio_language.dart';
 import '../models/quality_option.dart';
 import '../models/source_episode.dart';
@@ -340,6 +342,47 @@ class StreamOrchestrator {
         preferredProviderId: preferredProviderId,
       );
     } catch (_) {}
+  }
+
+  /// Checks whether an anime has English/multilingual Dub available.
+  Future<bool> hasDubAvailable(AnimeDetail anime) async {
+    // 1. Check metadata tags / titles
+    final hasDubTag = anime.tags.any((t) {
+      final lower = t.name.toLowerCase();
+      return lower.contains('dub') || lower.contains('english dub');
+    });
+    if (hasDubTag) return true;
+
+    // 2. Check cached resolution results in memory
+    for (final entry in _resolutionCache.entries) {
+      if (entry.key.startsWith('${anime.id}_')) {
+        final res = entry.value.$2;
+        if (res.variants.any((v) =>
+            v.audio.isDub ||
+            v.audio.code == 'en' ||
+            v.audio.code == AudioLanguage.englishDub.code)) {
+          return true;
+        }
+      }
+    }
+
+    // 3. Query active provider
+    final enabled = registry.getOrderedEnabledProviders();
+    for (final provider in enabled) {
+      if (provider is MegaVidProvider) {
+        try {
+          final matches = await provider.findTitle(anime);
+          if (matches.isNotEmpty) {
+            final exists = await provider.checkDubExists(matches.first.id);
+            if (exists) return true;
+          }
+        } catch (_) {}
+      } else if (provider is DemoProvider) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   Dio? _sharedProbeDio;

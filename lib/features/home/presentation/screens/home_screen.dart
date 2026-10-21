@@ -1,6 +1,7 @@
 // ignore_for_file: deprecated_member_use
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -677,20 +678,39 @@ class _ProfileDropdownButton extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Genre Filter Pill Bar (Horizontal scrolling pills: 🔥 All, ⚔️ Action, etc.)
 // ---------------------------------------------------------------------------
+// Genre Filter Pill Bar (matching user reference screenshot: All, Action, Adventure, Fantasy)
+// ---------------------------------------------------------------------------
+Widget smoothHeroFlightShuttleBuilder(
+  BuildContext flightContext,
+  Animation<double> animation,
+  HeroFlightDirection flightDirection,
+  BuildContext fromHeroContext,
+  BuildContext toHeroContext,
+) {
+  final Widget toHeroWidget = (toHeroContext.widget as Hero).child;
+  return Material(
+    type: MaterialType.transparency,
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      clipBehavior: Clip.antiAlias,
+      child: toHeroWidget,
+    ),
+  );
+}
+
 class _GenreFilterPillBar extends ConsumerWidget {
   const _GenreFilterPillBar();
 
-  static const List<(String, String)> genres = [
-    ('All', '🔥'),
-    ('Action', '⚔️'),
-    ('Adventure', '🧭'),
-    ('Fantasy', '✨'),
-    ('Romance', '❤️'),
-    ('Comedy', '😂'),
-    ('Sci-Fi', '🚀'),
-    ('Isekai', '⚡'),
+  static const List<String> genres = [
+    'All',
+    'Action',
+    'Adventure',
+    'Fantasy',
+    'Romance',
+    'Comedy',
+    'Sci-Fi',
+    'Isekai',
   ];
 
   @override
@@ -698,7 +718,7 @@ class _GenreFilterPillBar extends ConsumerWidget {
     final selected = ref.watch(homeGenreFilterProvider);
 
     return SizedBox(
-      height: 38,
+      height: 42,
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
         scrollDirection: Axis.horizontal,
@@ -706,18 +726,50 @@ class _GenreFilterPillBar extends ConsumerWidget {
         itemCount: genres.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
-          final item = genres[index];
-          final isSelected = item.$1 == selected;
+          final genre = genres[index];
+          final isSelected = genre == selected;
 
-          return FilterChip(
-            selected: isSelected,
-            label: Text(item.$1),
-            avatar: Text(item.$2, style: const TextStyle(fontSize: 13)),
-            showCheckmark: isSelected && item.$1 != 'All',
-            onSelected: (_) {
-              ref.read(homeGenreFilterProvider.notifier).state = item.$1;
+          return PressableScale(
+            targetScale: 0.94,
+            onTap: () {
+              HapticFeedback.selectionClick();
+              ref.read(homeGenreFilterProvider.notifier).state = genre;
             },
-            shape: const StadiumBorder(),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
+              decoration: BoxDecoration(
+                color: isSelected ? const Color(0xFF263618) : const Color(0xFF141714),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isSelected
+                      ? const Color(0xFFC6F16D)
+                      : Colors.white.withValues(alpha: 0.08),
+                  width: isSelected ? 1.0 : 0.8,
+                ),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: const Color(0xFFC6F16D).withValues(alpha: 0.18),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Center(
+                child: Text(
+                  genre,
+                  style: TextStyle(
+                    color: isSelected ? const Color(0xFFC6F16D) : const Color(0xFFD6DFD6),
+                    fontSize: 14,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                    letterSpacing: -0.1,
+                  ),
+                ),
+              ),
+            ),
           );
         },
       ),
@@ -842,13 +894,17 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
                         if (imageUrl != null && imageUrl.isNotEmpty)
                           Hero(
                             tag: heroTag,
-                            createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
-                            child: CachedNetworkImage(
-                              imageUrl: imageUrl,
-                              memCacheWidth: 800,
-                              fit: BoxFit.cover,
-                              placeholder: (_, __) => Container(color: const Color(0xFF141914)),
-                              errorWidget: (_, __, ___) => Container(color: const Color(0xFF141914)),
+                            createRectTween: (begin, end) => RectTween(begin: begin, end: end),
+                            flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(22),
+                              child: CachedNetworkImage(
+                                imageUrl: imageUrl,
+                                memCacheWidth: 800,
+                                fit: BoxFit.cover,
+                                placeholder: (_, __) => Container(color: const Color(0xFF141914)),
+                                errorWidget: (_, __, ___) => Container(color: const Color(0xFF141914)),
+                              ),
                             ),
                           )
                         else
@@ -877,10 +933,10 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
-                            color: const Color(0xEE0B0E0B),
+                            color: const Color(0xDD182412),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                              color: AppColors.accent.withValues(alpha: 0.6),
+                              color: const Color(0xFFC6F16D).withValues(alpha: 0.75),
                               width: 0.9,
                             ),
                           ),
@@ -888,15 +944,15 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               const Icon(
-                                Icons.local_fire_department_rounded,
-                                color: AppColors.accent,
-                                size: 14,
+                                Icons.trending_up_rounded,
+                                color: Color(0xFFC6F16D),
+                                size: 15,
                               ),
-                              const SizedBox(width: 4),
+                              const SizedBox(width: 5),
                               Text(
                                 '#${index + 1} Trending',
                                 style: const TextStyle(
-                                  color: AppColors.accent,
+                                  color: Color(0xFFC6F16D),
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w800,
                                   letterSpacing: 0.2,
@@ -981,27 +1037,48 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        // Material 3 Play Now Filled Button with spring physics & depth
+                                        // Vibrant Amber / Gold "Play Now" Button matching screenshot
                                         PressableScale(
                                           targetScale: 0.94,
                                           onTap: () => context.push('/player?animeId=${item.id}&ep=1'),
-                                          child: FilledButton.icon(
-                                            onPressed: () => context.push('/player?animeId=${item.id}&ep=1'),
-                                            icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                                            label: const Text('Play Now', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
-                                            style: FilledButton.styleFrom(
-                                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                              minimumSize: Size.zero,
-                                              visualDensity: VisualDensity.compact,
-                                              elevation: 3,
-                                              shadowColor: AppColors.accent.withValues(alpha: 0.4),
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFF5BA18),
+                                              borderRadius: BorderRadius.circular(20),
+                                              boxShadow: const [
+                                                BoxShadow(
+                                                  color: Color(0x55F5BA18),
+                                                  blurRadius: 10,
+                                                  offset: Offset(0, 3),
+                                                ),
+                                              ],
+                                            ),
+                                            child: const Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  Icons.play_arrow_rounded,
+                                                  color: Colors.black,
+                                                  size: 19,
+                                                ),
+                                                SizedBox(width: 5),
+                                                Text(
+                                                  'Play Now',
+                                                  style: TextStyle(
+                                                    color: Colors.black,
+                                                    fontWeight: FontWeight.w800,
+                                                    fontSize: 12.5,
+                                                    letterSpacing: 0.1,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ),
                                         ),
                                         const SizedBox(width: 8),
 
-                                        // Material 3 My List Tonal Button with spring physics & depth
+                                        // Translucent Frosted Glass "+ My List" Button matching screenshot
                                         PressableScale(
                                           targetScale: 0.94,
                                           onTap: () {
@@ -1017,29 +1094,35 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
                                                   ),
                                                 );
                                           },
-                                          child: FilledButton.tonalIcon(
-                                            onPressed: () {
-                                              ref.read(followRepositoryProvider).toggleFollow(
-                                                    item.id,
-                                                    metadata: FollowedAnime(
-                                                      id: item.id,
-                                                      title: title,
-                                                      posterUrl: item.posterUrl,
-                                                      totalEpisodes: item.eps ?? 0,
-                                                      score: item.score ?? 0.0,
-                                                      followedAt: DateTime.now(),
-                                                    ),
-                                                  );
-                                            },
-                                            icon: Icon(isFollowed ? Icons.check_rounded : Icons.add_rounded, size: 16),
-                                            label: Text(isFollowed ? 'In List' : 'My List', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11.5)),
-                                            style: FilledButton.styleFrom(
-                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                              minimumSize: Size.zero,
-                                              visualDensity: VisualDensity.compact,
-                                              elevation: 2,
-                                              shadowColor: Colors.black.withValues(alpha: 0.5),
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white.withValues(alpha: 0.14),
+                                              borderRadius: BorderRadius.circular(20),
+                                              border: Border.all(
+                                                color: Colors.white.withValues(alpha: 0.22),
+                                                width: 0.8,
+                                              ),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  isFollowed ? Icons.check_rounded : Icons.add_rounded,
+                                                  color: Colors.white,
+                                                  size: 16,
+                                                ),
+                                                const SizedBox(width: 5),
+                                                Text(
+                                                  isFollowed ? 'In List' : 'My List',
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.w700,
+                                                    fontSize: 12,
+                                                    letterSpacing: 0.1,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ),
                                         ),
@@ -1055,12 +1138,13 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
                                   children: List.generate(count, (dotIdx) {
                                     final isActive = dotIdx == _currentPage;
                                     return AnimatedContainer(
-                                      duration: const Duration(milliseconds: 200),
+                                      duration: const Duration(milliseconds: 220),
+                                      curve: Curves.easeOutCubic,
                                       margin: const EdgeInsets.symmetric(horizontal: 1.5),
-                                      width: isActive ? 12 : 4,
+                                      width: isActive ? 16 : 4,
                                       height: 4,
                                       decoration: BoxDecoration(
-                                        color: isActive ? AppColors.accent : const Color(0xFF556055),
+                                        color: isActive ? const Color(0xFFC6F16D) : const Color(0xFF556055),
                                         borderRadius: BorderRadius.circular(2),
                                       ),
                                     );
@@ -1163,16 +1247,20 @@ class _TrendingLargeCardsList extends StatelessWidget {
                           children: [
                         Hero(
                           tag: heroTag,
-                          createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
-                          child: item.posterUrl != null && item.posterUrl!.isNotEmpty
-                              ? CachedNetworkImage(
-                                  imageUrl: item.posterUrl!,
-                                  memCacheWidth: 300,
-                                  fit: BoxFit.cover,
-                                  placeholder: (_, __) => Container(color: const Color(0xFF141914)),
-                                  errorWidget: (_, __, ___) => Container(color: const Color(0xFF141914)),
-                                )
-                              : Container(color: const Color(0xFF141914)),
+                          createRectTween: (begin, end) => RectTween(begin: begin, end: end),
+                          flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(15),
+                            child: item.posterUrl != null && item.posterUrl!.isNotEmpty
+                                ? CachedNetworkImage(
+                                    imageUrl: item.posterUrl!,
+                                    memCacheWidth: 300,
+                                    fit: BoxFit.cover,
+                                    placeholder: (_, __) => Container(color: const Color(0xFF141914)),
+                                    errorWidget: (_, __, ___) => Container(color: const Color(0xFF141914)),
+                                  )
+                                : Container(color: const Color(0xFF141914)),
+                          ),
                         ),
 
                         // Subtle bottom gradient for score visibility
@@ -1344,13 +1432,17 @@ class _PopularThisWeekList extends StatelessWidget {
                   child: item.posterUrl != null && item.posterUrl!.isNotEmpty
                       ? Hero(
                           tag: heroTag,
-                          createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
-                          child: CachedNetworkImage(
-                            imageUrl: item.posterUrl!,
-                            memCacheWidth: 240,
-                            fit: BoxFit.cover,
-                            placeholder: (_, __) => Container(color: const Color(0xFF141914)),
-                            errorWidget: (_, __, ___) => Container(color: const Color(0xFF141914)),
+                          createRectTween: (begin, end) => RectTween(begin: begin, end: end),
+                          flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(13),
+                            child: CachedNetworkImage(
+                              imageUrl: item.posterUrl!,
+                              memCacheWidth: 240,
+                              fit: BoxFit.cover,
+                              placeholder: (_, __) => Container(color: const Color(0xFF141914)),
+                              errorWidget: (_, __, ___) => Container(color: const Color(0xFF141914)),
+                            ),
                           ),
                         )
                       : const SizedBox.shrink(),
@@ -1602,13 +1694,17 @@ class _TopRatedHorizontalList extends StatelessWidget {
                           child: item.posterUrl != null
                               ? Hero(
                                   tag: heroTag,
-                                  createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
-                                  child: CachedNetworkImage(
-                                    imageUrl: item.posterUrl!,
-                                    memCacheWidth: 250,
-                                    fit: BoxFit.cover,
-                                    placeholder: (_, __) => Container(color: const Color(0xFF141914)),
-                                    errorWidget: (_, __, ___) => Container(color: const Color(0xFF141914)),
+                                  createRectTween: (begin, end) => RectTween(begin: begin, end: end),
+                                  flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(13),
+                                    child: CachedNetworkImage(
+                                      imageUrl: item.posterUrl!,
+                                      memCacheWidth: 250,
+                                      fit: BoxFit.cover,
+                                      placeholder: (_, __) => Container(color: const Color(0xFF141914)),
+                                      errorWidget: (_, __, ___) => Container(color: const Color(0xFF141914)),
+                                    ),
                                   ),
                                 )
                               : const SizedBox.shrink(),
@@ -1727,13 +1823,17 @@ class _RecentlyAddedHorizontalList extends StatelessWidget {
                               child: item.posterUrl != null
                                   ? Hero(
                                       tag: heroTag,
-                                      createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
-                                      child: CachedNetworkImage(
-                                        imageUrl: item.posterUrl!,
-                                        memCacheWidth: 250,
-                                        fit: BoxFit.cover,
-                                        placeholder: (_, __) => Container(color: const Color(0xFF141914)),
-                                        errorWidget: (_, __, ___) => Container(color: const Color(0xFF141914)),
+                                      createRectTween: (begin, end) => RectTween(begin: begin, end: end),
+                                      flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(13),
+                                        child: CachedNetworkImage(
+                                          imageUrl: item.posterUrl!,
+                                          memCacheWidth: 250,
+                                          fit: BoxFit.cover,
+                                          placeholder: (_, __) => Container(color: const Color(0xFF141914)),
+                                          errorWidget: (_, __, ___) => Container(color: const Color(0xFF141914)),
+                                        ),
                                       ),
                                     )
                                   : const SizedBox.shrink(),

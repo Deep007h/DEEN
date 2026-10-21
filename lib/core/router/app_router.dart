@@ -142,8 +142,8 @@ final GoRouter appRouter = GoRouter(
         }
         return CustomTransitionPage(
           key: state.pageKey,
-          transitionDuration: const Duration(milliseconds: 360),
-          reverseTransitionDuration: const Duration(milliseconds: 300),
+          transitionDuration: const Duration(milliseconds: 420),
+          reverseTransitionDuration: const Duration(milliseconds: 360),
           child: DetailScreen(
             animeId: animeId,
             heroTag: heroTag,
@@ -156,13 +156,9 @@ final GoRouter appRouter = GoRouter(
               curve: Curves.easeOutCubic,
               reverseCurve: Curves.easeInCubic,
             );
-            final scale = Tween<double>(begin: 0.94, end: 1.0).animate(curve);
             return FadeTransition(
               opacity: curve,
-              child: ScaleTransition(
-                scale: scale,
-                child: child,
-              ),
+              child: child,
             );
           },
         );

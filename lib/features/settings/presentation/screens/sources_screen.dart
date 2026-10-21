@@ -24,10 +24,49 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
   @override
   Widget build(BuildContext context) {
     final registryAsync = ref.watch(streamProviderRegistryProvider);
-    final topPadding = MediaQuery.paddingOf(context).top;
 
     return Scaffold(
       backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        elevation: 0,
+        scrolledUnderElevation: 2,
+        surfaceTintColor: Colors.transparent,
+        automaticallyImplyLeading: false,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: AppSpacing.pageMargin),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+              child: Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceElevated,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.border, width: 0.8),
+                ),
+                child: IconButton(
+                  tooltip: 'Back',
+                  padding: EdgeInsets.zero,
+                  onPressed: () => context.pop(),
+                  icon: const Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: AppColors.textPrimary,
+                    size: 16,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        leadingWidth: AppSpacing.pageMargin + 44,
+        titleSpacing: AppSpacing.sm,
+        title: const Text(
+          'Stream Providers',
+          style: AppText.sectionTitle,
+        ),
+      ),
       body: registryAsync.when(
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppColors.accent),
@@ -51,49 +90,14 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
 
           return CustomScrollView(
             slivers: [
-              // Top Bar
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    top: topPadding + AppSpacing.sm,
-                    left: AppSpacing.pageMargin,
-                    right: AppSpacing.pageMargin,
-                    bottom: AppSpacing.md,
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceElevated,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: AppColors.border, width: 0.8),
-                        ),
-                        child: IconButton(
-                          padding: EdgeInsets.zero,
-                          onPressed: () => context.pop(),
-                          icon: const Icon(
-                            Icons.arrow_back_ios_new_rounded,
-                            color: AppColors.textPrimary,
-                            size: 16,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.md),
-                      const Text(
-                        'Stream Providers',
-                        style: AppText.sectionTitle,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
               // Description banner
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
+                  padding: const EdgeInsets.only(
+                    top: AppSpacing.sm,
+                    left: AppSpacing.pageMargin,
+                    right: AppSpacing.pageMargin,
+                  ),
                   child: Container(
                     padding: const EdgeInsets.all(AppSpacing.md),
                     decoration: BoxDecoration(

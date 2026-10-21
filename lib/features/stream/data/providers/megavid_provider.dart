@@ -43,10 +43,50 @@ class MegaVidProvider implements StreamProvider {
   final Map<int, List<SourceMatch>> _matchMemoryCache = {};
   final Map<String, (List<StreamVariant>, DateTime)> _variantMemoryCache = {};
   final Map<String, List<SourceEpisode>> _episodeMemoryCache = {};
+  final Map<String, bool> _dubAvailabilityCache = {};
 
   void clearCache() {
     _variantMemoryCache.clear();
     _episodeMemoryCache.clear();
+    _dubAvailabilityCache.clear();
+  }
+
+  /// Checks if Dub track is available for this match on MegaVid/AniStream.
+  Future<bool> checkDubExists(String id) async {
+    if (_dubAvailabilityCache.containsKey(id)) {
+      return _dubAvailabilityCache[id]!;
+    }
+    final cacheKey = '${id}_1';
+    final cached = _variantMemoryCache[cacheKey];
+    if (cached != null) {
+      final hasDub = cached.$1.any((v) =>
+          v.audio.isDub ||
+          v.audio.code == AudioLanguage.englishDub.code ||
+          v.audio.code == 'en');
+      _dubAvailabilityCache[id] = hasDub;
+      return hasDub;
+    }
+
+    try {
+      final resp = await _dio.get<Map<String, dynamic>>(
+        '/api/ani/$id/1/dub',
+        options: Options(
+          headers: {
+            'Referer': '$defaultBaseUrl/ani/$id/1/dub',
+            'Origin': defaultBaseUrl,
+            'User-Agent': EmbedStreamResolver.defaultUserAgent,
+          },
+          receiveTimeout: const Duration(seconds: 3),
+          sendTimeout: const Duration(seconds: 2),
+        ),
+      );
+      final exists = resp.data != null && resp.data!['success'] == true;
+      _dubAvailabilityCache[id] = exists;
+      return exists;
+    } catch (_) {
+      _dubAvailabilityCache[id] = false;
+      return false;
+    }
   }
 
   @override

@@ -19,26 +19,26 @@ abstract final class AppMotion {
   static const Curve expressiveFastEffects = Cubic(0.31, 0.94, 0.34, 1.00);
   static const Curve expressiveDefaultEffects = Cubic(0.34, 0.80, 0.34, 1.00);
 
-  // 4. Material 3 Duration Tokens
-  static const Duration short1 = Duration(milliseconds: 50);
-  static const Duration short2 = Duration(milliseconds: 100);
-  static const Duration short3 = Duration(milliseconds: 150);
-  static const Duration short4 = Duration(milliseconds: 200);
+  // 4. Material 3 Duration Tokens (Scaled by 1.3x for smoother, relaxed UI animations)
+  static const Duration short1 = Duration(milliseconds: 65);
+  static const Duration short2 = Duration(milliseconds: 130);
+  static const Duration short3 = Duration(milliseconds: 195);
+  static const Duration short4 = Duration(milliseconds: 260);
 
-  static const Duration medium1 = Duration(milliseconds: 250);
-  static const Duration medium2 = Duration(milliseconds: 300);
-  static const Duration medium3 = Duration(milliseconds: 350);
-  static const Duration medium4 = Duration(milliseconds: 400);
+  static const Duration medium1 = Duration(milliseconds: 325);
+  static const Duration medium2 = Duration(milliseconds: 390);
+  static const Duration medium3 = Duration(milliseconds: 455);
+  static const Duration medium4 = Duration(milliseconds: 520);
 
-  static const Duration long1 = Duration(milliseconds: 450);
-  static const Duration long2 = Duration(milliseconds: 500);
-  static const Duration long3 = Duration(milliseconds: 550);
-  static const Duration long4 = Duration(milliseconds: 600);
+  static const Duration long1 = Duration(milliseconds: 585);
+  static const Duration long2 = Duration(milliseconds: 650);
+  static const Duration long3 = Duration(milliseconds: 715);
+  static const Duration long4 = Duration(milliseconds: 780);
 
-  static const Duration extraLong1 = Duration(milliseconds: 700);
-  static const Duration extraLong2 = Duration(milliseconds: 800);
-  static const Duration extraLong3 = Duration(milliseconds: 900);
-  static const Duration extraLong4 = Duration(milliseconds: 1000);
+  static const Duration extraLong1 = Duration(milliseconds: 910);
+  static const Duration extraLong2 = Duration(milliseconds: 1040);
+  static const Duration extraLong3 = Duration(milliseconds: 1170);
+  static const Duration extraLong4 = Duration(milliseconds: 1300);
 
   // 5. Material 3 Scroll Physics (Expressive stretching/bouncing overscroll)
   static const ScrollPhysics m3ScrollPhysics = BouncingScrollPhysics(

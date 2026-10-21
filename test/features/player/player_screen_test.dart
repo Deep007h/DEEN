@@ -20,6 +20,7 @@ import 'package:anime_stream/features/player/presentation/screens/player_screen.
 import 'package:anime_stream/features/player/presentation/widgets/next_episode_card.dart';
 import 'package:anime_stream/features/player/presentation/widgets/player_hud_overlays.dart';
 import 'package:anime_stream/features/player/presentation/widgets/player_settings_sheet.dart';
+import 'package:anime_stream/features/player/presentation/widgets/player_top_bar.dart';
 import 'package:anime_stream/features/player/presentation/widgets/skip_intro_button.dart';
 
 class TestMetadataRepo extends MetadataRepository {
@@ -206,7 +207,7 @@ void main() {
       expect(find.text('-10s'), findsOneWidget);
     });
 
-    testWidgets('long press triggers 2x hold speed and restores on release', (tester) async {
+    testWidgets('long press triggers 2x hold speed without flashing controls overlay', (tester) async {
       tester.view.physicalSize = const Size(1800, 900);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(() {
@@ -215,14 +216,27 @@ void main() {
       });
 
       await tester.pumpWidget(buildPlayerScreen());
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.pump(const Duration(milliseconds: 300));
+      // Let initial auto-hide countdown elapse so controls are hidden
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
 
       const clearPos = Offset(200, 200);
 
       final gesture = await tester.startGesture(clearPos);
-      // Wait long-press threshold
-      await tester.pump(const Duration(milliseconds: 600));
+      // Wait 300ms (past former 260ms single-tap timer threshold, but before 500ms long-press threshold)
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // Controls overlay must NOT have flashed visible!
+      final opacityWidgetBefore = tester.widget<AnimatedOpacity>(
+        find.ancestor(
+          of: find.byType(PlayerTopBar),
+          matching: find.byType(AnimatedOpacity),
+        ),
+      );
+      expect(opacityWidgetBefore.opacity, 0.0);
+
+      // Wait past 500ms long-press threshold
+      await tester.pump(const Duration(milliseconds: 300));
 
       // Verify 2x pill is shown and rate is accelerated
       expect(find.byType(HoldSpeedPill), findsOneWidget);

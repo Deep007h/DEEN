@@ -280,3 +280,22 @@ final activeStreamProvider = AsyncNotifierProvider.autoDispose.family<ActiveStre
     StreamResolutionResult, StreamResolutionParams>(
   ActiveStreamStateNotifier.new,
 );
+
+/// Provider checking whether English/multilingual dub is available for an anime.
+final animeDubAvailabilityProvider =
+    FutureProvider.autoDispose.family<bool, AnimeDetail>((ref, anime) async {
+  // Fast path: Check metadata tags or title for Dub indicators without waiting for orchestrator
+  final hasDubMetadata = anime.tags.any((t) {
+    final lower = t.name.toLowerCase();
+    return lower.contains('dub') || lower.contains('english dub');
+  }) || (anime.titles.english?.toLowerCase().contains('(dub)') ?? false);
+
+  if (hasDubMetadata) return true;
+
+  try {
+    final orchestrator = await ref.watch(streamOrchestratorProvider.future);
+    return await orchestrator.hasDubAvailable(anime);
+  } catch (_) {
+    return false;
+  }
+});

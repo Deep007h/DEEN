@@ -107,7 +107,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final topPadding = MediaQuery.paddingOf(context).top;
 
     final currentSort = ref.watch(searchSortProvider);
     final selectedTags = ref.watch(selectedTagsProvider);
@@ -128,90 +127,88 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
+      appBar: AppBar(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        elevation: 0,
+        scrolledUnderElevation: 2,
+        surfaceTintColor: Colors.transparent,
+        automaticallyImplyLeading: false,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: AppSpacing.pageMargin),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.12),
+                    width: 0.8,
+                  ),
+                ),
+                child: IconButton(
+                  tooltip: 'Back',
+                  padding: EdgeInsets.zero,
+                  onPressed: () => context.pop(),
+                  icon: const Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: AppColors.textPrimary,
+                    size: 16,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        leadingWidth: AppSpacing.pageMargin + 44,
+        centerTitle: true,
+        title: Text(
+          l10n.searchTitle,
+          style: AppText.sectionTitle.copyWith(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: AppSpacing.pageMargin),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppColors.accent.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: AppColors.accent.withValues(alpha: 0.3),
+                      width: 0.8,
+                    ),
+                  ),
+                  child: IconButton(
+                    tooltip: 'Stream from Embed URL',
+                    padding: EdgeInsets.zero,
+                    onPressed: () => EmbedStreamDialog.show(context),
+                    icon: const Icon(
+                      Icons.link_rounded,
+                      color: AppColors.accent,
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
       body: CustomScrollView(
         controller: _scrollController,
         physics: AppMotion.m3ScrollPhysics,
         slivers: [
-          // Top Bar with round back button and small centered title
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.only(
-                top: topPadding + AppSpacing.xs,
-                left: AppSpacing.pageMargin,
-                right: AppSpacing.pageMargin,
-                bottom: AppSpacing.sm,
-              ),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.08),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.12),
-                            width: 0.8,
-                          ),
-                        ),
-                        child: IconButton(
-                          tooltip: 'Back',
-                          padding: EdgeInsets.zero,
-                          onPressed: () => context.pop(),
-                          icon: const Icon(
-                            Icons.arrow_back_ios_new_rounded,
-                            color: AppColors.textPrimary,
-                            size: 16,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Text(
-                    l10n.searchTitle,
-                    style: AppText.sectionTitle.copyWith(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: AppColors.accent.withValues(alpha: 0.12),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: AppColors.accent.withValues(alpha: 0.3),
-                            width: 0.8,
-                          ),
-                        ),
-                        child: IconButton(
-                          tooltip: 'Stream from Embed URL',
-                          padding: EdgeInsets.zero,
-                          onPressed: () => EmbedStreamDialog.show(context),
-                          icon: const Icon(
-                            Icons.link_rounded,
-                            color: AppColors.accent,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
           // Big Page Title: "Anime Search" (Bangumi 搜索) & subtitle
           SliverToBoxAdapter(
             child: Padding(
@@ -700,7 +697,7 @@ class _PosterGridCard extends StatelessWidget {
                 children: [
                   Hero(
                     tag: 'poster_${anime.id}',
-                    createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
+                    createRectTween: (begin, end) => RectTween(begin: begin, end: end),
                     child: anime.posterUrl != null && anime.posterUrl!.isNotEmpty
                         ? CachedNetworkImage(
                             imageUrl: anime.posterUrl!,

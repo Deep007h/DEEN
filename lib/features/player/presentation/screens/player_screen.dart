@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_text.dart';
@@ -93,6 +94,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   Timer? _singleTapTimer;
   DateTime? _lastTapTime;
   Offset? _lastTapPosition;
+  bool _consecutiveTapHandled = false;
 
   bool _isHolding2x = false;
   double _rateBeforeHold = 1.0;
@@ -695,6 +697,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
     _lastTapTime = now;
     _lastTapPosition = details.localPosition;
+    _consecutiveTapHandled = isConsecutiveTap;
 
     if (isConsecutiveTap) {
       // Cancel pending single tap toggle
@@ -719,14 +722,26 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       }
       _resetControlsHideTimer();
     } else {
-      // Wait to see if second tap follows; if not, toggle controls
+      // Do not toggle or start single-tap timer on down!
+      // If user holds for 2x speed, onTapUp will never fire.
       _singleTapTimer?.cancel();
-      _singleTapTimer = Timer(const Duration(milliseconds: 260), () {
-        if (mounted) {
-          _toggleControls();
-        }
-      });
     }
+  }
+
+  void _handleTapUp(TapUpDetails details) {
+    if (_isLocked || _isHolding2x || _isScrubbing || _showVerticalHud || _consecutiveTapHandled) {
+      return;
+    }
+    _singleTapTimer?.cancel();
+    _singleTapTimer = Timer(const Duration(milliseconds: 260), () {
+      if (mounted && !_isHolding2x && !_isScrubbing && !_showVerticalHud) {
+        _toggleControls();
+      }
+    });
+  }
+
+  void _handleTapCancel() {
+    _singleTapTimer?.cancel();
   }
 
   void _showDoubleTapBadge(int offsetSeconds) {
@@ -954,6 +969,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTapDown: (details) => _handleTapDown(details, screenSize.width),
+                onTapUp: _handleTapUp,
+                onTapCancel: _handleTapCancel,
                 onLongPressStart: (_) => _handleLongPressStart(),
                 onLongPressEnd: (_) => _handleLongPressEnd(),
                 onLongPressCancel: () => _handleLongPressEnd(),
@@ -1084,7 +1101,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
               // 9. Auto-hiding Controls Overlay
               AnimatedOpacity(
                 opacity: (_controlsVisible && !_isLocked && !_isHolding2x) ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 250),
+                duration: AppMotion.medium1,
                 child: IgnorePointer(
                   ignoring: !_controlsVisible || _isLocked || _isHolding2x,
                   child: Stack(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_motion.dart';
 
 /// Center controls overlay with 5-button layout:
 /// - Frosted circular Previous Episode button (far left)
@@ -173,7 +174,7 @@ class _EpisodeCircleButton extends StatelessWidget {
         child: Tooltip(
           message: tooltip,
           child: AnimatedOpacity(
-            duration: const Duration(milliseconds: 200),
+            duration: AppMotion.short4,
             opacity: enabled ? 1.0 : 0.35,
             child: Container(
               width: 50,

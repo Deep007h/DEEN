@@ -12,6 +12,8 @@ import 'package:anime_stream/features/metadata/domain/models/season.dart';
 import 'package:anime_stream/features/metadata/domain/models/search_sort.dart';
 import 'package:anime_stream/features/metadata/domain/repositories/metadata_repository.dart';
 import 'package:anime_stream/features/metadata/presentation/providers/metadata_providers.dart';
+import 'package:anime_stream/features/detail/presentation/screens/detail_screen.dart';
+import 'package:anime_stream/l10n/app_localizations.dart';
 
 class FakeMetadataRepository extends MetadataRepository {
   @override
@@ -153,6 +155,7 @@ void main() {
     // Verify detail screen content
     expect(find.text('葬送のフリーレン'), findsOneWidget);
     expect(find.text('Rank #43'), findsOneWidget);
+    expect(find.text('sub'), findsOneWidget);
     expect(find.text('Synopsis'), findsOneWidget);
 
     // Verify seasons selector
@@ -175,5 +178,38 @@ void main() {
     // Verify episode list
     expect(find.text('The End of the Beginning (冒险结束)'), findsOneWidget);
     expect(find.text("It Didn't Have to Be Magic... (不见得一定是靠魔法…)"), findsOneWidget);
+  });
+
+  testWidgets('Detail screen displays "sub/dub" indicator when dub is available', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    const dubAnime = AnimeDetail(
+      id: 154587,
+      titles: AnimeTitles(original: 'Frieren', english: 'Frieren (Dub)'),
+      tags: [AnimeTag(name: 'English Dub', count: 100)],
+      eps: 28,
+      rank: 1,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          animeDetailProvider(154587).overrideWith((ref) => Future.value(dubAnime)),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: DetailScreen(animeId: '154587'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('sub/dub'), findsOneWidget);
   });
 }

@@ -15,6 +15,24 @@ import 'package:anime_stream/features/metadata/domain/models/anime_titles.dart';
 import 'package:anime_stream/features/stream/presentation/providers/stream_providers.dart';
 import 'package:anime_stream/features/library/domain/models/followed_anime.dart';
 
+Widget smoothDetailHeroFlightShuttleBuilder(
+  BuildContext flightContext,
+  Animation<double> animation,
+  HeroFlightDirection flightDirection,
+  BuildContext fromHeroContext,
+  BuildContext toHeroContext,
+) {
+  final Widget toHeroWidget = (toHeroContext.widget as Hero).child;
+  return Material(
+    type: MaterialType.transparency,
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      clipBehavior: Clip.antiAlias,
+      child: toHeroWidget,
+    ),
+  );
+}
+
 /// Detail screen matching reference Screen 2.
 /// Features blurred backdrop fade, sharp hero poster, rating and rank badges,
 /// action buttons (Play, Follow toggle with local persistence), collapsible tags,
@@ -82,118 +100,109 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: detailAsync.when(
-        data: (detail) {
-          final displayTitle = detail.titles.preferredTitle(titlePref);
-          final isFollowed = isFollowedAsync.valueOrNull ?? false;
-          final lastWatchedEp = lastWatchedEpAsync.valueOrNull;
+      body: Stack(
+        children: [
+          // 1. Scrollable Content Layer
+          detailAsync.when(
+            data: (detail) {
+              final displayTitle = detail.titles.preferredTitle(titlePref);
+              final isFollowed = isFollowedAsync.valueOrNull ?? false;
+              final lastWatchedEp = lastWatchedEpAsync.valueOrNull;
+              final dubAvailableAsync = ref.watch(animeDubAvailabilityProvider(detail));
+              final hasDub = dubAvailableAsync.valueOrNull ?? false;
 
-          // Pre-resolve target episode stream in background for instant 0ms playback
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            ref.read(streamOrchestratorProvider.future).then((orch) {
-              final targetEp = lastWatchedEp ?? 1;
-              orch.prewarmEpisode(anime: detail, episodeNumber: targetEp);
-            });
-          });
+              // Pre-resolve target episode stream in background for instant 0ms playback
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                ref.read(streamOrchestratorProvider.future).then((orch) {
+                  final targetEp = lastWatchedEp ?? 1;
+                  orch.prewarmEpisode(anime: detail, episodeNumber: targetEp);
+                });
+              });
 
-          return RefreshIndicator(
-            color: AppColors.accent,
-            backgroundColor: AppColors.surfaceElevated,
-            onRefresh: () async {
-              ref.invalidate(animeDetailProvider(currentId));
-              await ref.read(animeDetailProvider(currentId).future);
-            },
-            child: CustomScrollView(
-              physics: AppMotion.m3ScrollPhysics,
-              slivers: [
-                // Top Backdrop with Blurred Poster + Round Back Button + Header Content
-                SliverToBoxAdapter(
-                  child: Stack(
-                    children: [
-                      // 1. Blurred Backdrop Image
-                      if (detail.posterUrl != null && detail.posterUrl!.isNotEmpty)
-                        Positioned(
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          height: 380,
-                          child: ClipRect(
-                            child: ImageFiltered(
-                              imageFilter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-                              child: Transform.scale(
-                                scale: 1.25,
-                                child: CachedNetworkImage(
-                                  imageUrl: detail.bannerUrl ?? detail.posterUrl!,
-                                  fit: BoxFit.cover,
-                                  memCacheWidth: 720,
-                                  errorWidget: (_, __, ___) => const SizedBox.shrink(),
+              return RefreshIndicator(
+                color: AppColors.accent,
+                backgroundColor: AppColors.surfaceElevated,
+                displacement: 32,
+                edgeOffset: topPadding + 8,
+                onRefresh: () async {
+                  ref.invalidate(animeDetailProvider(currentId));
+                  await ref.read(animeDetailProvider(currentId).future);
+                },
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: ClampingScrollPhysics(),
+                  ),
+                  slivers: [
+                    // Top Backdrop with Blurred Poster + Header Content
+                    SliverToBoxAdapter(
+                      child: Stack(
+                        children: [
+                          // 1. Blurred Backdrop Image (cached in GPU layer)
+                          if (detail.posterUrl != null && detail.posterUrl!.isNotEmpty)
+                            Positioned(
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              height: 380,
+                              child: IgnorePointer(
+                                child: RepaintBoundary(
+                                  child: ClipRect(
+                                    child: ImageFiltered(
+                                      imageFilter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                                      child: Transform.scale(
+                                        scale: 1.25,
+                                        child: CachedNetworkImage(
+                                          imageUrl: detail.bannerUrl ?? detail.posterUrl!,
+                                          fit: BoxFit.cover,
+                                          memCacheWidth: 720,
+                                          errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        ),
 
-                      // 2. Gradient Shade to Pure Black
-                      Positioned(
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        height: 380,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.black.withValues(alpha: 0.35),
-                                Colors.black.withValues(alpha: 0.75),
-                                AppColors.background,
-                              ],
-                              stops: const [0.0, 0.65, 1.0],
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      // 3. Foreground Content
-                      Padding(
-                        padding: EdgeInsets.only(
-                          top: topPadding + AppSpacing.xs,
-                          left: AppSpacing.pageMargin,
-                          right: AppSpacing.pageMargin,
-                          bottom: AppSpacing.md,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Round Back Button
-                            ConstrainedBox(
-                              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-                              child: Container(
-                                width: 40,
-                                height: 40,
+                          // 2. Gradient Shade to Pure Black
+                          Positioned(
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            height: 380,
+                            child: IgnorePointer(
+                              child: DecoratedBox(
                                 decoration: BoxDecoration(
-                                  color: Colors.black.withValues(alpha: 0.45),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.15),
-                                    width: 0.8,
-                                  ),
-                                ),
-                                child: IconButton(
-                                  tooltip: 'Back',
-                                  padding: EdgeInsets.zero,
-                                  onPressed: () => context.pop(),
-                                  icon: const Icon(
-                                    Icons.arrow_back_ios_new_rounded,
-                                    color: AppColors.textPrimary,
-                                    size: 16,
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      Colors.black.withValues(alpha: 0.35),
+                                      Colors.black.withValues(alpha: 0.75),
+                                      AppColors.background,
+                                    ],
+                                    stops: const [0.0, 0.65, 1.0],
                                   ),
                                 ),
                               ),
                             ),
+                          ),
 
-                            const SizedBox(height: AppSpacing.md),
+                          // 3. Foreground Content
+                          Padding(
+                            padding: EdgeInsets.only(
+                              top: topPadding + AppSpacing.xs,
+                              left: AppSpacing.pageMargin,
+                              right: AppSpacing.pageMargin,
+                              bottom: AppSpacing.md,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Spacer reserving room for the persistent floating back button
+                                const SizedBox(height: 44),
+
+                                const SizedBox(height: AppSpacing.md),
 
                             // Header row: Sharp Hero Poster on left + Titles & Metadata on right
                             Row(
@@ -202,7 +211,8 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                                 // Sharp Poster Card with Hero animation
                                 Hero(
                                   tag: widget.heroTag ?? 'poster_${detail.id}',
-                                  createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
+                                  createRectTween: (begin, end) => RectTween(begin: begin, end: end),
+                                  flightShuttleBuilder: smoothDetailHeroFlightShuttleBuilder,
                                   child: Container(
                                     width: 115,
                                     height: 165,
@@ -379,6 +389,28 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                                                 style: AppText.meta.copyWith(fontSize: 10.5),
                                               ),
                                             ),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: hasDub ? AppColors.accentSoft : AppColors.surfaceElevated,
+                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(
+                                                color: hasDub ? AppColors.accentBorder : Colors.white.withValues(alpha: 0.08),
+                                                width: 0.8,
+                                              ),
+                                            ),
+                                            child: Text(
+                                              hasDub ? 'sub/dub' : 'sub',
+                                              style: AppText.badgeText.copyWith(
+                                                color: hasDub ? AppColors.accent : AppColors.textSecondary,
+                                                fontSize: 10.5,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
                                           if (detail.eps != null && detail.eps! > 0)
                                             Text(
                                               '${detail.eps} eps',
@@ -926,38 +958,40 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
           previewPoster: widget.previewPoster,
           previewTitle: widget.previewTitle,
         ),
-        error: (err, stack) => Scaffold(
-          backgroundColor: AppColors.background,
-          appBar: AppBar(
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new_rounded),
-              onPressed: () => context.pop(),
-            ),
-          ),
-          body: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.xl),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.error_outline_rounded, size: 48, color: AppColors.accent),
-                  const SizedBox(height: AppSpacing.md),
-                  Text(l10n.errorLoading, style: AppText.sectionTitle),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(err.toString(), textAlign: TextAlign.center, style: AppText.meta),
-                  const SizedBox(height: AppSpacing.lg),
-                  ElevatedButton.icon(
-                    onPressed: () => ref.refresh(animeDetailProvider(currentId)),
-                    icon: const Icon(Icons.refresh_rounded),
-                    label: Text(l10n.retry),
-                  ),
-                ],
-              ),
+        error: (err, stack) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.xl),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline_rounded, size: 48, color: AppColors.accent),
+                const SizedBox(height: AppSpacing.md),
+                Text(l10n.errorLoading, style: AppText.sectionTitle),
+                const SizedBox(height: AppSpacing.xs),
+                Text(err.toString(), textAlign: TextAlign.center, style: AppText.meta),
+                const SizedBox(height: AppSpacing.lg),
+                ElevatedButton.icon(
+                  onPressed: () => ref.refresh(animeDetailProvider(currentId)),
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: Text(l10n.retry),
+                ),
+              ],
             ),
           ),
         ),
       ),
-    );
+
+      // 2. Persistent Floating Glass Back Button (pinned on top of all content)
+      Positioned(
+        top: topPadding + AppSpacing.xs,
+        left: AppSpacing.pageMargin,
+        child: _FloatingBackButton(
+          onPressed: () => context.pop(),
+        ),
+      ),
+    ],
+  ),
+);
   }
 
   void _showSourceSelectorSheet(BuildContext context, int currentId, dynamic registry) {
@@ -1079,6 +1113,55 @@ class _InfoPill extends StatelessWidget {
 }
 
 
+class _FloatingBackButton extends StatelessWidget {
+  final VoidCallback onPressed;
+
+  const _FloatingBackButton({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(22),
+          child: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.60),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.20),
+                width: 0.9,
+              ),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x7A000000),
+                  blurRadius: 12,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            ),
+            child: const Center(
+              child: Tooltip(
+                message: 'Back',
+                child: Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  color: AppColors.textPrimary,
+                  size: 16,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _DetailLoadingSkeleton extends StatelessWidget {
   final String? heroTag;
   final String? previewPoster;
@@ -1094,164 +1177,155 @@ class _DetailLoadingSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     final topPadding = MediaQuery.paddingOf(context).top;
 
-    return Stack(
-      children: [
-        if (previewPoster != null && previewPoster!.isNotEmpty)
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(parent: ClampingScrollPhysics()),
+      child: Stack(
+        children: [
+          if (previewPoster != null && previewPoster!.isNotEmpty)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 380,
+              child: IgnorePointer(
+                child: RepaintBoundary(
+                  child: ClipRect(
+                    child: ImageFiltered(
+                      imageFilter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                      child: Transform.scale(
+                        scale: 1.25,
+                        child: CachedNetworkImage(
+                          imageUrl: previewPoster!,
+                          fit: BoxFit.cover,
+                          memCacheWidth: 720,
+                          errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           Positioned(
             top: 0,
             left: 0,
             right: 0,
             height: 380,
-            child: ClipRect(
-              child: ImageFiltered(
-                imageFilter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-                child: Transform.scale(
-                  scale: 1.25,
-                  child: CachedNetworkImage(
-                    imageUrl: previewPoster!,
-                    fit: BoxFit.cover,
-                    memCacheWidth: 720,
-                    errorWidget: (_, __, ___) => const SizedBox.shrink(),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 380,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.black.withValues(alpha: 0.35),
-                  Colors.black.withValues(alpha: 0.75),
-                  AppColors.background,
-                ],
-                stops: const [0.0, 0.65, 1.0],
-              ),
-            ),
-          ),
-        ),
-        Padding(
-          padding: EdgeInsets.only(
-            top: topPadding + AppSpacing.xs,
-            left: AppSpacing.pageMargin,
-            right: AppSpacing.pageMargin,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Round Back Button
-              Container(
-                width: 40,
-                height: 40,
+            child: IgnorePointer(
+              child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.45),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.15),
-                    width: 0.8,
-                  ),
-                ),
-                child: IconButton(
-                  padding: EdgeInsets.zero,
-                  onPressed: () => context.pop(),
-                  icon: const Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    color: AppColors.textPrimary,
-                    size: 16,
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.35),
+                      Colors.black.withValues(alpha: 0.75),
+                      AppColors.background,
+                    ],
+                    stops: const [0.0, 0.65, 1.0],
                   ),
                 ),
               ),
-              const SizedBox(height: AppSpacing.md),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (heroTag != null && previewPoster != null && previewPoster!.isNotEmpty)
-                    Hero(
-                      tag: heroTag!,
-                      createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
-                      child: Container(
-                        width: 115,
-                        height: 165,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.15),
-                            width: 1,
-                          ),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color(0x7A000000),
-                              blurRadius: 16,
-                              offset: Offset(0, 8),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.only(
+              top: topPadding + AppSpacing.xs,
+              left: AppSpacing.pageMargin,
+              right: AppSpacing.pageMargin,
+              bottom: AppSpacing.xxxl,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Spacer matching the persistent floating back button
+                const SizedBox(height: 44),
+                const SizedBox(height: AppSpacing.md),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (heroTag != null && previewPoster != null && previewPoster!.isNotEmpty)
+                      Hero(
+                        tag: heroTag!,
+                        createRectTween: (begin, end) => RectTween(begin: begin, end: end),
+                        flightShuttleBuilder: smoothDetailHeroFlightShuttleBuilder,
+                        child: Container(
+                          width: 115,
+                          height: 165,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.15),
+                              width: 1,
                             ),
-                          ],
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(13),
-                          child: CachedNetworkImage(
-                            imageUrl: previewPoster!,
-                            fit: BoxFit.cover,
-                            memCacheWidth: 360,
-                            memCacheHeight: 540,
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x7A000000),
+                                blurRadius: 16,
+                                offset: Offset(0, 8),
+                              ),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(13),
+                            child: CachedNetworkImage(
+                              imageUrl: previewPoster!,
+                              fit: BoxFit.cover,
+                              memCacheWidth: 360,
+                              memCacheHeight: 540,
+                            ),
                           ),
                         ),
-                      ),
-                    )
-                  else
-                    ShimmerBox(width: 115, height: 165, borderRadius: BorderRadius.circular(14)),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (previewTitle != null)
-                          Text(
-                            previewTitle!,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppText.sectionTitle.copyWith(fontSize: 18),
-                          )
-                        else ...[
-                          ShimmerBox(width: 90, height: 12, borderRadius: BorderRadius.circular(4)),
+                      )
+                    else
+                      ShimmerBox(width: 115, height: 165, borderRadius: BorderRadius.circular(14)),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (previewTitle != null)
+                            Text(
+                              previewTitle!,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppText.sectionTitle.copyWith(fontSize: 18),
+                            )
+                          else ...[
+                            ShimmerBox(width: 90, height: 12, borderRadius: BorderRadius.circular(4)),
+                            const SizedBox(height: 8),
+                            ShimmerBox(width: 180, height: 22, borderRadius: BorderRadius.circular(6)),
+                          ],
+                          const SizedBox(height: 12),
+                          ShimmerBox(width: 120, height: 14, borderRadius: BorderRadius.circular(4)),
                           const SizedBox(height: 8),
-                          ShimmerBox(width: 180, height: 22, borderRadius: BorderRadius.circular(6)),
+                          ShimmerBox(width: 140, height: 14, borderRadius: BorderRadius.circular(4)),
                         ],
-                        const SizedBox(height: 12),
-                        ShimmerBox(width: 120, height: 14, borderRadius: BorderRadius.circular(4)),
-                        const SizedBox(height: 8),
-                        ShimmerBox(width: 140, height: 14, borderRadius: BorderRadius.circular(4)),
-                      ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                const ShimmerBox(width: double.infinity, height: 48, borderRadius: AppRadius.pillBorder),
+                const SizedBox(height: AppSpacing.xl),
+                const ShimmerBox(width: double.infinity, height: 80, borderRadius: AppRadius.cardBorder),
+                const SizedBox(height: AppSpacing.xl),
+                ...List.generate(
+                  4,
+                  (index) => Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                    child: ShimmerBox(
+                      width: double.infinity,
+                      height: 56,
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              const ShimmerBox(width: double.infinity, height: 48, borderRadius: AppRadius.pillBorder),
-              const SizedBox(height: AppSpacing.xl),
-              const ShimmerBox(width: double.infinity, height: 80, borderRadius: AppRadius.cardBorder),
-              const SizedBox(height: AppSpacing.xl),
-              Expanded(
-                child: ListView.separated(
-                  itemCount: 4,
-                  separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
-                  itemBuilder: (_, __) => ShimmerBox(
-                    width: double.infinity,
-                    height: 56,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -1281,7 +1355,7 @@ class _SpringStarButtonState extends State<_SpringStarButton>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 350),
+      duration: AppMotion.medium3,
     );
     _scaleAnimation = TweenSequence<double>([
       TweenSequenceItem(

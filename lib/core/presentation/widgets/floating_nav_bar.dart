@@ -2,7 +2,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/app_motion.dart';
-import '../../theme/app_spacing.dart';
 import 'pressable_scale.dart';
 
 /// Navigation item definition for the floating pill bar.
@@ -35,64 +34,50 @@ class FloatingNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
-    final screenWidth = MediaQuery.sizeOf(context).width;
-
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    // Responsive horizontal margin for small screens (down to 360px)
-    final horizontalMargin = screenWidth < 380 ? 12.0 : AppSpacing.floatingBarMarginHorizontal;
-
-    return Padding(
-      padding: EdgeInsets.only(
-        left: horizontalMargin,
-        right: horizontalMargin,
-        bottom: bottomInset > 0 ? bottomInset + 4 : AppSpacing.floatingBarMarginBottom,
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(34.0),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 24.0, sigmaY: 24.0),
-          child: Container(
-            height: AppSpacing.floatingBarHeight,
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainer.withValues(alpha: 0.88),
-              borderRadius: BorderRadius.circular(34.0),
-              border: Border.all(
-                color: colorScheme.outlineVariant.withValues(alpha: 0.5),
-                width: 1.0,
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(24.0)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 24.0, sigmaY: 24.0),
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xF50D110D),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24.0)),
+            border: Border(
+              top: BorderSide(
+                color: const Color(0xFFC6F16D).withValues(alpha: 0.22),
+                width: 0.8,
               ),
-              boxShadow: [
-                const BoxShadow(
-                  color: Color(0x99000000),
-                  blurRadius: 30,
-                  spreadRadius: 1,
-                  offset: Offset(0, 10),
-                ),
-                BoxShadow(
-                  color: colorScheme.primary.withValues(alpha: 0.12),
-                  blurRadius: 18,
-                  offset: const Offset(0, 2),
-                ),
-              ],
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: List.generate(items.length, (index) {
-                final item = items[index];
-                final isSelected = index == currentIndex;
-                return Expanded(
-                  child: _NavBarTabButton(
-                    item: item,
-                    isSelected: isSelected,
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      onTap(index);
-                    },
-                  ),
-                );
-              }),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x99000000),
+                blurRadius: 24,
+                offset: Offset(0, -4),
+              ),
+            ],
+          ),
+          child: SafeArea(
+            top: false,
+            bottom: true,
+            child: SizedBox(
+              height: 64.0,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: List.generate(items.length, (index) {
+                  final item = items[index];
+                  final isSelected = index == currentIndex;
+                  return Expanded(
+                    child: _NavBarTabButton(
+                      item: item,
+                      isSelected: isSelected,
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        onTap(index);
+                      },
+                    ),
+                  );
+                }),
+              ),
             ),
           ),
         ),
@@ -114,8 +99,9 @@ class _NavBarTabButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    const activeColor = Color(0xFFC6F16D);
+    const activeBgColor = Color(0xFF233316);
+    const inactiveColor = Color(0xFF9EABA0);
 
     return Semantics(
       selected: isSelected,
@@ -129,21 +115,18 @@ class _NavBarTabButton extends StatelessWidget {
             duration: AppMotion.medium1,
             curve: Curves.easeOutCubic,
             padding: const EdgeInsets.symmetric(
-              horizontal: 14.0,
+              horizontal: 16.0,
               vertical: 6.0,
             ),
             decoration: BoxDecoration(
-              color: isSelected ? colorScheme.primary : Colors.transparent,
-              borderRadius: BorderRadius.circular(24.0),
-              boxShadow: isSelected
-                  ? [
-                      BoxShadow(
-                        color: colorScheme.primary.withValues(alpha: 0.35),
-                        blurRadius: 14,
-                        offset: const Offset(0, 2),
-                      ),
-                    ]
-                  : const [],
+              color: isSelected ? activeBgColor : Colors.transparent,
+              borderRadius: BorderRadius.circular(20.0),
+              border: isSelected
+                  ? Border.all(
+                      color: activeColor.withValues(alpha: 0.25),
+                      width: 0.8,
+                    )
+                  : null,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -157,18 +140,18 @@ class _NavBarTabButton extends StatelessWidget {
                     isSelected ? item.activeIcon : item.icon,
                     key: ValueKey(isSelected),
                     size: 21,
-                    color: isSelected ? colorScheme.onPrimary : colorScheme.onSurfaceVariant,
+                    color: isSelected ? activeColor : inactiveColor,
                   ),
                 ),
-                const SizedBox(height: 2.5),
+                const SizedBox(height: 3),
                 Text(
                   item.label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: isSelected ? colorScheme.onPrimary : colorScheme.onSurfaceVariant,
-                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
-                    fontSize: 10.5,
+                    color: isSelected ? activeColor : inactiveColor,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    fontSize: 11,
                     letterSpacing: 0.1,
                   ),
                 ),

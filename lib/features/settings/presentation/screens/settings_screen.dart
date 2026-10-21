@@ -50,9 +50,38 @@ class SettingsScreen extends ConsumerWidget {
                 right: AppSpacing.pageMargin,
                 bottom: AppSpacing.lg,
               ),
-              child: Text(
-                l10n.settingsTitle,
-                style: AppText.pageTitle,
+              child: Row(
+                children: [
+                  if (Navigator.of(context).canPop()) ...[
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                      child: Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceElevated,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: AppColors.border, width: 0.8),
+                        ),
+                        child: IconButton(
+                          tooltip: 'Back',
+                          padding: EdgeInsets.zero,
+                          onPressed: () => context.pop(),
+                          icon: const Icon(
+                            Icons.arrow_back_ios_new_rounded,
+                            color: AppColors.textPrimary,
+                            size: 16,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                  ],
+                  Text(
+                    l10n.settingsTitle,
+                    style: AppText.pageTitle,
+                  ),
+                ],
               ),
             ),
           ),
@@ -113,7 +142,7 @@ class SettingsScreen extends ConsumerWidget {
                                 return GestureDetector(
                                   onTap: () => settingsNotifier.updateAccentColor(color),
                                   child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 200),
+                                    duration: AppMotion.short4,
                                     width: 38,
                                     height: 38,
                                     decoration: BoxDecoration(

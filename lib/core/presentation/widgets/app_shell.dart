@@ -55,8 +55,8 @@ class _AppShellState extends State<AppShell> {
         label: 'Explore',
       ),
       const FloatingNavBarItem(
-        icon: Icons.video_library_outlined,
-        activeIcon: Icons.video_library_rounded,
+        icon: Icons.bookmark_outline_rounded,
+        activeIcon: Icons.bookmark_rounded,
         label: 'Library',
       ),
       const FloatingNavBarItem(
@@ -108,7 +108,7 @@ class _AppShellState extends State<AppShell> {
               child: widget.navigationShell,
             ),
 
-            // Material 3 Floating Pill Dashboard with M3 motion physics slide
+            // Material 3 Docked Dashboard with M3 motion physics slide
             Positioned(
               left: 0,
               right: 0,
@@ -119,7 +119,7 @@ class _AppShellState extends State<AppShell> {
                   builder: (context, isVisible, child) {
                     final duration = isVisible ? AppMotion.medium2 : AppMotion.medium1;
                     return AnimatedSlide(
-                      offset: isVisible ? Offset.zero : const Offset(0, 1.25),
+                      offset: isVisible ? Offset.zero : const Offset(0, 1.05),
                       duration: duration,
                       curve: isVisible
                           ? AppMotion.expressiveFastSpatial

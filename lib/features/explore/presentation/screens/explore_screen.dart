@@ -67,7 +67,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
     if (_scrollController.hasClients) {
       _scrollController.animateTo(
         0,
-        duration: const Duration(milliseconds: 350),
+        duration: AppMotion.medium3,
         curve: Curves.easeOutCubic,
       );
     }
@@ -243,7 +243,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
           // 3. Featured Hero Spotlight for Selected Genre
           SliverToBoxAdapter(
             child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 320),
+              duration: const Duration(milliseconds: 416),
               switchInCurve: Curves.easeOutCubic,
               switchOutCurve: Curves.easeInCubic,
               child: KeyedSubtree(
@@ -276,7 +276,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
           ),
           SliverToBoxAdapter(
             child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
+              duration: AppMotion.medium2,
               child: KeyedSubtree(
                 key: ValueKey('trending_$selectedGenre'),
                 child: SizedBox(
@@ -317,7 +317,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
           ),
           SliverToBoxAdapter(
             child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
+              duration: AppMotion.medium2,
               child: KeyedSubtree(
                 key: ValueKey('toprated_$selectedGenre'),
                 child: SizedBox(
@@ -357,7 +357,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
           ),
           SliverToBoxAdapter(
             child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
+              duration: AppMotion.medium2,
               child: KeyedSubtree(
                 key: ValueKey('popular_$selectedGenre'),
                 child: SizedBox(
@@ -679,7 +679,7 @@ class _ExploreHeroSpotlight extends StatelessWidget {
                 // Backdrop banner image
                 Hero(
                   tag: heroTag,
-                  createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
+                  createRectTween: (begin, end) => RectTween(begin: begin, end: end),
                   child: CachedNetworkImage(
                     imageUrl: hero.bannerUrl ?? hero.posterUrl ?? '',
                     fit: BoxFit.cover,
@@ -883,7 +883,7 @@ class _ExplorePosterCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(13),
                       child: Hero(
                         tag: heroTag,
-                        createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
+                        createRectTween: (begin, end) => RectTween(begin: begin, end: end),
                         child: CachedNetworkImage(
                           imageUrl: item.posterUrl ?? '',
                           fit: BoxFit.cover,
@@ -1021,7 +1021,7 @@ class _CatalogGridCard extends StatelessWidget {
                     children: [
                       Hero(
                         tag: heroTag,
-                        createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
+                        createRectTween: (begin, end) => RectTween(begin: begin, end: end),
                         child: CachedNetworkImage(
                           imageUrl: item.posterUrl ?? '',
                           fit: BoxFit.cover,
@@ -1160,7 +1160,7 @@ class _CatalogListCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 child: Hero(
                   tag: heroTag,
-                  createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
+                  createRectTween: (begin, end) => RectTween(begin: begin, end: end),
                   child: CachedNetworkImage(
                     imageUrl: item.posterUrl ?? '',
                     width: 70,
@@ -1273,7 +1273,7 @@ class _CatalogWideCard extends StatelessWidget {
               children: [
                 Hero(
                   tag: heroTag,
-                  createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
+                  createRectTween: (begin, end) => RectTween(begin: begin, end: end),
                   child: CachedNetworkImage(
                     imageUrl: item.posterUrl ?? '',
                     fit: BoxFit.cover,
