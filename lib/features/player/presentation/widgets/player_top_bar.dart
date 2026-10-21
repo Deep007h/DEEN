@@ -10,6 +10,7 @@ class PlayerTopBar extends StatelessWidget {
   final String episodeSubtitle;
   final VoidCallback onBack;
   final bool danmakuEnabled;
+  final bool showDanmaku;
   final VoidCallback onToggleDanmaku;
   final VoidCallback? onOpenEpisodes;
   final VoidCallback? onCast;
@@ -20,6 +21,8 @@ class PlayerTopBar extends StatelessWidget {
   final String? audioLabel;
   final VoidCallback? onToggleAudio;
   final VoidCallback? onLock;
+  final String streamType;
+  final String qualityLabel;
 
   const PlayerTopBar({
     super.key,
@@ -27,6 +30,7 @@ class PlayerTopBar extends StatelessWidget {
     required this.episodeSubtitle,
     required this.onBack,
     this.danmakuEnabled = true,
+    this.showDanmaku = true,
     required this.onToggleDanmaku,
     this.onOpenEpisodes,
     this.onCast,
@@ -37,12 +41,14 @@ class PlayerTopBar extends StatelessWidget {
     this.audioLabel,
     this.onToggleAudio,
     this.onLock,
+    this.streamType = 'HLS',
+    this.qualityLabel = '1080P',
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
@@ -59,17 +65,17 @@ class PlayerTopBar extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Frosted squircle back button
+            // Frosted squircle back button matching screenshot
             _FrostedCircleButton(
               icon: Icons.chevron_left_rounded,
               size: 24,
-              buttonSize: 38,
+              buttonSize: 40,
               onPressed: onBack,
               tooltip: 'Back',
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
 
-            // Anime Title, Episode subtitle, and Stream Telemetry Badge
+            // Anime Title, Episode subtitle, and Stream Telemetry Badges
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -84,41 +90,74 @@ class PlayerTopBar extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 15.0,
+                            fontSize: 16.0,
                             fontWeight: FontWeight.w700,
-                            letterSpacing: 0.2,
+                            letterSpacing: 0.1,
                           ),
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF141914),
-                          borderRadius: BorderRadius.circular(5),
-                          border: Border.all(color: const Color(0xFF263526), width: 0.8),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.circle, color: Color(0xFF22C55E), size: 5.5),
-                            SizedBox(width: 4),
-                            Text(
-                              'HLS • 1080P',
-                              style: TextStyle(
-                                fontFamily: 'monospace',
-                                fontSize: 9.0,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF8E9E8E),
-                                letterSpacing: 0.4,
+
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Format Badge (• HLS)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xEE141914),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: const Color(0xFF263526), width: 0.8),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.circle, color: Color(0xFF22C55E), size: 5.5),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      streamType.toUpperCase(),
+                                      style: const TextStyle(
+                                        fontFamily: 'monospace',
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                        letterSpacing: 0.4,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 6),
+
+                              // Quality Badge (1080P)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xEE141914),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: const Color(0xFF263526), width: 0.8),
+                                ),
+                                child: Text(
+                                  qualityLabel.toUpperCase(),
+                                  style: const TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFFB0BFB0),
+                                    letterSpacing: 0.4,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 3),
                   Text(
                     episodeSubtitle,
                     maxLines: 1,
@@ -133,7 +172,7 @@ class PlayerTopBar extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
 
             // [ 🎵 DUB ] Studio Audio Pill Toggle Button
             if (audioLabel != null && onToggleAudio != null) ...[
@@ -181,15 +220,18 @@ class PlayerTopBar extends StatelessWidget {
             ],
 
             // Comments / Danmaku toggle button
-            _FrostedCircleButton(
-              icon: Icons.chat_bubble_outline_rounded,
-              iconColor: danmakuEnabled ? Colors.white : Colors.white38,
-              size: 18,
-              buttonSize: 40,
-              onPressed: onToggleDanmaku,
-              tooltip: danmakuEnabled ? 'Disable Comments' : 'Enable Comments',
+            Visibility(
+              visible: showDanmaku,
+              child: _FrostedCircleButton(
+                icon: Icons.chat_bubble_outline_rounded,
+                iconColor: danmakuEnabled ? Colors.white : Colors.white38,
+                size: 18,
+                buttonSize: 40,
+                onPressed: onToggleDanmaku,
+                tooltip: danmakuEnabled ? 'Disable Comments' : 'Enable Comments',
+              ),
             ),
-            const SizedBox(width: 12),
+            if (showDanmaku) const SizedBox(width: 12),
 
             // Cast button
             if (onCast != null) ...[
@@ -199,18 +241,6 @@ class PlayerTopBar extends StatelessWidget {
                 buttonSize: 40,
                 onPressed: onCast!,
                 tooltip: 'Cast',
-              ),
-              const SizedBox(width: 12),
-            ],
-
-            // Lock Screen button
-            if (onLock != null) ...[
-              _FrostedCircleButton(
-                icon: Icons.lock_outline_rounded,
-                size: 18,
-                buttonSize: 40,
-                onPressed: onLock!,
-                tooltip: 'Lock Screen',
               ),
               const SizedBox(width: 12),
             ],
@@ -262,7 +292,7 @@ class _FrostedCircleButton extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onPressed,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         child: Tooltip(
           message: tooltip ?? '',
           child: Container(
@@ -270,7 +300,7 @@ class _FrostedCircleButton extends StatelessWidget {
             height: buttonSize,
             decoration: BoxDecoration(
               color: const Color(0xEE141914),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: const Color(0xFF263526),
                 width: 1.0,

@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/presentation/widgets/shimmer_box.dart';
@@ -68,7 +69,16 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
     _lastEpisodeNavTime = now;
     ref.read(playbackHistoryRepositoryProvider).setLastWatchedEpisode(currentId, epNum);
     ref.invalidate(lastWatchedEpisodeProvider(currentId));
-    context.push('/player?animeId=$currentId&ep=$epNum&provider=$selectedProviderId');
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+    context.push('/player?animeId=$currentId&ep=$epNum&provider=$selectedProviderId').then((_) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+      ]);
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    });
   }
 
   @override

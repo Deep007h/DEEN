@@ -58,9 +58,12 @@ class PlayerScreen extends ConsumerStatefulWidget {
 }
 
 class _PlayerScreenState extends ConsumerState<PlayerScreen>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, TickerProviderStateMixin {
   VideoPlaybackEngine? _engine;
   bool _isEngineReady = false;
+
+  late final AnimationController _sidePanelController;
+  late final Animation<double> _sidePanelAnimation;
 
   final List<StreamSubscription> _engineSubscriptions = [];
 
@@ -113,8 +116,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   Timer? _verticalHudTimer;
 
   int? _doubleTapOffsetSeconds;
-  VideoAspectRatioMode _currentAspectMode = VideoAspectRatioMode.fit;
   Timer? _doubleTapBadgeTimer;
+  int _eofRecoveryAttempts = 0;
+  bool _hasEngineError = false;
+  String? _engineErrorMessage;
+  int _consecutiveErrors = 0;
 
   // Side panels
   bool _showSettingsSheet = false;
@@ -140,6 +146,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   Duration _lastStallPosition = Duration.zero;
   int _stallStuckCount = 0;
   int _bufferingStuckSeconds = 0;
+  bool _isExiting = false;
 
   // Embed player mode toggle (default: true for APK/real devices)
   late bool _useEmbedPlayer;
@@ -153,6 +160,26 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   @override
   void initState() {
     super.initState();
+    _sidePanelController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+      reverseDuration: const Duration(milliseconds: 220),
+    );
+    _sidePanelController.addStatusListener((status) {
+      if (status == AnimationStatus.dismissed && mounted) {
+        setState(() {
+          _showSettingsSheet = false;
+          _showEpisodeSheet = false;
+        });
+        _resetControlsHideTimer();
+      }
+    });
+    _sidePanelAnimation = CurvedAnimation(
+      parent: _sidePanelController,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInOutCubic,
+    );
+
     _useEmbedPlayer = widget.defaultToEmbed ?? false;
     _historyRepo = ref.read(playbackHistoryRepositoryProvider);
     WidgetsBinding.instance.addObserver(this);
@@ -181,6 +208,55 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       DeviceOrientation.portraitUp,
     ]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  }
+
+  void _exitPlayer() {
+    if (_isExiting) return;
+    setState(() => _isExiting = true);
+    _engine?.pause();
+    _saveCurrentProgress();
+    _restoreOrientations();
+    if (mounted && Navigator.canPop(context)) {
+      context.pop();
+    }
+  }
+
+  void _openSettings() {
+    setState(() {
+      _showSettingsSheet = true;
+      _showEpisodeSheet = false;
+      _controlsVisible = true;
+    });
+    _sidePanelController.forward(from: 0.0);
+  }
+
+  void _openEpisodes() {
+    setState(() {
+      _showEpisodeSheet = true;
+      _showSettingsSheet = false;
+      _controlsVisible = true;
+    });
+    _sidePanelController.forward(from: 0.0);
+  }
+
+  void _closeSidePanel() {
+    _sidePanelController.reverse();
+  }
+
+  void _toggleSettings() {
+    if (_showSettingsSheet && _sidePanelController.value > 0.0) {
+      _closeSidePanel();
+    } else {
+      _openSettings();
+    }
+  }
+
+  void _toggleEpisodes() {
+    if (_showEpisodeSheet && _sidePanelController.value > 0.0) {
+      _closeSidePanel();
+    } else {
+      _openEpisodes();
+    }
   }
 
   void _enableWakelock() {
@@ -216,6 +292,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _engineSubscriptions.add(engine.positionStream.listen((pos) {
       if (!mounted) return;
       if (_isScrubbing || _isUserSeeking) return; // Prevent overwriting user's active drag/scrub!
+      if (pos > _position) {
+        _eofRecoveryAttempts = 0;
+        _consecutiveErrors = 0;
+      }
       setState(() {
         _position = pos;
       });
@@ -294,8 +374,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
             _duration > const Duration(seconds: 30) &&
             _position < _duration - const Duration(seconds: 25)) {
           // Demuxer hit premature EOF or chunk stall before end of episode: auto-recover by nudging forward 1s
-          _engine?.seek(_position + const Duration(seconds: 1));
-          _engine?.play();
+          if (_eofRecoveryAttempts < 3) {
+            _eofRecoveryAttempts++;
+            _engine?.seek(_position + const Duration(seconds: 1));
+            _engine?.play();
+          }
         } else if (!_isSwitchingAudio &&
             _languageSwitchSeekTarget == null &&
             !_isPlaying &&
@@ -317,7 +400,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
     _engineSubscriptions.add(engine.errorStream.listen((err) {
       if (!mounted || err == null) return;
-      print('[ENGINE_ERROR_STREAM] Non-fatal MPV error reported: $err');
+      debugPrint('[ENGINE_ERROR_STREAM] $err');
+      // Count consecutive errors; show error UI after threshold
+      _consecutiveErrors++;
+      if (_consecutiveErrors >= 3) {
+        setState(() {
+          _hasEngineError = true;
+          _engineErrorMessage = err;
+        });
+      }
     }));
 
     _startStallWatchdog();
@@ -425,6 +516,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       sub.cancel();
     }
     _engine?.dispose();
+    _sidePanelController.dispose();
 
     super.dispose();
   }
@@ -624,7 +716,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   // Auto-hide controls
   void _resetControlsHideTimer() {
     _controlsHideTimer?.cancel();
-    if (!_controlsVisible || _isScrubbing || _isHolding2x || _showSettingsSheet || _showEpisodeSheet) {
+    if (!_controlsVisible ||
+        _isScrubbing ||
+        _isHolding2x ||
+        _showSettingsSheet ||
+        _showEpisodeSheet ||
+        _sidePanelController.value > 0.0) {
       return;
     }
     _controlsHideTimer = Timer(const Duration(seconds: 3), () {
@@ -639,14 +736,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   void _toggleControls() {
     setState(() {
       _controlsVisible = !_controlsVisible;
-      if (_controlsVisible) {
-        _showSettingsSheet = false;
-        _showEpisodeSheet = false;
-      }
     });
     if (_controlsVisible) {
       _resetControlsHideTimer();
     } else {
+      if (_showSettingsSheet || _showEpisodeSheet) {
+        _closeSidePanel();
+      }
       _controlsHideTimer?.cancel();
     }
   }
@@ -662,6 +758,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   void _lockPlayer() {
+    _sidePanelController.reverse();
     setState(() {
       _isLocked = true;
       _controlsVisible = false;
@@ -729,7 +826,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   void _handleTapUp(TapUpDetails details) {
-    if (_isLocked || _isHolding2x || _isScrubbing || _showVerticalHud || _consecutiveTapHandled) {
+    if (_showVerticalHud) {
+      _verticalHudTimer?.cancel();
+      setState(() { _showVerticalHud = false; });
+      return;
+    }
+    if (_isLocked || _isHolding2x || _isScrubbing || _consecutiveTapHandled) {
       return;
     }
     _singleTapTimer?.cancel();
@@ -769,6 +871,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _singleTapTimer?.cancel();
     _rateBeforeHold = _playbackRate;
     _engine?.setRate(settings.longPressSpeed);
+    if (_showSettingsSheet || _showEpisodeSheet) {
+      _sidePanelController.reverse();
+    }
     setState(() {
       _isHolding2x = true;
       _controlsVisible = false;
@@ -894,59 +999,78 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       },
     );
 
+    if (_isExiting) {
+      return const Scaffold(
+        backgroundColor: Colors.black,
+        body: SizedBox.expand(),
+      );
+    }
+
     final streamAsync = ref.watch(activeStreamProvider(_params));
     final streamNotifier = ref.read(activeStreamProvider(_params).notifier);
     final screenSize = MediaQuery.sizeOf(context);
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: streamAsync.when(
-        loading: () => const Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: 44,
-                height: 44,
-                child: CircularProgressIndicator(
-                  strokeWidth: 3,
-                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.accent),
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) {
+          if (!_isExiting && mounted) {
+            setState(() => _isExiting = true);
+          }
+          _engine?.pause();
+          _saveCurrentProgress();
+          _restoreOrientations();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: streamAsync.when(
+          loading: () => const Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    valueColor: AlwaysStoppedAnimation<Color>(AppColors.accent),
+                  ),
                 ),
-              ),
-              SizedBox(height: AppSpacing.md),
-              Text(
-                'Resolving stream variants...',
-                style: TextStyle(color: Colors.white, fontSize: 15),
-              ),
-            ],
+                SizedBox(height: AppSpacing.md),
+                Text(
+                  'Resolving stream variants...',
+                  style: TextStyle(color: Colors.white, fontSize: 15),
+                ),
+              ],
+            ),
           ),
-        ),
-        error: (err, _) => _buildErrorScreen(err),
-        data: (result) {
-          final matchTitle = result.match.title;
-          final epSubtitle = 'Episode ${widget.episodeNumber.toString().padLeft(2, '0')} • ${result.activeProvider.displayName}';
+          error: (err, _) => _buildErrorScreen(err),
+          data: (result) {
+            final matchTitle = result.match.title;
+            final epSubtitle = 'Episode ${widget.episodeNumber.toString().padLeft(2, '0')} • ${result.activeProvider.displayName}';
 
-          // 1. Default to Web Embed technique for playback (User's preferred technique)
-          if (_useEmbedPlayer) {
-            _engine?.pause();
-            final matchId = result.match.id.isNotEmpty ? result.match.id : widget.animeId.toString();
-            final isDub = result.selectedAudio.code == AudioLanguage.englishDub.code;
-            final lang = isDub ? 'dub' : 'sub';
-            final kisskhEpId = result.episode.customData['kisskhEpId'];
-            final embedUrl = kisskhEpId != null
-                ? 'https://megavid.buzz/kisskh/$kisskhEpId'
-                : 'https://megavid.buzz/ani/$matchId/${widget.episodeNumber}/$lang';
+            // 1. Default to Web Embed technique for playback (User's preferred technique)
+            if (_useEmbedPlayer) {
+              _engine?.pause();
+              final matchId = result.match.id.isNotEmpty ? result.match.id : widget.animeId.toString();
+              final isDub = result.selectedAudio.code == AudioLanguage.englishDub.code;
+              final lang = isDub ? 'dub' : 'sub';
+              final kisskhEpId = result.episode.customData['kisskhEpId'];
+              final embedUrl = kisskhEpId != null
+                  ? 'https://megavid.buzz/kisskh/$kisskhEpId'
+                  : 'https://megavid.buzz/ani/$matchId/${widget.episodeNumber}/$lang';
 
-            return WebEmbedPlayerView(
-              embedUrl: embedUrl,
-              title: matchTitle,
-              episodeSubtitle: epSubtitle,
-              audioLabel: isDub ? 'DUB' : 'SUB',
-              onToggleAudio: () {
-                final targetAudio = isDub ? AudioLanguage.japaneseOriginal : AudioLanguage.englishDub;
-                streamNotifier.selectAudioLanguage(targetAudio);
-              },
-              onBack: () => context.pop(),
+              return WebEmbedPlayerView(
+                embedUrl: embedUrl,
+                title: matchTitle,
+                episodeSubtitle: epSubtitle,
+                audioLabel: isDub ? 'DUB' : 'SUB',
+                onToggleAudio: () {
+                  final targetAudio = isDub ? AudioLanguage.japaneseOriginal : AudioLanguage.englishDub;
+                  streamNotifier.selectAudioLanguage(targetAudio);
+                },
+                onBack: _exitPlayer,
               onSwitchToNative: () {
                 setState(() => _useEmbedPlayer = false);
                 _openStreamIfReady(result);
@@ -962,27 +1086,102 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
             );
           }
 
-          return Stack(
-            fit: StackFit.expand,
-            children: [
-              // 1. Interactive Video Surface with Multi-Gesture Handler
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTapDown: (details) => _handleTapDown(details, screenSize.width),
-                onTapUp: _handleTapUp,
-                onTapCancel: _handleTapCancel,
-                onLongPressStart: (_) => _handleLongPressStart(),
-                onLongPressEnd: (_) => _handleLongPressEnd(),
-                onLongPressCancel: () => _handleLongPressEnd(),
-                onHorizontalDragStart: _handleHorizontalDragStart,
-                onHorizontalDragUpdate: (details) => _handleHorizontalDragUpdate(details, screenSize.width),
-                onHorizontalDragEnd: (_) => _handleHorizontalDragEnd(),
-                onVerticalDragStart: (details) => _handleVerticalDragStart(details, screenSize.width),
-                onVerticalDragUpdate: (details) => _handleVerticalDragUpdate(details, screenSize.height),
-                onVerticalDragEnd: (_) => _handleVerticalDragEnd(),
-                child: Center(
-                  child: _engine != null
-                      ? _engine!.buildVideoView()
+          final isLandscape = screenSize.width > screenSize.height;
+          final sidePanelWidth = math.min(screenSize.width * 0.46, 430.0).clamp(340.0, 450.0);
+
+          Widget buildSidePanel() => AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: _showSettingsSheet
+                    ? PlayerSettingsSheet(
+                        key: const ValueKey('settings_sheet'),
+                        availableQualities: result.selectedVariant.qualities,
+                        selectedQuality: result.selectedQuality,
+                        onSelectQuality: (q) {
+                          streamNotifier.selectQuality(q);
+                        },
+                        availableAudios: () {
+                          final list = result.variants.map((v) => v.audio).toSet().toList();
+                          if (!list.any((a) => a.code == AudioLanguage.japaneseOriginal.code)) {
+                            list.insert(0, AudioLanguage.japaneseOriginal);
+                          }
+                          if (!list.any((a) => a.code == AudioLanguage.englishDub.code)) {
+                            list.add(AudioLanguage.englishDub);
+                          }
+                          return list;
+                        }(),
+                        selectedAudio: result.selectedAudio,
+                        onSelectAudio: (a) {
+                          streamNotifier.selectAudioLanguage(a);
+                        },
+                        availableSubtitles: result.selectedVariant.subtitles,
+                        selectedSubtitle: result.selectedSubtitle,
+                        onSelectSubtitle: (s) {
+                          streamNotifier.selectSubtitleTrack(s);
+                        },
+                        subtitleSettings: _subtitleSettings,
+                        onUpdateSubtitleSettings: (settings) {
+                          setState(() => _subtitleSettings = settings);
+                        },
+                        currentSpeed: _playbackRate,
+                        onSelectSpeed: (speed) {
+                          _engine?.setRate(speed);
+                        },
+                        currentAspectRatio: _aspectRatioMode,
+                        onSelectAspectRatio: (mode) {
+                          setState(() => _aspectRatioMode = mode);
+                          _engine?.setAspectRatioMode(mode);
+                        },
+                        availableProviders: ref.read(streamProvidersProvider),
+                        activeProvider: result.activeProvider,
+                        onSelectProvider: (p) {
+                          _closeSidePanel();
+                          context.pushReplacement(
+                            '/player?animeId=${widget.animeId}&ep=${widget.episodeNumber}&provider=${p.id}',
+                          );
+                        },
+                        onClose: _closeSidePanel,
+                      )
+                    : EpisodeSelectorSheet(
+                        key: const ValueKey('episode_sheet'),
+                        totalEpisodes: result.match.episodeCount ?? 24,
+                        currentEpisode: widget.episodeNumber,
+                        onSelectEpisode: (ep) {
+                          _closeSidePanel();
+                          _saveCurrentProgress();
+                          context.pushReplacement('/player?animeId=${widget.animeId}&ep=$ep');
+                        },
+                        onClose: _closeSidePanel,
+                      ),
+              );
+
+          final videoStack = LayoutBuilder(
+            builder: (context, constraints) {
+              final videoFrameWidth = constraints.maxWidth;
+              final videoFrameHeight = constraints.maxHeight;
+
+                    return Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        // 1. Interactive Video Surface with Multi-Gesture Handler
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTapDown: (details) => _handleTapDown(details, videoFrameWidth),
+                          onTapUp: _handleTapUp,
+                          onTapCancel: _handleTapCancel,
+                          onLongPressStart: (_) => _handleLongPressStart(),
+                          onLongPressEnd: (_) => _handleLongPressEnd(),
+                          onLongPressCancel: () => _handleLongPressEnd(),
+                          onHorizontalDragStart: _handleHorizontalDragStart,
+                          onHorizontalDragUpdate: (details) => _handleHorizontalDragUpdate(details, videoFrameWidth),
+                          onHorizontalDragEnd: (_) => _handleHorizontalDragEnd(),
+                          onHorizontalDragCancel: () => setState(() { _isScrubbing = false; }),
+                          onVerticalDragStart: (details) => _handleVerticalDragStart(details, videoFrameWidth),
+                          onVerticalDragUpdate: (details) => _handleVerticalDragUpdate(details, videoFrameHeight),
+                          onVerticalDragEnd: (_) => _handleVerticalDragEnd(),
+                          onVerticalDragCancel: () => setState(() { _showVerticalHud = false; }),
+                          child: Center(
+                            child: _engine != null
+                                ? _engine!.buildVideoView()
                       : Container(color: Colors.black),
                 ),
               ),
@@ -1041,9 +1240,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
               // 7. Next Episode Auto-Play Countdown Card
               if (_showNextEpisodeCountdown && !_isHolding2x && !_isLocked)
-                Positioned(
+                AnimatedPositioned(
                   right: 24,
-                  bottom: 82,
+                  bottom: _controlsVisible ? 94.0 : 28.0,
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOutCubic,
                   child: NextEpisodeCountdownCard(
                     secondsRemaining: _nextEpisodeCountdownSeconds,
                     nextEpisodeNumber: widget.episodeNumber + 1,
@@ -1117,6 +1318,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                           episodeSubtitle: epSubtitle,
                           danmakuEnabled: _danmakuEnabled,
                           audioLabel: result.selectedAudio.code == AudioLanguage.englishDub.code ? 'DUB' : 'SUB',
+                          streamType: 'HLS',
+                          qualityLabel: result.selectedQuality.height != null
+                              ? '${result.selectedQuality.height}P'
+                              : (result.selectedQuality.isAuto ? '1080P' : result.selectedQuality.label.toUpperCase()),
                           onLock: _lockPlayer,
                           onToggleAudio: () {
                             final currentAudio = result.selectedAudio;
@@ -1125,7 +1330,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                                 : AudioLanguage.englishDub;
                             streamNotifier.selectAudioLanguage(targetAudio);
                           },
-                          onBack: () => context.pop(),
+                          onBack: _exitPlayer,
                           onToggleDanmaku: () {
                             setState(() => _danmakuEnabled = !_danmakuEnabled);
                             _resetControlsHideTimer();
@@ -1140,13 +1345,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                             _resetControlsHideTimer();
                           },
                           onOpenMore: () => _showMoreOptionsSheet(context, result),
-                          onOpenEpisodes: () {
-                            setState(() {
-                              _showEpisodeSheet = true;
-                              _showSettingsSheet = false;
-                              _controlsVisible = true;
-                            });
-                          },
+                          onOpenEpisodes: _openEpisodes,
                           onOpenDiagnostics: () => _showDiagnosticsSheet(context),
                           onSwitchToEmbed: () {
                             setState(() => _useEmbedPlayer = true);
@@ -1285,6 +1484,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                           buffer: _buffer,
                           hasPreviousEpisode: widget.episodeNumber > 1,
                           hasNextEpisode: true,
+                          isSettingsOpen: _showSettingsSheet && _sidePanelAnimation.value > 0.3,
                           onPreviousEpisode: _playPreviousEpisode,
                           onNextEpisode: _playNextEpisode,
                           onLock: _lockPlayer,
@@ -1301,20 +1501,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                             _isUserSeeking = false;
                             _resetControlsHideTimer();
                           },
-                          onOpenEpisodes: () {
-                            setState(() {
-                              _showEpisodeSheet = true;
-                              _showSettingsSheet = false;
-                              _controlsVisible = true;
-                            });
-                          },
-                          onOpenSettings: () {
-                            setState(() {
-                              _showSettingsSheet = true;
-                              _showEpisodeSheet = false;
-                              _controlsVisible = true;
-                            });
-                          },
+                          onOpenEpisodes: _toggleEpisodes,
+                          onOpenSettings: _toggleSettings,
                           onToggleFullscreen: _toggleAspectRatioMode,
                           onCast: () {
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -1395,108 +1583,178 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                   ),
                 ),
 
-              // Side Panel Backdrop Scrim
-              if ((_showSettingsSheet || _showEpisodeSheet) && !_isLocked && !_isHolding2x)
+              // 11. Engine Error Overlay
+              if (_hasEngineError)
                 Positioned.fill(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () {
-                      setState(() {
-                        _showSettingsSheet = false;
-                        _showEpisodeSheet = false;
-                      });
-                      _resetControlsHideTimer();
-                    },
-                    child: Container(
-                      color: Colors.black.withValues(alpha: 0.5),
+                  child: _buildEngineErrorOverlay(result),
+                ),
+
+                    ],
+                  );
+                },
+              );
+
+          return AnimatedBuilder(
+            animation: _sidePanelAnimation,
+            builder: (context, _) {
+              final isDismissed = _sidePanelController.isDismissed;
+              final isClosing = _sidePanelController.status == AnimationStatus.reverse;
+              final animProgress = _sidePanelAnimation.value;
+              final showPanel =
+                  (_showSettingsSheet || _showEpisodeSheet) &&
+                      !_isLocked &&
+                      !_isHolding2x;
+
+              final panelCard = SizedBox(
+                width: sidePanelWidth,
+                child: IgnorePointer(
+                  ignoring: isClosing || isDismissed,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0.25, 0.0),
+                      end: Offset.zero,
+                    ).animate(_sidePanelAnimation),
+                    child: FadeTransition(
+                      opacity: _sidePanelAnimation,
+                      child: buildSidePanel(),
                     ),
                   ),
                 ),
+              );
 
-              // 11. Sliding Landscape Settings Side-Panel
-              if (_showSettingsSheet && !_isLocked && !_isHolding2x)
-                Positioned(
-                  top: 0,
-                  bottom: 0,
-                  right: 0,
-                  child: PlayerSettingsSheet(
-                    availableQualities: result.selectedVariant.qualities,
-                    selectedQuality: result.selectedQuality,
-                    onSelectQuality: (q) {
-                      streamNotifier.selectQuality(q);
-                    },
-                    availableAudios: () {
-                      final list = result.variants.map((v) => v.audio).toSet().toList();
-                      if (!list.any((a) => a.code == AudioLanguage.japaneseOriginal.code)) {
-                        list.insert(0, AudioLanguage.japaneseOriginal);
-                      }
-                      if (!list.any((a) => a.code == AudioLanguage.englishDub.code)) {
-                        list.add(AudioLanguage.englishDub);
-                      }
-                      return list;
-                    }(),
-                    selectedAudio: result.selectedAudio,
-                    onSelectAudio: (a) {
-                      streamNotifier.selectAudioLanguage(a);
-                    },
-                    availableSubtitles: result.selectedVariant.subtitles,
-                    selectedSubtitle: result.selectedSubtitle,
-                    onSelectSubtitle: (s) {
-                      streamNotifier.selectSubtitleTrack(s);
-                    },
-                    subtitleSettings: _subtitleSettings,
-                    onUpdateSubtitleSettings: (settings) {
-                      setState(() => _subtitleSettings = settings);
-                    },
-                    currentSpeed: _playbackRate,
-                    onSelectSpeed: (speed) {
-                      _engine?.setRate(speed);
-                    },
-                    currentAspectRatio: _aspectRatioMode,
-                    onSelectAspectRatio: (mode) {
-                      setState(() => _aspectRatioMode = mode);
-                      _engine?.setAspectRatioMode(mode);
-                    },
-                    availableProviders: ref.read(streamProvidersProvider),
-                    activeProvider: result.activeProvider,
-                    onSelectProvider: (p) {
-                      setState(() {
-                        _showSettingsSheet = false;
-                      });
-                      context.pushReplacement(
-                        '/player?animeId=${widget.animeId}&ep=${widget.episodeNumber}&provider=${p.id}',
-                      );
-                    },
-                    onClose: () {
-                      setState(() => _showSettingsSheet = false);
-                      _resetControlsHideTimer();
-                    },
-                  ),
-                ),
-
-              // 12. Sliding Episode Selector Side-Panel
-              if (_showEpisodeSheet && !_isLocked && !_isHolding2x)
-                Positioned(
-                  top: 0,
-                  bottom: 0,
-                  right: 0,
-                  child: EpisodeSelectorSheet(
-                    totalEpisodes: result.match.episodeCount ?? 24,
-                    currentEpisode: widget.episodeNumber,
-                    onSelectEpisode: (ep) {
-                      setState(() => _showEpisodeSheet = false);
-                      _saveCurrentProgress();
-                      context.pushReplacement('/player?animeId=${widget.animeId}&ep=$ep');
-                    },
-                    onClose: () {
-                      setState(() => _showEpisodeSheet = false);
-                      _resetControlsHideTimer();
-                    },
-                  ),
-                ),
-            ],
+              if (isLandscape) {
+                final currentPanelWidth = sidePanelWidth * animProgress;
+                return Row(
+                  children: [
+                    Expanded(child: videoStack),
+                    if (showPanel)
+                      SizedBox(
+                        width: currentPanelWidth,
+                        child: ClipRect(
+                          child: OverflowBox(
+                            alignment: Alignment.centerRight,
+                            minWidth: sidePanelWidth,
+                            maxWidth: sidePanelWidth,
+                            child: panelCard,
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              } else {
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    videoStack,
+                    if (showPanel)
+                      Positioned(
+                        top: 0,
+                        bottom: 0,
+                        right: 0,
+                        width: math.min(screenSize.width * 0.88, 430.0),
+                        child: panelCard,
+                      ),
+                  ],
+                );
+              }
+            },
           );
         },
+      ),
+    ),
+  );
+  }
+
+  Widget _buildEngineErrorOverlay(StreamResolutionResult result) {
+    return Container(
+      color: Colors.black.withValues(alpha: 0.92),
+      alignment: Alignment.center,
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Positioned(
+            top: 0,
+            left: 0,
+            child: IconButton(
+              icon: const Icon(Icons.chevron_left_rounded, color: Colors.white, size: 28),
+              tooltip: 'Back',
+              onPressed: _exitPlayer,
+            ),
+          ),
+          Container(
+            constraints: const BoxConstraints(maxWidth: 500),
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: AppRadius.cardBorder,
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.error_outline_rounded,
+                  size: 44,
+                  color: AppColors.accent,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                const Text(
+                  'Playback Engine Error',
+                  style: AppText.sectionTitle,
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  _engineErrorMessage ?? 'An unexpected playback engine error occurred.',
+                  textAlign: TextAlign.center,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppText.meta.copyWith(color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 10,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _hasEngineError = false;
+                          _consecutiveErrors = 0;
+                          _useEmbedPlayer = true;
+                        });
+                        _engine?.pause();
+                      },
+                      icon: const Icon(Icons.language_rounded, size: 16),
+                      label: const Text('Play in Web Player'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.accent,
+                        side: const BorderSide(color: AppColors.accent),
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _hasEngineError = false;
+                          _consecutiveErrors = 0;
+                        });
+                        _openStreamIfReady(result);
+                        _engine?.play();
+                      },
+                      icon: const Icon(Icons.refresh_rounded, size: 16),
+                      label: const Text('Retry'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.accent,
+                        foregroundColor: const Color(0xFF0F150D),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1506,7 +1764,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       child: Align(
         alignment: Alignment.topCenter,
         child: Container(
-          margin: const EdgeInsets.only(top: 18),
+          margin: EdgeInsets.only(top: _controlsVisible ? 68.0 : 18.0),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
             color: Colors.black.withValues(alpha: 0.8),
@@ -1676,7 +1934,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                 ),
                 ElevatedButton.icon(
                   onPressed: () {
-                    _currentlyLoadedUrl = null;
+                    setState(() {
+                      _hasEngineError = false;
+                      _consecutiveErrors = 0;
+                      _engineErrorMessage = null;
+                      _currentlyLoadedUrl = null;
+                    });
                     ref.invalidate(activeStreamProvider(_params));
                   },
                   icon: const Icon(Icons.refresh_rounded, size: 16),
@@ -1696,9 +1959,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   void _toggleAspectRatioMode() {
     const modes = VideoAspectRatioMode.values;
-    final nextIndex = (_currentAspectMode.index + 1) % modes.length;
+    final nextIndex = (_aspectRatioMode.index + 1) % modes.length;
     final nextMode = modes[nextIndex];
-    setState(() => _currentAspectMode = nextMode);
+    setState(() => _aspectRatioMode = nextMode);
     _engine?.setAspectRatioMode(nextMode);
 
     ScaffoldMessenger.of(context).removeCurrentSnackBar();

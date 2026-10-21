@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../presentation/widgets/app_shell.dart';
 import '../../features/home/presentation/screens/home_screen.dart';
@@ -176,22 +177,48 @@ final GoRouter appRouter = GoRouter(
         final animeId = int.tryParse(animeIdStr ?? '') ?? 400602;
         final episodeNumber = int.tryParse(epStr ?? '') ?? 1;
 
+        // Immediately request landscape orientation upon route initiation to eliminate rotation delay
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+
         return CustomTransitionPage(
           key: state.pageKey,
+          transitionDuration: const Duration(milliseconds: 260),
+          reverseTransitionDuration: const Duration(milliseconds: 220),
           child: PlayerScreen(
             animeId: animeId,
             episodeNumber: episodeNumber,
             preferredProviderId: providerId,
           ),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            final slide = Tween<Offset>(
-              begin: const Offset(0.0, 0.15),
-              end: Offset.zero,
-            ).chain(CurveTween(curve: Curves.easeOutCubic)).animate(animation);
-            final fade = CurvedAnimation(parent: animation, curve: Curves.easeOut);
-            return SlideTransition(
-              position: slide,
-              child: FadeTransition(opacity: fade, child: child),
+            final curvedAnimation = CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+              reverseCurve: Curves.easeOutQuad,
+            );
+
+            // Smooth cinematic zoom scale without jagged corner tilts
+            final scale = Tween<double>(
+              begin: 0.96,
+              end: 1.0,
+            ).animate(curvedAnimation);
+
+            // Clean full-range opacity fade
+            final fade = CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+              reverseCurve: Curves.easeInQuad,
+            );
+
+            return ScaleTransition(
+              scale: scale,
+              child: FadeTransition(
+                opacity: fade,
+                child: child,
+              ),
             );
           },
         );

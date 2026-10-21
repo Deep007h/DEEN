@@ -199,5 +199,78 @@ void main() {
 
       expect(find.text('Export Data (JSON)'), findsNothing);
     });
+
+    testWidgets('Import data flow shows confirmation dialog and cancels or proceeds', (tester) async {
+      tester.view.physicalSize = const Size(800, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Scaffold(body: SettingsScreen()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Tap Import Favorites & History
+      await tester.tap(find.text('Import Favorites & History'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Import Data (JSON)'), findsOneWidget);
+
+      // Enter valid JSON
+      await tester.enterText(
+        find.byType(TextField),
+        '{"version": 1, "exportedAt": "2026-10-21T00:00:00.000", "favorites": [], "history": []}',
+      );
+      await tester.pumpAndSettle();
+
+      // Tap Import button in first dialog
+      await tester.tap(find.widgetWithText(FilledButton, 'Import'));
+      await tester.pumpAndSettle();
+
+      // Confirmation dialog should appear
+      expect(find.text('Import Data'), findsOneWidget);
+      expect(
+        find.text('This will replace your current 0 favorites and 0 history records. Continue?'),
+        findsOneWidget,
+      );
+
+      // Cancel should close confirmation dialog without restoring
+      await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Import Data'), findsNothing);
+      expect(find.text('Restored 0 favorites & 0 history items'), findsNothing);
+
+      // Tap Import again and confirm this time
+      await tester.tap(find.text('Import Favorites & History'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byType(TextField),
+        '{"version": 1, "exportedAt": "2026-10-21T00:00:00.000", "favorites": [], "history": []}',
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Import'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Import Data'), findsOneWidget);
+
+      // Tap Import in confirmation dialog
+      await tester.tap(find.widgetWithText(FilledButton, 'Import'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Import Data'), findsNothing);
+      expect(find.text('Restored 0 favorites & 0 history items'), findsOneWidget);
+    });
   });
 }

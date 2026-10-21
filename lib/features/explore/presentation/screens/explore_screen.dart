@@ -432,6 +432,41 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                 ),
               ),
             )
+          else if (catalogState.error != null && catalogState.items.isEmpty)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24, horizontal: AppSpacing.pageMargin),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF141914),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0x384E604E), width: 0.8),
+                  ),
+                  child: Column(
+                    children: [
+                      const Icon(Icons.info_outline_rounded, color: Color(0xFF8E9E8E), size: 28),
+                      const SizedBox(height: 10),
+                      Text(
+                        'Failed to load $selectedGenre catalog',
+                        style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 12),
+                      FilledButton(
+                        onPressed: () => ref.read(genreCatalogProvider(selectedGenre).notifier).init(),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.accent,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                        ),
+                        child: const Text('Retry', style: TextStyle(fontWeight: FontWeight.w700)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )
           else if (catalogState.items.isEmpty)
             const SliverToBoxAdapter(
               child: Padding(
@@ -679,12 +714,14 @@ class _ExploreHeroSpotlight extends StatelessWidget {
                 // Backdrop banner image
                 Hero(
                   tag: heroTag,
-                  createRectTween: (begin, end) => RectTween(begin: begin, end: end),
+                  createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
                   child: CachedNetworkImage(
                     imageUrl: hero.bannerUrl ?? hero.posterUrl ?? '',
                     fit: BoxFit.cover,
-                    placeholder: (_, __) => Container(color: const Color(0xFF14141A)),
-                    errorWidget: (_, __, ___) => Container(color: const Color(0xFF14141A)),
+                    memCacheWidth: 600,
+                    memCacheHeight: 320,
+                    placeholder: (_, __) => Container(color: AppColors.surfaceContainerLow),
+                    errorWidget: (_, __, ___) => Container(color: AppColors.surfaceContainerLow),
                   ),
                 ),
 
@@ -723,7 +760,7 @@ class _ExploreHeroSpotlight extends StatelessWidget {
                             child: Text(
                               '$genreName Spotlight',
                               style: const TextStyle(
-                                color: Colors.white,
+                                color: Color(0xFF0B0E0B),
                                 fontSize: 10,
                                 fontWeight: FontWeight.w900,
                                 letterSpacing: 0.4,

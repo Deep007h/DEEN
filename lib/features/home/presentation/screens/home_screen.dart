@@ -58,19 +58,20 @@ class HomeScreen extends ConsumerWidget {
         displacement: 40,
         edgeOffset: topPadding + 4,
         onRefresh: () async {
-          ref.invalidate(featuredAnimeProvider);
-          ref.invalidate(trendingAnimeProvider);
-          ref.invalidate(topRatedAnimeProvider);
-          ref.invalidate(recentlyAddedAnimeProvider);
-          ref.invalidate(followedAnimeListProvider);
-          ref.invalidate(watchHistoryListProvider);
-          if (selectedGenre != 'All') {
-            ref.invalidate(categoryAnimeProvider(selectedGenre));
-          }
+          await Future.wait([
+            ref.refresh(featuredAnimeProvider.future),
+            ref.refresh(trendingAnimeProvider.future),
+            ref.refresh(topRatedAnimeProvider.future),
+            ref.refresh(recentlyAddedAnimeProvider.future),
+            ref.refresh(followedAnimeListProvider.future),
+            ref.refresh(watchHistoryListProvider.future),
+            if (selectedGenre != 'All')
+              ref.refresh(categoryAnimeProvider(selectedGenre).future),
+          ]);
         },
         child: CustomScrollView(
           cacheExtent: 500,
-          physics: const ClampingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+          physics: AppMotion.m3ScrollPhysics,
           slivers: [
             // 1. Top App Bar: Deen PRO logo on left, Circular Search & Profile with online indicator on right
             SliverToBoxAdapter(
@@ -263,7 +264,13 @@ class HomeScreen extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(22),
                   ),
                 ),
-                error: (_, __) => const SizedBox.shrink(),
+                error: (_, __) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
+                  child: _SectionErrorCard(
+                    title: 'Featured Anime',
+                    onRetry: () => ref.invalidate(featuredAnimeProvider),
+                  ),
+                ),
               ),
             ),
 
@@ -280,7 +287,13 @@ class HomeScreen extends ConsumerWidget {
               child: trendingAsync.when(
                 data: (items) => _TrendingLargeCardsList(items: items),
                 loading: () => const _CardListSkeleton(itemWidth: 135, itemHeight: 190),
-                error: (_, __) => const SizedBox.shrink(),
+                error: (_, __) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
+                  child: _SectionErrorCard(
+                    title: 'Trending Anime',
+                    onRetry: () => ref.invalidate(trendingAnimeProvider),
+                  ),
+                ),
               ),
             ),
 
@@ -344,7 +357,13 @@ class HomeScreen extends ConsumerWidget {
                   return _PopularThisWeekList(items: list);
                 },
                 loading: () => const _CardListSkeleton(itemWidth: 115, itemHeight: 165),
-                error: (_, __) => const SizedBox.shrink(),
+                error: (_, __) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
+                  child: _SectionErrorCard(
+                    title: 'Popular This Week',
+                    onRetry: () => ref.invalidate(featuredAnimeProvider),
+                  ),
+                ),
               ),
             ),
 
@@ -374,7 +393,13 @@ class HomeScreen extends ConsumerWidget {
               child: topRatedAsync.when(
                 data: (items) => _TopRatedHorizontalList(items: items),
                 loading: () => const _CardListSkeleton(itemWidth: 125, itemHeight: 175),
-                error: (_, __) => const SizedBox.shrink(),
+                error: (_, __) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
+                  child: _SectionErrorCard(
+                    title: 'Top Rated Anime',
+                    onRetry: () => ref.invalidate(topRatedAnimeProvider),
+                  ),
+                ),
               ),
             ),
 
@@ -391,7 +416,13 @@ class HomeScreen extends ConsumerWidget {
               child: recentlyAddedAsync.when(
                 data: (items) => _RecentlyAddedHorizontalList(items: items),
                 loading: () => const _CardListSkeleton(itemWidth: 125, itemHeight: 175),
-                error: (_, __) => const SizedBox.shrink(),
+                error: (_, __) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
+                  child: _SectionErrorCard(
+                    title: 'Recently Added',
+                    onRetry: () => ref.invalidate(recentlyAddedAnimeProvider),
+                  ),
+                ),
               ),
             ),
 
@@ -865,9 +896,9 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
                   final item = widget.items[index];
                   final title = item.titles.preferredTitle();
                   final imageUrl = item.bannerUrl ?? item.posterUrl;
-                  final score = item.score != null ? item.score!.toStringAsFixed(1) : '8.6';
+                  final score = item.score != null ? item.score!.toStringAsFixed(1) : '—';
                   final format = item.format ?? 'TV';
-                  final eps = item.eps ?? 170;
+                  final eps = item.eps != null ? '${item.eps} Episodes' : 'Ongoing';
                   final summary = _cleanSummary(item.summary);
                   final followedIds = ref.watch(followedAnimeIdsProvider).value ?? const <int>{};
                   final isFollowed = followedIds.contains(item.id);
@@ -1005,13 +1036,16 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
                                   '|',
                                   style: TextStyle(color: Color(0xFF6F826F), fontSize: 13),
                                 ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  '$format • $eps Episodes',
-                                  style: const TextStyle(
-                                    color: Color(0xFFB0BFB0),
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w500,
+                                Flexible(
+                                  child: Text(
+                                    '$format • $eps',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Color(0xFFB0BFB0),
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -1028,131 +1062,124 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
                               ),
                             ),
                             const SizedBox(height: 14),
-                            Row(
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 6,
                               children: [
-                                Expanded(
-                                  child: SingleChildScrollView(
-                                    scrollDirection: Axis.horizontal,
-                                    physics: AppMotion.m3ScrollPhysics,
-                                    child: Row(
+                                // Electric Lime "Play Now" Button
+                                PressableScale(
+                                  targetScale: 0.94,
+                                  onTap: () => context.push('/player?animeId=${item.id}&ep=1'),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.accent,
+                                      borderRadius: BorderRadius.circular(20),
+                                      boxShadow: const [
+                                        BoxShadow(
+                                          color: AppColors.accentSoft,
+                                          blurRadius: 10,
+                                          offset: Offset(0, 3),
+                                        ),
+                                      ],
+                                    ),
+                                    child: const Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        // Vibrant Amber / Gold "Play Now" Button matching screenshot
-                                        PressableScale(
-                                          targetScale: 0.94,
-                                          onTap: () => context.push('/player?animeId=${item.id}&ep=1'),
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFFF5BA18),
-                                              borderRadius: BorderRadius.circular(20),
-                                              boxShadow: const [
-                                                BoxShadow(
-                                                  color: Color(0x55F5BA18),
-                                                  blurRadius: 10,
-                                                  offset: Offset(0, 3),
-                                                ),
-                                              ],
-                                            ),
-                                            child: const Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Icon(
-                                                  Icons.play_arrow_rounded,
-                                                  color: Colors.black,
-                                                  size: 19,
-                                                ),
-                                                SizedBox(width: 5),
-                                                Text(
-                                                  'Play Now',
-                                                  style: TextStyle(
-                                                    color: Colors.black,
-                                                    fontWeight: FontWeight.w800,
-                                                    fontSize: 12.5,
-                                                    letterSpacing: 0.1,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
+                                        Icon(
+                                          Icons.play_arrow_rounded,
+                                          color: Colors.black,
+                                          size: 19,
                                         ),
-                                        const SizedBox(width: 8),
-
-                                        // Translucent Frosted Glass "+ My List" Button matching screenshot
-                                        PressableScale(
-                                          targetScale: 0.94,
-                                          onTap: () {
-                                            ref.read(followRepositoryProvider).toggleFollow(
-                                                  item.id,
-                                                  metadata: FollowedAnime(
-                                                    id: item.id,
-                                                    title: title,
-                                                    posterUrl: item.posterUrl,
-                                                    totalEpisodes: item.eps ?? 0,
-                                                    score: item.score ?? 0.0,
-                                                    followedAt: DateTime.now(),
-                                                  ),
-                                                );
-                                          },
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                            decoration: BoxDecoration(
-                                              color: Colors.white.withValues(alpha: 0.14),
-                                              borderRadius: BorderRadius.circular(20),
-                                              border: Border.all(
-                                                color: Colors.white.withValues(alpha: 0.22),
-                                                width: 0.8,
-                                              ),
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Icon(
-                                                  isFollowed ? Icons.check_rounded : Icons.add_rounded,
-                                                  color: Colors.white,
-                                                  size: 16,
-                                                ),
-                                                const SizedBox(width: 5),
-                                                Text(
-                                                  isFollowed ? 'In List' : 'My List',
-                                                  style: const TextStyle(
-                                                    color: Colors.white,
-                                                    fontWeight: FontWeight.w700,
-                                                    fontSize: 12,
-                                                    letterSpacing: 0.1,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
+                                        SizedBox(width: 5),
+                                        Text(
+                                          'Play Now',
+                                          style: TextStyle(
+                                            color: Colors.black,
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 12.5,
+                                            letterSpacing: 0.1,
                                           ),
                                         ),
                                       ],
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 8),
 
-                                // Pagination Dots
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: List.generate(count, (dotIdx) {
-                                    final isActive = dotIdx == _currentPage;
-                                    return AnimatedContainer(
-                                      duration: const Duration(milliseconds: 220),
-                                      curve: Curves.easeOutCubic,
-                                      margin: const EdgeInsets.symmetric(horizontal: 1.5),
-                                      width: isActive ? 16 : 4,
-                                      height: 4,
-                                      decoration: BoxDecoration(
-                                        color: isActive ? const Color(0xFFC6F16D) : const Color(0xFF556055),
-                                        borderRadius: BorderRadius.circular(2),
+                                // Translucent Frosted Glass "+ My List" Button matching screenshot
+                                PressableScale(
+                                  targetScale: 0.94,
+                                  onTap: () {
+                                    ref.read(followRepositoryProvider).toggleFollow(
+                                          item.id,
+                                          metadata: FollowedAnime(
+                                            id: item.id,
+                                            title: title,
+                                            posterUrl: item.posterUrl,
+                                            totalEpisodes: item.eps ?? 0,
+                                            score: item.score ?? 0.0,
+                                            followedAt: DateTime.now(),
+                                          ),
+                                        );
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withValues(alpha: 0.14),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: Colors.white.withValues(alpha: 0.22),
+                                        width: 0.8,
                                       ),
-                                    );
-                                  }),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          isFollowed ? Icons.check_rounded : Icons.add_rounded,
+                                          color: Colors.white,
+                                          size: 16,
+                                        ),
+                                        const SizedBox(width: 5),
+                                        Text(
+                                          isFollowed ? 'In List' : 'My List',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 12,
+                                            letterSpacing: 0.1,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),
                           ],
+                        ),
+                      ),
+
+                      // 5. Pagination Dots anchored at bottom right
+                      Positioned(
+                        right: 16,
+                        bottom: 22,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: List.generate(count, (dotIdx) {
+                            final isActive = dotIdx == _currentPage;
+                            return AnimatedContainer(
+                              duration: const Duration(milliseconds: 220),
+                              curve: Curves.easeOutCubic,
+                              margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                              width: isActive ? 16 : 4,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: isActive ? const Color(0xFFC6F16D) : const Color(0xFF556055),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            );
+                          }),
                         ),
                       ),
                     ],
@@ -1205,7 +1232,7 @@ class _TrendingLargeCardsList extends StatelessWidget {
           final title = item.titles.preferredTitle();
           final heroTag = 'poster_${item.id}_home_trending';
           final rankColor = _getRankColor(index);
-          final scoreStr = item.score != null ? item.score!.toStringAsFixed(1) : '8.6';
+          final scoreStr = item.score != null ? item.score!.toStringAsFixed(1) : '—';
 
           return RepaintBoundary(
             child: PressableScale(
@@ -1355,12 +1382,14 @@ class _TrendingLargeCardsList extends StatelessWidget {
 
                 const SizedBox(height: 2),
 
-                // Genre subtitle
-                const Text(
-                  'Action • Fantasy',
+                // Subtitle: platform or episode count
+                Text(
+                  item.platform != null && item.platform!.isNotEmpty
+                      ? item.platform!
+                      : (item.eps != null ? '${item.eps} Episodes' : 'Trending'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Color(0xFF8E9E8E),
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
@@ -1586,7 +1615,14 @@ class _PopularCategoriesList extends ConsumerWidget {
                     width: 76,
                     height: 76,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF141914),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          cat.color1.withValues(alpha: 0.35),
+                          cat.color2.withValues(alpha: 0.15),
+                        ],
+                      ),
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
                         color: const Color(0x384E604E),
@@ -1728,7 +1764,7 @@ class _TopRatedHorizontalList extends StatelessWidget {
                         const Icon(Icons.star_rounded, size: 14, color: Color(0xFFFFB800)),
                         const SizedBox(width: 2),
                         Text(
-                          item.score != null ? item.score!.toStringAsFixed(1) : '9.0',
+                          item.score != null ? item.score!.toStringAsFixed(1) : '—',
                           style: const TextStyle(
                             fontFamily: 'monospace',
                             color: AppColors.accent,
@@ -1738,7 +1774,7 @@ class _TopRatedHorizontalList extends StatelessWidget {
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          '${item.eps ?? 24} eps',
+                          item.eps != null ? '${item.eps} eps' : 'Series',
                           style: const TextStyle(
                             fontFamily: 'monospace',
                             color: Color(0xFF8E9E8E),
@@ -1884,7 +1920,7 @@ class _RecentlyAddedHorizontalList extends StatelessWidget {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    '${item.eps ?? 12} Episodes',
+                    item.eps != null ? '${item.eps} Episodes' : 'Latest Release',
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.6),
                       fontSize: 11,
@@ -1998,14 +2034,14 @@ class _UserFavouritesList extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // Continue Watching Card Widget (16:9 widescreen with play circle & title below)
 // ---------------------------------------------------------------------------
-class _ContinueWatchingCard extends StatelessWidget {
+class _ContinueWatchingCard extends ConsumerWidget {
   final WatchHistoryItem item;
   final bool isFirst;
 
   const _ContinueWatchingCard({required this.item, this.isFirst = false});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return PressableScale(
       onTap: () {
         context.push('/player?animeId=${item.animeId}&ep=${item.episodeNumber}');
@@ -2148,10 +2184,39 @@ class _ContinueWatchingCard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 4),
-                        const Icon(
-                          Icons.more_vert_rounded,
-                          color: Colors.white70,
-                          size: 18,
+                        PopupMenuButton<String>(
+                          padding: EdgeInsets.zero,
+                          iconSize: 18,
+                          tooltip: 'Options',
+                          icon: const Icon(
+                            Icons.more_vert_rounded,
+                            color: Colors.white70,
+                            size: 18,
+                          ),
+                          color: AppColors.surfaceElevated,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            side: const BorderSide(color: Color(0x384E604E), width: 0.8),
+                          ),
+                          onSelected: (val) async {
+                            if (val == 'remove') {
+                              final repo = ref.read(playbackHistoryRepositoryProvider);
+                              await repo.deleteHistoryItem(item.animeId, item.episodeNumber);
+                            }
+                          },
+                          itemBuilder: (context) => [
+                            const PopupMenuItem<String>(
+                              value: 'remove',
+                              height: 36,
+                              child: Row(
+                                children: [
+                                  Icon(Icons.delete_outline_rounded, size: 16, color: Colors.white70),
+                                  SizedBox(width: 8),
+                                  Text('Remove from history', style: TextStyle(fontSize: 12, color: Colors.white)),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -2231,6 +2296,51 @@ class _CardListSkeleton extends StatelessWidget {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class _SectionErrorCard extends StatelessWidget {
+  final String title;
+  final VoidCallback onRetry;
+
+  const _SectionErrorCard({required this.title, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF141914),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0x384E604E), width: 0.8),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline_rounded, size: 18, color: Color(0xFF8E9E8E)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Unable to load $title',
+              style: const TextStyle(
+                color: Color(0xFF8E9E8E),
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: onRetry,
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              minimumSize: const Size(48, 32),
+              foregroundColor: AppColors.accent,
+            ),
+            child: const Text('Retry', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+          ),
+        ],
       ),
     );
   }

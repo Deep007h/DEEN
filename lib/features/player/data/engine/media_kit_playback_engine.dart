@@ -113,7 +113,9 @@ class MediaKitPlaybackEngine implements VideoPlaybackEngine {
     Map<String, String>? headers,
     Duration? startPosition,
   }) async {
-    final effectiveUrl = url.contains('.m3u8') ? url : '$url#.m3u8';
+    final urlLower = url.toLowerCase();
+    final isHls = urlLower.contains('.m3u8') || urlLower.contains('/hls/');
+    final effectiveUrl = isHls && !url.contains('.m3u8') ? '$url#.m3u8' : url;
     final ua = headers?['User-Agent'] ?? headers?['user-agent'] ??
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
@@ -125,19 +127,11 @@ class MediaKitPlaybackEngine implements VideoPlaybackEngine {
     print('[ENGINE_OPEN] Opening effectiveUrl: $effectiveUrl, startPosition: $startPosition');
     print('[ENGINE_OPEN] Headers: $effectiveHeaders');
 
-    final uriLower = effectiveUrl.toLowerCase();
-    final isHls = uriLower.contains('.m3u8') ||
-        uriLower.contains('127.0.0.1') ||
-        uriLower.contains('/uwu/') ||
-        uriLower.contains('aniwatch') ||
-        uriLower.contains('megavid') ||
-        uriLower.contains('kisskh') ||
-        uriLower.contains('dramahot');
-
     // Route HLS streams through in-app LocalHlsServer to guarantee headers, retry transient CDN blocks, and bypass demuxer MIME issues
     String playUrl = effectiveUrl;
     if (isHls && !effectiveUrl.contains('127.0.0.1')) {
       try {
+        LocalHlsServer.instance.clearSessions();
         playUrl = await LocalHlsServer.instance.proxyStream(
           url.split('#').first.trim(),
           headers: effectiveHeaders,

@@ -39,6 +39,7 @@ class LocalHlsServer {
   HttpServer? _server;
   HttpClient? _httpClient;
   final Map<String, _HlsSession> _sessions = {};
+  final Map<String, Future<List<int>?>> _inFlightRequests = {};
   int _tokenCounter = 0;
   bool _isStarting = false;
 
@@ -133,9 +134,18 @@ class LocalHlsServer {
   void _cleanOldSessions() {
     final now = DateTime.now();
     _sessions.removeWhere(
-      (_, session) => now.difference(session.createdAt).inHours >= 3,
+      (_, session) => now.difference(session.createdAt).inMinutes >= 30,
     );
   }
+
+  /// Clears previous proxy sessions and active in-flight segment requests.
+  void clearSessions() {
+    _sessions.clear();
+    _inFlightRequests.clear();
+  }
+
+  /// Alias for [clearSessions].
+  void clearPreviousSessions() => clearSessions();
 
   Future<void> _handleRequest(HttpRequest request) async {
     final path = request.uri.path;
@@ -258,10 +268,25 @@ class LocalHlsServer {
   }
 
   void _cacheSegment(_HlsSession session, String url, List<int> bytes) {
-    if (session._segmentCache.length >= 8) {
+    if (!session._segmentCache.containsKey(url) && session._segmentCache.length >= 4) {
       session._segmentCache.remove(session._segmentCache.keys.first);
     }
     session._segmentCache[url] = bytes;
+  }
+
+  ContentType _getContentType(String url) {
+    final uri = Uri.tryParse(url);
+    final path = (uri != null ? uri.path : url.split('?').first).toLowerCase();
+    if (path.endsWith('.m4s') || path.endsWith('.mp4')) {
+      return ContentType('video', 'mp4');
+    }
+    if (path.endsWith('.aac')) {
+      return ContentType('audio', 'aac');
+    }
+    if (path.endsWith('.vtt')) {
+      return ContentType('text', 'vtt');
+    }
+    return ContentType('video', 'mp2t');
   }
 
   Future<void> _serveSegment(
@@ -273,39 +298,101 @@ class LocalHlsServer {
     final cached = session._segmentCache[segmentUrl];
     if (cached != null && cached.isNotEmpty) {
       request.response.statusCode = HttpStatus.ok;
-      request.response.headers.contentType = ContentType('video', 'mp2t');
+      request.response.headers.contentType = _getContentType(segmentUrl);
       request.response.headers.contentLength = cached.length;
       request.response.add(cached);
       await request.response.close();
+      _triggerPrefetch(session, segmentUrl);
       return;
     }
 
-    // 2. Fetch from upstream CDN with retries directly into memory
-    List<int>? segmentBytes;
-    for (int attempt = 0; attempt < 3; attempt++) {
-      segmentBytes = await _fetchUpstreamBytes(segmentUrl, session.headers);
-      if (segmentBytes != null && segmentBytes.isNotEmpty) {
-        _cacheSegment(session, segmentUrl, segmentBytes);
-        break;
-      }
-      if (attempt < 2) {
-        await Future.delayed(Duration(milliseconds: 200 * (attempt + 1)));
+    // 2. Check in-flight requests deduplication
+    final inFlight = _inFlightRequests[segmentUrl];
+    if (inFlight != null) {
+      final inFlightBytes = await inFlight;
+      if (inFlightBytes != null && inFlightBytes.isNotEmpty) {
+        request.response.statusCode = HttpStatus.ok;
+        request.response.headers.contentType = _getContentType(segmentUrl);
+        request.response.headers.contentLength = inFlightBytes.length;
+        request.response.add(inFlightBytes);
+        await request.response.close();
+        _triggerPrefetch(session, segmentUrl);
+        return;
       }
     }
 
-    if (segmentBytes != null && segmentBytes.isNotEmpty) {
-      request.response.statusCode = HttpStatus.ok;
-      request.response.headers.contentType = ContentType('video', 'mp2t');
-      request.response.headers.contentLength = segmentBytes.length;
-      request.response.add(segmentBytes);
-      await request.response.close();
+    // 3. Fetch from upstream CDN and stream directly to client response while accumulating for cache
+    final completer = Completer<List<int>?>();
+    _inFlightRequests[segmentUrl] = completer.future;
 
-      // Background prefetch upcoming 2 segments to ensure 0ms buffer delay
-      final idx = session.segmentSequence.indexOf(segmentUrl);
-      if (idx != -1 && idx + 1 < session.segmentSequence.length) {
-        final upcoming = session.segmentSequence.skip(idx + 1).take(2).toList();
-        _prefetchSegments(session, upcoming);
+    bool streamedAnyBytes = false;
+    List<int>? finalBytes;
+
+    try {
+      final cleanUrl = segmentUrl.split('#').first.trim();
+      final uri = Uri.parse(cleanUrl);
+      final client = _httpClient ?? (HttpClient()..badCertificateCallback = ((_, __, ___) => true));
+
+      for (int attempt = 0; attempt < 3; attempt++) {
+        HttpClientResponse? upstreamResp;
+        try {
+          final req = await client.getUrl(uri).timeout(const Duration(seconds: 8));
+          session.headers.forEach((k, v) {
+            req.headers.set(k, v);
+          });
+
+          upstreamResp = await req.close().timeout(const Duration(seconds: 8));
+          if (upstreamResp.statusCode == HttpStatus.ok) {
+            request.response.statusCode = HttpStatus.ok;
+            request.response.headers.contentType = _getContentType(segmentUrl);
+            if (upstreamResp.contentLength > 0) {
+              request.response.headers.contentLength = upstreamResp.contentLength;
+            }
+
+            final builder = BytesBuilder(copy: false);
+            await for (final chunk in upstreamResp.timeout(const Duration(seconds: 8))) {
+              request.response.add(chunk); // Stream to client immediately
+              builder.add(chunk);           // Also cache
+              streamedAnyBytes = true;
+            }
+            await request.response.close();
+            finalBytes = builder.takeBytes();
+            if (finalBytes.isNotEmpty) {
+              _cacheSegment(session, segmentUrl, finalBytes);
+            }
+            break;
+          } else {
+            await upstreamResp.drain().timeout(const Duration(seconds: 2)).catchError((_) {});
+          }
+        } catch (e) {
+          if (upstreamResp != null) {
+            try {
+              await upstreamResp.drain().timeout(const Duration(seconds: 1)).catchError((_) {});
+            } catch (_) {}
+          }
+          if (streamedAnyBytes) {
+            try {
+              await request.response.close();
+            } catch (_) {}
+            break;
+          }
+        }
+
+        if (attempt < 2 && !streamedAnyBytes) {
+          await Future.delayed(Duration(milliseconds: 200 * (attempt + 1)));
+        }
       }
+    } finally {
+      completer.complete(finalBytes);
+      _inFlightRequests.remove(segmentUrl);
+    }
+
+    if (finalBytes != null && finalBytes.isNotEmpty) {
+      _triggerPrefetch(session, segmentUrl);
+      return;
+    }
+
+    if (streamedAnyBytes) {
       return;
     }
 
@@ -314,7 +401,7 @@ class LocalHlsServer {
     // Instead, serve a valid MPEG-TS null padding packet with HTTP 200 so playback seamlessly continues.
     print('[HLS_PROXY] Segment failed after 3 attempts: $segmentUrl. Serving graceful null TS frame.');
     request.response.statusCode = HttpStatus.ok;
-    request.response.headers.contentType = ContentType('video', 'mp2t');
+    request.response.headers.contentType = _getContentType(segmentUrl);
     final nullPacket = Uint8List(188);
     nullPacket[0] = 0x47;
     nullPacket[1] = 0x1F;
@@ -324,6 +411,14 @@ class LocalHlsServer {
     request.response.headers.contentLength = 188;
     request.response.add(nullPacket);
     await request.response.close();
+  }
+
+  void _triggerPrefetch(_HlsSession session, String segmentUrl) {
+    final idx = session.segmentSequence.indexOf(segmentUrl);
+    if (idx != -1 && idx + 1 < session.segmentSequence.length) {
+      final upcoming = session.segmentSequence.skip(idx + 1).take(2).toList();
+      _prefetchSegments(session, upcoming);
+    }
   }
 
   String _rewriteMasterPlaylist(
@@ -405,11 +500,23 @@ class LocalHlsServer {
   void _prefetchSegments(_HlsSession session, List<String> urls) {
     for (final url in urls) {
       if (session._segmentCache.containsKey(url)) continue;
-      _fetchUpstreamBytes(url, session.headers).then((bytes) {
+      Future<List<int>?> future;
+      final inFlight = _inFlightRequests[url];
+      if (inFlight != null) {
+        future = inFlight;
+      } else {
+        future = _fetchUpstreamBytes(url, session.headers);
+        _inFlightRequests[url] = future;
+      }
+      future.then((bytes) {
         if (bytes != null && bytes.isNotEmpty) {
-          session._segmentCache[url] = bytes;
+          _cacheSegment(session, url, bytes);
         }
-      }).catchError((_) {});
+      }).catchError((_) {}).whenComplete(() {
+        if (_inFlightRequests[url] == future) {
+          _inFlightRequests.remove(url);
+        }
+      });
     }
   }
 
@@ -503,6 +610,7 @@ class LocalHlsServer {
   /// Shuts down the server and cleans up active sessions.
   Future<void> stop() async {
     _sessions.clear();
+    _inFlightRequests.clear();
     _httpClient?.close(force: true);
     _httpClient = null;
     await _server?.close(force: true);

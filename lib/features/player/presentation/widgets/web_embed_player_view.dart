@@ -155,6 +155,9 @@ class _WebEmbedPlayerViewState extends State<WebEmbedPlayerView> {
   @override
   void dispose() {
     _unlockTimer?.cancel();
+    if (!Platform.environment.containsKey('FLUTTER_TEST')) {
+      _controller?.loadRequest(Uri.parse('about:blank'));
+    }
     super.dispose();
   }
 

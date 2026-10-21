@@ -25,6 +25,7 @@ class PlayerBottomBar extends StatefulWidget {
   final VoidCallback? onCast;
   final VoidCallback? onPip;
   final VoidCallback? onLock;
+  final bool isSettingsOpen;
 
   const PlayerBottomBar({
     super.key,
@@ -44,6 +45,7 @@ class PlayerBottomBar extends StatefulWidget {
     this.onCast,
     this.onPip,
     this.onLock,
+    this.isSettingsOpen = false,
   });
 
   @override
@@ -164,6 +166,7 @@ class _PlayerBottomBarState extends State<PlayerBottomBar> {
                       final target = Duration(
                         milliseconds: (fraction * totalMillis).round(),
                       );
+                      widget.onSeekStart(target);
                       widget.onSeek(target);
                       widget.onSeekEnd(target);
                     },
@@ -216,7 +219,9 @@ class _PlayerBottomBarState extends State<PlayerBottomBar> {
 
                           // Electric lime circular scrubber thumb
                           Positioned(
-                            left: (progressRatio * barWidth - 6.0).clamp(0.0, barWidth - 12),
+                            left: barWidth > 12.0
+                                ? (progressRatio * barWidth - 6.0).clamp(0.0, barWidth - 12.0)
+                                : 0.0,
                             child: Container(
                               width: 12,
                               height: 12,
@@ -255,6 +260,17 @@ class _PlayerBottomBarState extends State<PlayerBottomBar> {
             ),
             const SizedBox(width: 16),
 
+            // PiP button if available
+            if (widget.onPip != null) ...[
+              _FrostedBarButton(
+                icon: Icons.picture_in_picture_alt_rounded,
+                size: 19,
+                onPressed: widget.onPip!,
+                tooltip: 'Picture in Picture',
+              ),
+              const SizedBox(width: 8),
+            ],
+
             // Episodes button (matching rectangle with 2 bars)
             _FrostedBarButton(
               icon: Icons.subtitles_outlined,
@@ -264,7 +280,7 @@ class _PlayerBottomBarState extends State<PlayerBottomBar> {
             ),
             const SizedBox(width: 8),
 
-            // Lock button
+            // Lock button if present
             if (widget.onLock != null) ...[
               _FrostedBarButton(
                 icon: Icons.lock_outline_rounded,
@@ -275,12 +291,13 @@ class _PlayerBottomBarState extends State<PlayerBottomBar> {
               const SizedBox(width: 8),
             ],
 
-            // Settings gear button
+            // Settings gear button (active state when settings sheet open)
             _FrostedBarButton(
               icon: Icons.settings_rounded,
               size: 19,
               onPressed: widget.onOpenSettings,
               tooltip: 'Playback Settings',
+              isActive: widget.isSettingsOpen,
             ),
             const SizedBox(width: 8),
 
@@ -303,12 +320,14 @@ class _FrostedBarButton extends StatelessWidget {
   final double size;
   final VoidCallback onPressed;
   final String tooltip;
+  final bool isActive;
 
   const _FrostedBarButton({
     required this.icon,
     required this.size,
     required this.onPressed,
     required this.tooltip,
+    this.isActive = false,
   });
 
   @override
@@ -317,24 +336,24 @@ class _FrostedBarButton extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onPressed,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         child: Tooltip(
           message: tooltip,
           child: Container(
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: const Color(0xEE141914),
-              borderRadius: BorderRadius.circular(8),
+              color: isActive ? const Color(0xFF1E2D1A) : const Color(0xEE141914),
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: const Color(0xFF263526),
-                width: 1.0,
+                color: isActive ? const Color(0xFFC6F16D) : const Color(0xFF263526),
+                width: isActive ? 1.5 : 1.0,
               ),
-              boxShadow: const [
+              boxShadow: [
                 BoxShadow(
-                  color: Color(0x66000000),
+                  color: isActive ? const Color(0x33C6F16D) : const Color(0x66000000),
                   blurRadius: 4,
-                  offset: Offset(0, 1),
+                  offset: const Offset(0, 1),
                 ),
               ],
             ),
@@ -342,7 +361,7 @@ class _FrostedBarButton extends StatelessWidget {
               child: Icon(
                 icon,
                 size: size,
-                color: Colors.white,
+                color: isActive ? const Color(0xFFC6F16D) : Colors.white,
               ),
             ),
           ),

@@ -1,5 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+// ignore: unnecessary_import
+import 'package:flutter/painting.dart';
 import 'package:flutter/services.dart';
+// ignore: depend_on_referenced_packages
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -8,6 +13,7 @@ import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_text.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../library/presentation/providers/library_providers.dart';
 import '../../../metadata/data/repositories/metadata_repository_impl.dart';
 import '../../../metadata/domain/models/anime_titles.dart';
 import '../../../metadata/presentation/providers/metadata_providers.dart';
@@ -16,7 +22,8 @@ import '../../domain/models/data_backup.dart';
 
 /// Available accent colors in the Appearance settings.
 const List<Color> _kAccentColors = [
-  Color(0xFFE50914), // Vivid Netflix / Anime Red (Default)
+  AppColors.accent, // Electric Lime (Default)
+  Color(0xFFE50914), // Vivid Netflix / Anime Red
   Color(0xFFFF3B30), // Crimson
   Color(0xFF9D4EDD), // Electric Purple
   Color(0xFF2196F3), // Ocean Blue
@@ -576,11 +583,20 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _handleClearCache(BuildContext context, WidgetRef ref) {
+  Future<void> _handleClearCache(BuildContext context, WidgetRef ref) async {
     final metadataRepo = ref.read(metadataRepositoryProvider);
     if (metadataRepo is MetadataRepositoryImpl) {
       metadataRepo.cache.clear();
     }
+    if (!Platform.environment.containsKey('FLUTTER_TEST')) {
+      try {
+        await DefaultCacheManager().emptyCache();
+      } catch (_) {}
+    }
+    PaintingBinding.instance.imageCache.clear();
+    PaintingBinding.instance.imageCache.clearLiveImages();
+
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         backgroundColor: AppColors.surfaceElevated,
@@ -745,8 +761,44 @@ class SettingsScreen extends ConsumerWidget {
                 final followRepo = ref.read(followRepositoryProvider);
                 final historyRepo = ref.read(playbackHistoryRepositoryProvider);
 
+                final currentFavorites = await followRepo.getFollowedList();
+                final currentHistory = await historyRepo.getHistoryList();
+
+                if (!context.mounted) return;
+
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (confirmCtx) {
+                    return AlertDialog(
+                      backgroundColor: AppColors.surfaceElevated,
+                      shape: const RoundedRectangleBorder(borderRadius: AppRadius.cardBorder),
+                      title: const Text('Import Data', style: AppText.sectionTitle),
+                      content: Text(
+                        'This will replace your current ${currentFavorites.length} favorites and ${currentHistory.length} history records. Continue?',
+                        style: AppText.bodySecondary,
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(confirmCtx).pop(false),
+                          child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+                        ),
+                        FilledButton(
+                          onPressed: () => Navigator.of(confirmCtx).pop(true),
+                          child: const Text('Import'),
+                        ),
+                      ],
+                    );
+                  },
+                );
+
+                if (confirmed != true) return;
+
                 await followRepo.replaceFollowedList(backup.favorites);
                 await historyRepo.replaceHistoryList(backup.history);
+
+                ref.invalidate(followedAnimeIdsProvider);
+                ref.invalidate(followedAnimeListProvider);
+                ref.invalidate(watchHistoryListProvider);
 
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(

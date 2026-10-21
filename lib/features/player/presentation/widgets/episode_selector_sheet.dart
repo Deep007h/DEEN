@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
-import '../../../../core/theme/app_text.dart';
 
 /// Episode selection side sheet for jumping between episodes in the player.
 class EpisodeSelectorSheet extends StatelessWidget {
@@ -22,49 +21,71 @@ class EpisodeSelectorSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final count = totalEpisodes > 0 ? totalEpisodes : 24;
 
-    return Material(
-      color: AppColors.surface.withValues(alpha: 0.95),
-      child: Container(
-        width: 320,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          border: Border(
-            left: BorderSide(color: AppColors.border, width: 0.8),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Color(0x99000000),
-              blurRadius: 24,
-              offset: Offset(-4, 0),
-            ),
-          ],
+    return Container(
+      width: 370,
+      margin: const EdgeInsets.fromLTRB(6, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F140F),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: const Color(0xFF242E24),
+          width: 1.2,
         ),
-        child: SafeArea(
-          left: false,
-          child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(
-                left: AppSpacing.md,
-                right: 8,
-                top: 8,
-                bottom: 4,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Episodes ($count)',
-                    style: AppText.sectionTitle.copyWith(fontSize: 15),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0xAA000000),
+            blurRadius: 28,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 14, 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Episodes ($count)',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.2,
                   ),
-                  IconButton(
-                    onPressed: onClose,
-                    icon: const Icon(Icons.close_rounded, color: Colors.white, size: 20),
+                ),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: onClose,
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E281E),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: const Color(0xFF2E3D2E),
+                          width: 1.0,
+                        ),
+                      ),
+                      child: const Center(
+                        child: Icon(
+                          Icons.close_rounded,
+                          color: Color(0xFFC0D0C0),
+                          size: 18,
+                        ),
+                      ),
+                    ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-            const Divider(color: AppColors.border, height: 1),
+          ),
+          const Divider(color: Color(0xFF202A20), height: 1),
             Expanded(
               child: GridView.builder(
                 padding: const EdgeInsets.all(AppSpacing.md),
@@ -110,8 +131,6 @@ class EpisodeSelectorSheet extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    ),
-  );
-}
+      );
+  }
 }

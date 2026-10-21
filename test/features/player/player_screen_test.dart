@@ -315,7 +315,7 @@ void main() {
 
       // Open settings
       await tester.tap(find.byTooltip('Playback Settings'));
-      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
 
       expect(find.byType(PlayerSettingsSheet), findsOneWidget);
 

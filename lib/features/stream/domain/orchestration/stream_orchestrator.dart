@@ -166,7 +166,10 @@ class StreamOrchestrator {
           }
 
           diagnostics.info('Matched candidate "${match.title}" (score: ${(match.confidenceScore * 100).toStringAsFixed(1)}%)');
-          await matchRepo.saveMatch(anime.id, provider.id, match);
+          // Only auto-persist matches with high confidence to prevent locking wrong titles
+          if (match.confidenceScore >= 0.85) {
+            await matchRepo.saveMatch(anime.id, provider.id, match);
+          }
         } else {
           diagnostics.info('Using user-confirmed match "${match.title}"');
           allCandidates = [match];
