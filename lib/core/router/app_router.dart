@@ -219,10 +219,58 @@ final GoRouter appRouter = GoRouter(
                 opacity: fade,
                 child: child,
               ),
-            );
-          },
-        );
-      },
+          );
+        },
+      );
+    },
+  ),
+],
+errorBuilder: (context, state) => Scaffold(
+  backgroundColor: const Color(0xFF0B0E0B),
+  body: Center(
+    child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+            size: 48,
+            color: Color(0xFFC6F16D),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Page Not Found',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            state.error?.message ?? 'The requested page could not be located.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Color(0xFF8E9E8E),
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: () => context.go('/home'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFC6F16D),
+              foregroundColor: const Color(0xFF0B0E0B),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text('Back to Home'),
+          ),
+        ],
+      ),
     ),
-  ],
+  ),
+),
 );

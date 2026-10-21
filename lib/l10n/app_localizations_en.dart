@@ -13,6 +13,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tabHome => 'Home';
 
   @override
+  String get tabExplore => 'Explore';
+
+  @override
+  String get tabLibrary => 'Library';
+
+  @override
   String get tabFollowing => 'Following';
 
   @override

@@ -49,20 +49,20 @@ class _AppShellState extends State<AppShell> {
         activeIcon: Icons.home_rounded,
         label: l10n?.tabHome ?? 'Home',
       ),
-      const FloatingNavBarItem(
+      FloatingNavBarItem(
         icon: Icons.grid_view_outlined,
         activeIcon: Icons.grid_view_rounded,
-        label: 'Explore',
+        label: l10n?.tabExplore ?? 'Explore',
       ),
-      const FloatingNavBarItem(
+      FloatingNavBarItem(
         icon: Icons.bookmark_outline_rounded,
         activeIcon: Icons.bookmark_rounded,
-        label: 'Library',
+        label: l10n?.tabLibrary ?? 'Library',
       ),
-      const FloatingNavBarItem(
+      FloatingNavBarItem(
         icon: Icons.settings_outlined,
         activeIcon: Icons.settings_rounded,
-        label: 'Settings',
+        label: l10n?.tabSettings ?? 'Settings',
       ),
     ];
 

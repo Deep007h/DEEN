@@ -1,7 +1,10 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../theme/app_colors.dart';
 import '../../theme/app_motion.dart';
+import '../../theme/app_radius.dart';
+import '../../theme/app_spacing.dart';
 import 'pressable_scale.dart';
 
 /// Navigation item definition for the floating pill bar.
@@ -34,33 +37,42 @@ class FloatingNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(24.0)),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 24.0, sigmaY: 24.0),
-        child: Container(
-          decoration: BoxDecoration(
-            color: const Color(0xF50D110D),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24.0)),
-            border: Border(
-              top: BorderSide(
-                color: const Color(0xFFC6F16D).withValues(alpha: 0.22),
-                width: 0.8,
-              ),
+    final navBorderRadius = BorderRadius.circular(AppRadius.floatingBar);
+
+    return SafeArea(
+      top: false,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(
+          AppSpacing.floatingBarMarginHorizontal,
+          0,
+          AppSpacing.floatingBarMarginHorizontal,
+          AppSpacing.floatingBarMarginBottom,
+        ),
+        decoration: BoxDecoration(
+          borderRadius: navBorderRadius,
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x66000000),
+              blurRadius: 28,
+              spreadRadius: 2,
+              offset: Offset(0, 8),
             ),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x99000000),
-                blurRadius: 24,
-                offset: Offset(0, -4),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: navBorderRadius,
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 24.0, sigmaY: 24.0),
+            child: Container(
+              height: AppSpacing.floatingBarHeight,
+              decoration: BoxDecoration(
+                color: AppColors.navBarBackground,
+                borderRadius: navBorderRadius,
+                border: Border.all(
+                  color: AppColors.navBarBorder,
+                  width: 0.8,
+                ),
               ),
-            ],
-          ),
-          child: SafeArea(
-            top: false,
-            bottom: true,
-            child: SizedBox(
-              height: 64.0,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: List.generate(items.length, (index) {
@@ -99,9 +111,10 @@ class _NavBarTabButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const activeColor = Color(0xFFC6F16D);
-    const activeBgColor = Color(0xFF233316);
-    const inactiveColor = Color(0xFF9EABA0);
+    final colorScheme = Theme.of(context).colorScheme;
+    final activeColor = colorScheme.primary;
+    final activeBgColor = colorScheme.primaryContainer;
+    final inactiveColor = colorScheme.onSurfaceVariant;
 
     return Semantics(
       selected: isSelected,

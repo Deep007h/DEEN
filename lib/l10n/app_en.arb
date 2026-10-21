@@ -4,6 +4,14 @@
   "@tabHome": {
     "description": "Label for the Home bottom navigation tab"
   },
+  "tabExplore": "Explore",
+  "@tabExplore": {
+    "description": "Label for the Explore bottom navigation tab"
+  },
+  "tabLibrary": "Library",
+  "@tabLibrary": {
+    "description": "Label for the Library bottom navigation tab"
+  },
   "tabFollowing": "Following",
   "@tabFollowing": {
     "description": "Label for the Following (追番) bottom navigation tab"

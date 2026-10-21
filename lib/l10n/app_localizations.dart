@@ -100,6 +100,18 @@ abstract class AppLocalizations {
   /// **'Home'**
   String get tabHome;
 
+  /// Label for the Explore bottom navigation tab
+  ///
+  /// In en, this message translates to:
+  /// **'Explore'**
+  String get tabExplore;
+
+  /// Label for the Library bottom navigation tab
+  ///
+  /// In en, this message translates to:
+  /// **'Library'**
+  String get tabLibrary;
+
   /// Label for the Following (追番) bottom navigation tab
   ///
   /// In en, this message translates to:

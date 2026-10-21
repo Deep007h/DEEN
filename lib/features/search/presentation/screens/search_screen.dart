@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/presentation/widgets/pressable_scale.dart';
 import '../../../../core/presentation/widgets/shimmer_box.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_motion.dart';
@@ -36,6 +39,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   List<SourceMatch> _kshowResults = [];
   bool _isKShowLoading = false;
   String? _kshowError;
+  Timer? _kshowDebounceTimer;
+  CancelToken? _kshowCancelToken;
 
   @override
   void initState() {
@@ -55,15 +60,30 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   @override
   void dispose() {
+    _kshowDebounceTimer?.cancel();
+    _kshowCancelToken?.cancel('SearchScreen disposed');
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
-  int _kshowSearchId = 0;
+  void _onQueryChanged(String val) {
+    if (_selectedKind == SearchCatalogKind.anime) {
+      ref.read(searchQueryProvider.notifier).state = val;
+    } else {
+      _kshowDebounceTimer?.cancel();
+      _kshowDebounceTimer = Timer(const Duration(milliseconds: 400), () {
+        _searchKShows(val);
+      });
+    }
+  }
 
   Future<void> _searchKShows(String query) async {
-    final searchId = ++_kshowSearchId;
+    _kshowDebounceTimer?.cancel();
+    _kshowCancelToken?.cancel('New search initiated');
+    final cancelToken = CancelToken();
+    _kshowCancelToken = cancelToken;
+
     final trimmed = query.trim();
     if (trimmed.isEmpty) {
       setState(() {
@@ -78,15 +98,22 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       _kshowError = null;
     });
     try {
-      final results = await ref.read(megaVidProvider).searchKShows(trimmed);
-      if (mounted && searchId == _kshowSearchId) {
+      final results = await ref.read(megaVidProvider).searchKShows(
+        trimmed,
+        cancelToken: cancelToken,
+      );
+      if (mounted && !cancelToken.isCancelled && cancelToken == _kshowCancelToken) {
         setState(() {
           _kshowResults = results;
           _isKShowLoading = false;
         });
       }
-    } catch (_) {
-      if (mounted && searchId == _kshowSearchId) {
+    } catch (e) {
+      if (cancelToken.isCancelled ||
+          (e is DioException && (e.type == DioExceptionType.cancel || CancelToken.isCancel(e)))) {
+        return;
+      }
+      if (mounted && cancelToken == _kshowCancelToken) {
         setState(() {
           _isKShowLoading = false;
           _kshowError = 'Failed to load K-Shows';
@@ -101,6 +128,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       _searchKShows(query);
     } else {
       ref.read(searchQueryProvider.notifier).state = query;
+      ref.read(searchPaginationProvider.notifier).search();
     }
   }
 
@@ -208,6 +236,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       body: CustomScrollView(
         controller: _scrollController,
         physics: AppMotion.m3ScrollPhysics,
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         slivers: [
           // Big Page Title: "Anime Search" (Bangumi 搜索) & subtitle
           SliverToBoxAdapter(
@@ -314,28 +343,44 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                             Expanded(
                               child: Padding(
                                 padding: const EdgeInsets.only(left: 12),
-                                child: TextField(
-                                  controller: _searchController,
-                                  autofocus: false,
-                                  style: AppText.body,
-                                  cursorColor: AppColors.accent,
-                                  onSubmitted: (_) => _submitSearch(),
-                                  onChanged: (val) {
-                                    if (_selectedKind == SearchCatalogKind.anime) {
-                                      ref.read(searchQueryProvider.notifier).state = val;
-                                    }
+                                child: ValueListenableBuilder<TextEditingValue>(
+                                  valueListenable: _searchController,
+                                  builder: (context, value, _) {
+                                    return TextField(
+                                      controller: _searchController,
+                                      autofocus: false,
+                                      textInputAction: TextInputAction.search,
+                                      style: AppText.body,
+                                      cursorColor: AppColors.accent,
+                                      onSubmitted: (_) => _submitSearch(),
+                                      onChanged: _onQueryChanged,
+                                      decoration: InputDecoration(
+                                        hintText: _selectedKind == SearchCatalogKind.kshow
+                                            ? 'Search kshow…'
+                                            : l10n.searchHint,
+                                        hintStyle: AppText.bodySecondary.copyWith(
+                                          color: AppColors.textMuted,
+                                          fontSize: 13.5,
+                                        ),
+                                        border: InputBorder.none,
+                                        isDense: true,
+                                        suffixIcon: value.text.isNotEmpty
+                                            ? IconButton(
+                                                icon: const Icon(
+                                                  Icons.close_rounded,
+                                                  size: 18,
+                                                  color: AppColors.textSecondary,
+                                                ),
+                                                tooltip: 'Clear',
+                                                onPressed: () {
+                                                  _searchController.clear();
+                                                  _onQueryChanged('');
+                                                },
+                                              )
+                                            : null,
+                                      ),
+                                    );
                                   },
-                                  decoration: InputDecoration(
-                                    hintText: _selectedKind == SearchCatalogKind.kshow
-                                        ? 'Search kshow…'
-                                        : l10n.searchHint,
-                                    hintStyle: AppText.bodySecondary.copyWith(
-                                      color: AppColors.textMuted,
-                                      fontSize: 13.5,
-                                    ),
-                                    border: InputBorder.none,
-                                    isDense: true,
-                                  ),
                                 ),
                               ),
                             ),
@@ -357,70 +402,72 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         ),
                       ),
 
-                      // Tag Filter Row (Material 3 InputChip)
-                      if (selectedTags.isNotEmpty) ...[
-                        const SizedBox(height: AppSpacing.md),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Text(
-                              l10n.tagFilter,
-                              style: AppText.meta.copyWith(
-                                color: AppColors.textSecondary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                physics: AppMotion.m3ScrollPhysics,
-                                child: Row(
-                                  children: selectedTags.map((tag) {
-                                    return Padding(
-                                      padding: const EdgeInsets.only(right: 6),
-                                      child: InputChip(
-                                        label: Text(tag, style: const TextStyle(fontSize: 11)),
-                                        onDeleted: () {
-                                          ref.read(selectedTagsProvider.notifier).removeTag(tag);
-                                        },
-                                        deleteIconColor: AppColors.accent,
-                                        visualDensity: VisualDensity.compact,
-                                      ),
-                                    );
-                                  }).toList(),
+                      if (_selectedKind != SearchCatalogKind.kshow) ...[
+                        // Tag Filter Row (Material 3 InputChip)
+                        if (selectedTags.isNotEmpty) ...[
+                          const SizedBox(height: AppSpacing.md),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Text(
+                                l10n.tagFilter,
+                                style: AppText.meta.copyWith(
+                                  color: AppColors.textSecondary,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  physics: AppMotion.m3ScrollPhysics,
+                                  child: Row(
+                                    children: selectedTags.map((tag) {
+                                      return Padding(
+                                        padding: const EdgeInsets.only(right: 6),
+                                        child: InputChip(
+                                          label: Text(tag, style: const TextStyle(fontSize: 11)),
+                                          onDeleted: () {
+                                            ref.read(selectedTagsProvider.notifier).removeTag(tag);
+                                          },
+                                          deleteIconColor: AppColors.accent,
+                                          visualDensity: VisualDensity.compact,
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+
+                        const SizedBox(height: AppSpacing.md),
+
+                        // Material 3 SegmentedButton (Match | Popularity | Score)
+                        SizedBox(
+                          width: double.infinity,
+                          child: SegmentedButton<SearchSort>(
+                            segments: sortOptions.map((entry) {
+                              return ButtonSegment<SearchSort>(
+                                value: entry.$1,
+                                label: Text(entry.$2),
+                              );
+                            }).toList(),
+                            selected: {currentSort},
+                            onSelectionChanged: (newSelection) {
+                              if (newSelection.isNotEmpty) {
+                                ref.read(searchSortProvider.notifier).state = newSelection.first;
+                              }
+                            },
+                            showSelectedIcon: false,
+                            style: const ButtonStyle(
+                              visualDensity: VisualDensity.compact,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
-                          ],
-                        ),
-                      ],
-
-                      const SizedBox(height: AppSpacing.md),
-
-                      // Material 3 SegmentedButton (Match | Popularity | Score)
-                      SizedBox(
-                        width: double.infinity,
-                        child: SegmentedButton<SearchSort>(
-                          segments: sortOptions.map((entry) {
-                            return ButtonSegment<SearchSort>(
-                              value: entry.$1,
-                              label: Text(entry.$2),
-                            );
-                          }).toList(),
-                          selected: {currentSort},
-                          onSelectionChanged: (newSelection) {
-                            if (newSelection.isNotEmpty) {
-                              ref.read(searchSortProvider.notifier).state = newSelection.first;
-                            }
-                          },
-                          showSelectedIcon: false,
-                          style: const ButtonStyle(
-                            visualDensity: VisualDensity.compact,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
@@ -650,7 +697,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               ),
             ),
 
-          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xxxl)),
+          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.floatingBarBottomPadding)),
         ],
       ),
     );
@@ -683,7 +730,7 @@ class _PosterGridCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final heatStr = _formatHeat(anime.heat);
 
-    return GestureDetector(
+    return PressableScale(
       onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -811,7 +858,11 @@ class _PosterGridCard extends StatelessWidget {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Text('🔥', style: TextStyle(fontSize: 10)),
+                                const Icon(
+                                  Icons.local_fire_department_rounded,
+                                  size: 12,
+                                  color: Color(0xFFFF6D00),
+                                ),
                                 const SizedBox(width: 2),
                                 Text(
                                   heatStr,
@@ -835,15 +886,18 @@ class _PosterGridCard extends StatelessWidget {
 
           const SizedBox(height: 6),
 
-          // Title below the poster (up to 2 lines)
-          Text(
-            title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: AppText.cardTitle.copyWith(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              height: 1.25,
+          // Title below the poster (aligned container with consistent sizing so card heights don't jitter)
+          SizedBox(
+            height: 36,
+            child: Text(
+              title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: AppText.cardTitle.copyWith(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                height: 1.25,
+              ),
             ),
           ),
         ],
@@ -900,7 +954,7 @@ class _KShowPosterCard extends StatelessWidget {
     final thumb = match.customData['thumb'] as String?;
     final eps = match.episodeCount;
 
-    return GestureDetector(
+    return PressableScale(
       onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -983,14 +1037,17 @@ class _KShowPosterCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          Text(
-            match.title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: AppText.cardTitle.copyWith(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              height: 1.25,
+          SizedBox(
+            height: 36,
+            child: Text(
+              match.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: AppText.cardTitle.copyWith(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                height: 1.25,
+              ),
             ),
           ),
         ],

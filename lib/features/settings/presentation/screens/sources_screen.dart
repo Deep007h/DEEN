@@ -19,7 +19,9 @@ class SourcesScreen extends ConsumerStatefulWidget {
 
 class _SourcesScreenState extends ConsumerState<SourcesScreen> {
   final Map<String, String> _testResults = {};
-  bool _testing = false;
+  final Set<String> _testingProviderIds = {};
+
+  bool _isTesting(String providerId) => _testingProviderIds.contains(providerId);
 
   @override
   Widget build(BuildContext context) {
@@ -133,6 +135,15 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
                 sliver: SliverReorderableList(
                   itemCount: orderedProviders.length,
+                  proxyDecorator: (Widget child, int index, Animation<double> animation) {
+                    return Material(
+                      elevation: 8,
+                      shadowColor: Colors.black.withValues(alpha: 0.6),
+                      color: Colors.transparent,
+                      borderRadius: AppRadius.cardBorder,
+                      child: child,
+                    );
+                  },
                   onReorderItem: (oldIndex, newIndex) async {
                     if (oldIndex < newIndex) {
                       newIndex -= 1;
@@ -142,6 +153,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
 
                     final newOrder = orderedProviders.map((p) => p.id as String).toList();
                     await registry.updatePriorityOrder(newOrder);
+                    ref.invalidate(streamProviderRegistryProvider);
                     setState(() {});
                   },
                   itemBuilder: (context, index) {
@@ -229,12 +241,9 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                                   // Enable/disable switch
                                   Switch(
                                     value: isEnabled,
-                                    activeThumbColor: Colors.white,
-                                    activeTrackColor: AppColors.accent,
-                                    inactiveThumbColor: AppColors.textMuted,
-                                    inactiveTrackColor: AppColors.surfaceElevated,
                                     onChanged: (val) async {
                                       await registry.setProviderEnabled(provider.id, val);
+                                      ref.invalidate(streamProviderRegistryProvider);
                                       setState(() {});
                                     },
                                   ),
@@ -275,41 +284,58 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
 
                                   const Spacer(),
 
-                                  // Test source button
-                                  InkWell(
-                                    onTap: _testing ? null : () => _testSource(provider),
-                                    borderRadius: BorderRadius.circular(6),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            testResult != null
-                                                ? (testResult.startsWith('✓')
-                                                    ? Icons.check_circle_rounded
-                                                    : Icons.error_rounded)
-                                                : Icons.speed_rounded,
-                                            size: 14,
-                                            color: testResult != null
-                                                ? (testResult.startsWith('✓')
-                                                    ? Colors.greenAccent
-                                                    : Colors.redAccent)
-                                                : AppColors.accent,
+                                  // Test source button (min 48dp touch target)
+                                  ConstrainedBox(
+                                    constraints: const BoxConstraints(minHeight: 48, minWidth: 48),
+                                    child: InkWell(
+                                      onTap: _isTesting(provider.id as String)
+                                          ? null
+                                          : () => _testSource(provider),
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Center(
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              if (_isTesting(provider.id as String))
+                                                const SizedBox(
+                                                  width: 14,
+                                                  height: 14,
+                                                  child: CircularProgressIndicator(
+                                                    strokeWidth: 2,
+                                                    color: AppColors.accent,
+                                                  ),
+                                                )
+                                              else
+                                                Icon(
+                                                  testResult != null
+                                                      ? (testResult.startsWith('✓')
+                                                          ? Icons.check_circle_rounded
+                                                          : Icons.error_rounded)
+                                                      : Icons.speed_rounded,
+                                                  size: 14,
+                                                  color: testResult != null
+                                                      ? (testResult.startsWith('✓')
+                                                          ? Colors.greenAccent
+                                                          : Colors.redAccent)
+                                                      : AppColors.accent,
+                                                ),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                testResult ?? 'Test Source',
+                                                style: AppText.meta.copyWith(
+                                                  color: testResult != null
+                                                      ? (testResult.startsWith('✓')
+                                                          ? Colors.greenAccent
+                                                          : Colors.redAccent)
+                                                      : AppColors.textPrimary,
+                                                  fontSize: 11,
+                                                ),
+                                              ),
+                                            ],
                                           ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            testResult ?? 'Test Source',
-                                            style: AppText.meta.copyWith(
-                                              color: testResult != null
-                                                  ? (testResult.startsWith('✓')
-                                                      ? Colors.greenAccent
-                                                      : Colors.redAccent)
-                                                  : AppColors.textPrimary,
-                                              fontSize: 11,
-                                            ),
-                                          ),
-                                        ],
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -333,41 +359,49 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
   }
 
   Future<void> _testSource(dynamic provider) async {
+    final id = provider.id as String;
     setState(() {
-      _testing = true;
-      _testResults[provider.id] = 'Testing...';
+      _testingProviderIds.add(id);
+      _testResults[id] = 'Testing...';
     });
 
     try {
-      if (provider.id == 'demo') {
+      if (id == 'demo') {
         await Future<void>.delayed(const Duration(milliseconds: 150));
+        if (!mounted) return;
         setState(() {
-          _testResults[provider.id] = '✓ Online (32ms)';
+          _testResults[id] = '✓ Online (32ms)';
         });
-      } else if (provider.id == 'megavid') {
+      } else if (id == 'megavid') {
         await Future<void>.delayed(const Duration(milliseconds: 120));
+        if (!mounted) return;
         setState(() {
-          _testResults[provider.id] = '✓ Online (CDN)';
+          _testResults[id] = '✓ Online (CDN)';
         });
       } else if (provider is JellyfinProvider) {
         final latency = await provider.testConnection();
+        if (!mounted) return;
         setState(() {
-          _testResults[provider.id] = latency != null ? '✓ Online (${latency}ms)' : '✕ Offline / Unconfigured';
+          _testResults[id] = latency != null ? '✓ Online (${latency}ms)' : '✕ Offline / Unconfigured';
         });
       } else {
         await Future<void>.delayed(const Duration(milliseconds: 100));
+        if (!mounted) return;
         setState(() {
-          _testResults[provider.id] = '✓ Ready';
+          _testResults[id] = '✓ Ready';
         });
       }
     } catch (_) {
+      if (!mounted) return;
       setState(() {
-        _testResults[provider.id] = '✕ Error';
+        _testResults[id] = '✕ Error';
       });
     } finally {
-      setState(() {
-        _testing = false;
-      });
+      if (mounted) {
+        setState(() {
+          _testingProviderIds.remove(id);
+        });
+      }
     }
   }
 

@@ -212,7 +212,7 @@ class MegaVidProvider implements StreamProvider {
   }
 
   /// Search K-Shows / Asian Dramas from megavid via KissKH.
-  Future<List<SourceMatch>> searchKShows(String query) async {
+  Future<List<SourceMatch>> searchKShows(String query, {CancelToken? cancelToken}) async {
     final cleanQuery = _sanitizeQuery(query);
     if (cleanQuery.isEmpty) return const [];
 
@@ -220,6 +220,7 @@ class MegaVidProvider implements StreamProvider {
       final resp = await _dio.get<Map<String, dynamic>>(
         '/api/find',
         queryParameters: {'kind': 'kshow', 'q': cleanQuery},
+        cancelToken: cancelToken,
       );
 
       final data = resp.data;

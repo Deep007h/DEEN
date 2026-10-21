@@ -31,6 +31,16 @@ const List<Color> _kAccentColors = [
   Color(0xFFFFB300), // Amber Gold
 ];
 
+final Map<Color, String> _kAccentColorNames = {
+  AppColors.accent: 'Electric Lime',
+  const Color(0xFFE50914): 'Vivid Red',
+  const Color(0xFFFF3B30): 'Crimson',
+  const Color(0xFF9D4EDD): 'Electric Purple',
+  const Color(0xFF2196F3): 'Ocean Blue',
+  const Color(0xFF00E676): 'Emerald Green',
+  const Color(0xFFFFB300): 'Amber Gold',
+};
+
 /// Settings tab screen for configuring appearance, playback, sources, and data backup.
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -142,39 +152,57 @@ class SettingsScreen extends ConsumerWidget {
                               ],
                             ),
                             const SizedBox(height: AppSpacing.md),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: _kAccentColors.map((color) {
-                                final isSelected = settings.accentColorValue == color.toARGB32();
-                                return GestureDetector(
-                                  onTap: () => settingsNotifier.updateAccentColor(color),
-                                  child: AnimatedContainer(
-                                    duration: AppMotion.short4,
-                                    width: 38,
-                                    height: 38,
-                                    decoration: BoxDecoration(
-                                      color: color,
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: isSelected ? Colors.white : Colors.transparent,
-                                        width: 2.5,
-                                      ),
-                                      boxShadow: isSelected
-                                          ? [
-                                              BoxShadow(
-                                                color: color.withValues(alpha: 0.6),
-                                                blurRadius: 8,
-                                                spreadRadius: 1,
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: _kAccentColors.map((color) {
+                                  final isSelected = settings.accentColorValue == color.toARGB32();
+                                  final colorName = _kAccentColorNames[color] ?? 'Accent';
+                                  return Semantics(
+                                    label: '$colorName accent color',
+                                    selected: isSelected,
+                                    button: true,
+                                    child: Tooltip(
+                                      message: colorName,
+                                      child: InkWell(
+                                        onTap: () => settingsNotifier.updateAccentColor(color),
+                                        customBorder: const CircleBorder(),
+                                        child: Container(
+                                          width: 44,
+                                          height: 44,
+                                          alignment: Alignment.center,
+                                          child: AnimatedContainer(
+                                            duration: AppMotion.short4,
+                                            width: 38,
+                                            height: 38,
+                                            decoration: BoxDecoration(
+                                              color: color,
+                                              shape: BoxShape.circle,
+                                              border: Border.all(
+                                                color: isSelected ? Colors.white : Colors.transparent,
+                                                width: 2.5,
                                               ),
-                                            ]
-                                          : null,
+                                              boxShadow: isSelected
+                                                  ? [
+                                                      BoxShadow(
+                                                        color: color.withValues(alpha: 0.6),
+                                                        blurRadius: 8,
+                                                        spreadRadius: 1,
+                                                      ),
+                                                    ]
+                                                  : null,
+                                            ),
+                                            child: isSelected
+                                                ? const Icon(Icons.check_rounded, color: Colors.white, size: 20)
+                                                : null,
+                                          ),
+                                        ),
+                                      ),
                                     ),
-                                    child: isSelected
-                                        ? const Icon(Icons.check_rounded, color: Colors.white, size: 20)
-                                        : null,
-                                  ),
-                                );
-                              }).toList(),
+                                  );
+                                }).toList(),
+                              ),
                             ),
                           ],
                         ),

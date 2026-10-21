@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_motion.dart';
+import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../providers/library_providers.dart';
 
@@ -55,41 +56,46 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                         ),
                       ),
                       if (_selectedTab == 1 && (historyAsync.value?.isNotEmpty ?? false))
-                        FilledButton.tonalIcon(
-                          onPressed: () async {
-                            final confirmed = await showDialog<bool>(
-                              context: context,
-                              builder: (ctx) => AlertDialog(
-                                backgroundColor: theme.colorScheme.surfaceContainerHigh,
-                                title: const Text('Clear Watch History'),
-                                content: const Text('Remove all items from your playback history?'),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(ctx, false),
-                                    child: const Text('Cancel'),
-                                  ),
-                                  FilledButton(
-                                    style: FilledButton.styleFrom(
-                                      backgroundColor: theme.colorScheme.error,
-                                      foregroundColor: theme.colorScheme.onError,
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: 48, minWidth: 48),
+                          child: FilledButton.tonalIcon(
+                            onPressed: () async {
+                              final confirmed = await showDialog<bool>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  backgroundColor: theme.colorScheme.surfaceContainerHigh,
+                                  title: const Text('Clear Watch History'),
+                                  content: const Text('Remove all items from your playback history?'),
+                                  actions: [
+                                    TextButton(
+                                      style: TextButton.styleFrom(minimumSize: const Size(64, 48)),
+                                      onPressed: () => Navigator.pop(ctx, false),
+                                      child: const Text('Cancel'),
                                     ),
-                                    onPressed: () => Navigator.pop(ctx, true),
-                                    child: const Text('Clear'),
-                                  ),
-                                ],
-                              ),
-                            );
-                            if (confirmed == true) {
-                              final repo = ref.read(playbackHistoryRepositoryProvider);
-                              await repo.clearAllHistory();
-                              ref.invalidate(watchHistoryListProvider);
-                            }
-                          },
-                          icon: const Icon(Icons.delete_outline_rounded, size: 16),
-                          label: const Text('Clear', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                          style: FilledButton.styleFrom(
-                            visualDensity: VisualDensity.compact,
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    FilledButton(
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: theme.colorScheme.error,
+                                        foregroundColor: theme.colorScheme.onError,
+                                        minimumSize: const Size(64, 48),
+                                      ),
+                                      onPressed: () => Navigator.pop(ctx, true),
+                                      child: const Text('Clear'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (confirmed == true) {
+                                final repo = ref.read(playbackHistoryRepositoryProvider);
+                                await repo.clearAllHistory();
+                                ref.invalidate(watchHistoryListProvider);
+                              }
+                            },
+                            icon: const Icon(Icons.delete_outline_rounded, size: 16),
+                            label: const Text('Clear', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                            style: FilledButton.styleFrom(
+                              minimumSize: const Size(48, 48),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            ),
                           ),
                         ),
                     ],
@@ -120,7 +126,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                       showSelectedIcon: false,
                       style: const ButtonStyle(
                         visualDensity: VisualDensity.standard,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        tapTargetSize: MaterialTapTargetSize.padded,
                       ),
                     ),
                   ),
@@ -165,22 +171,79 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                         return GestureDetector(
                           onTap: () => context.push(
                             '/anime/${item.id}',
-                            extra: {'posterUrl': item.posterUrl, 'title': item.title},
+                            extra: {
+                              'posterUrl': item.posterUrl,
+                              'title': item.title,
+                              'heroTag': 'poster_${item.id}',
+                            },
                           ),
+                          onLongPress: () async {
+                            final confirmed = await showDialog<bool>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                backgroundColor: theme.colorScheme.surfaceContainerHigh,
+                                shape: const RoundedRectangleBorder(borderRadius: AppRadius.cardBorder),
+                                title: Text('Unfollow ${item.title}?'),
+                                content: const Text('Remove this anime from your bookmarks?'),
+                                actions: [
+                                  TextButton(
+                                    style: TextButton.styleFrom(minimumSize: const Size(64, 48)),
+                                    onPressed: () => Navigator.pop(ctx, false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  FilledButton(
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: theme.colorScheme.error,
+                                      foregroundColor: theme.colorScheme.onError,
+                                      minimumSize: const Size(64, 48),
+                                    ),
+                                    onPressed: () => Navigator.pop(ctx, true),
+                                    child: const Text('Unfollow'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (confirmed == true) {
+                              final repo = ref.read(followRepositoryProvider);
+                              await repo.unfollow(item.id);
+                              ref.invalidate(followedAnimeListProvider);
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).clearSnackBars();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    backgroundColor: AppColors.surfaceElevated,
+                                    content: Text('Unfollowed ${item.title}'),
+                                    action: SnackBarAction(
+                                      label: 'Undo',
+                                      textColor: AppColors.accent,
+                                      onPressed: () async {
+                                        await repo.follow(item);
+                                        ref.invalidate(followedAnimeListProvider);
+                                      },
+                                    ),
+                                  ),
+                                );
+                              }
+                            }
+                          },
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Expanded(
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(14),
-                                  child: CachedNetworkImage(
-                                    imageUrl: item.posterUrl ?? '',
-                                    fit: BoxFit.cover,
-                                    width: double.infinity,
-                                    placeholder: (_, __) => Container(color: const Color(0xFF1E1E26)),
-                                    errorWidget: (_, __, ___) => Container(
-                                      color: const Color(0xFF1E1E26),
-                                      child: const Icon(Icons.broken_image, color: Colors.white24),
+                                  child: Hero(
+                                    tag: 'poster_${item.id}',
+                                    createRectTween: (begin, end) => RectTween(begin: begin, end: end),
+                                    child: CachedNetworkImage(
+                                      imageUrl: item.posterUrl ?? '',
+                                      fit: BoxFit.cover,
+                                      width: double.infinity,
+                                      placeholder: (_, __) => Container(color: const Color(0xFF1E1E26)),
+                                      errorWidget: (_, __, ___) => Container(
+                                        color: const Color(0xFF1E1E26),
+                                        child: const Icon(Icons.broken_image, color: Colors.white24),
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -250,6 +313,36 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                           onDismissed: (_) async {
                             final repo = ref.read(playbackHistoryRepositoryProvider);
                             await repo.deleteHistoryItem(item.animeId, item.episodeNumber);
+                            ref.invalidate(watchHistoryListProvider);
+
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).clearSnackBars();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  backgroundColor: AppColors.surfaceElevated,
+                                  content: Text(
+                                    'Removed "${item.animeTitle.isNotEmpty ? item.animeTitle : 'Episode ${item.episodeNumber}'}" from history',
+                                    style: const TextStyle(color: AppColors.textPrimary),
+                                  ),
+                                  duration: const Duration(seconds: 4),
+                                  action: SnackBarAction(
+                                    label: 'Undo',
+                                    textColor: AppColors.accent,
+                                    onPressed: () async {
+                                      await repo.savePlaybackProgress(
+                                        item.animeId,
+                                        item.episodeNumber,
+                                        positionSeconds: item.positionSeconds,
+                                        totalDurationSeconds: item.totalDurationSeconds,
+                                        animeTitle: item.animeTitle,
+                                        posterUrl: item.posterUrl,
+                                      );
+                                      ref.invalidate(watchHistoryListProvider);
+                                    },
+                                  ),
+                                ),
+                              );
+                            }
                           },
                           child: Card(
                             elevation: 0,
@@ -316,6 +409,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                     ),
                                     const SizedBox(width: 8),
                                     IconButton(
+                                      constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
                                       icon: const Icon(Icons.play_circle_fill_rounded, color: Colors.white, size: 32),
                                       onPressed: () {
                                         context.push('/player?animeId=${item.animeId}&ep=${item.episodeNumber}');

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import '../../theme/app_colors.dart';
 
 /// Centralized, synchronized ticker for all shimmer skeletons across the application.
 /// Uses a single scheduler frame callback regardless of how many shimmer skeletons
@@ -78,17 +79,13 @@ class _ShimmerBoxState extends State<ShimmerBox> {
           decoration: BoxDecoration(
             borderRadius: border,
             gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              stops: [
-                (value - 0.3).clamp(0.0, 1.0),
-                value.clamp(0.0, 1.0),
-                (value + 0.3).clamp(0.0, 1.0),
-              ],
+              begin: Alignment(-2.5 + 5.0 * value, -0.3),
+              end: Alignment(-0.5 + 5.0 * value, 0.3),
+              stops: const [0.0, 0.5, 1.0],
               colors: const [
-                Color(0xFF141416),
-                Color(0xFF26262C),
-                Color(0xFF141416),
+                AppColors.surfaceContainerLow,
+                AppColors.surfaceHighlight,
+                AppColors.surfaceContainerLow,
               ],
             ),
           ),

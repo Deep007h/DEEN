@@ -7,8 +7,7 @@ import 'package:anime_stream/l10n/app_localizations.dart';
 import 'package:anime_stream/features/library/domain/models/followed_anime.dart';
 import 'package:anime_stream/features/library/data/repositories/follow_repository.dart';
 import 'package:anime_stream/features/library/presentation/providers/library_providers.dart';
-import 'package:anime_stream/features/library/presentation/screens/following_screen.dart';
-import 'package:anime_stream/features/library/presentation/screens/recent_screen.dart';
+import 'package:anime_stream/features/library/presentation/screens/library_screen.dart';
 import 'package:anime_stream/features/player/data/repositories/playback_history_repository.dart';
 
 void main() {
@@ -23,7 +22,7 @@ void main() {
     historyRepo = PlaybackHistoryRepository();
   });
 
-  group('FollowingScreen Tests', () {
+  group('LibraryScreen Following Tests', () {
     testWidgets('Displays empty state when no anime followed', (tester) async {
       await tester.pumpWidget(
         ProviderScope(
@@ -33,14 +32,14 @@ void main() {
           child: const MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
-            home: FollowingScreen(),
+            home: LibraryScreen(),
           ),
         ),
       );
       await tester.pumpAndSettle();
 
       expect(find.text('No followed anime yet'), findsOneWidget);
-      expect(find.text('Bookmark your favorite anime to receive updates on new episodes.'), findsOneWidget);
+      expect(find.text('Tap the star on any anime detail to follow it'), findsOneWidget);
     });
 
     testWidgets('Displays followed anime cards and handles unfollow with undo', (tester) async {
@@ -70,7 +69,7 @@ void main() {
           child: const MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
-            home: Scaffold(body: FollowingScreen()),
+            home: Scaffold(body: LibraryScreen()),
           ),
         ),
       );
@@ -78,7 +77,6 @@ void main() {
 
       // Card is displayed
       expect(find.text('Sousou no Frieren'), findsOneWidget);
-      expect(find.text('8.9'), findsOneWidget);
 
       // Long press card to trigger unfollow dialog
       await tester.longPress(find.text('Sousou no Frieren'));
@@ -108,7 +106,7 @@ void main() {
     });
   });
 
-  group('RecentScreen Tests', () {
+  group('LibraryScreen History Tests', () {
     testWidgets('Displays empty state when no watch history', (tester) async {
       await tester.pumpWidget(
         ProviderScope(
@@ -118,14 +116,18 @@ void main() {
           child: const MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
-            home: RecentScreen(),
+            home: LibraryScreen(),
           ),
         ),
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('No watch history'), findsOneWidget);
-      expect(find.text("Anime you've watched will show up here so you can easily pick up where you left off."), findsOneWidget);
+      // Switch to History tab
+      await tester.tap(find.textContaining('History'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('No watch history yet'), findsOneWidget);
+      expect(find.text('Played episodes will automatically appear here'), findsOneWidget);
     });
 
     testWidgets('Displays watch history items with progress bar and Clear All', (tester) async {
@@ -145,34 +147,38 @@ void main() {
           child: const MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
-            home: Scaffold(body: RecentScreen()),
+            home: Scaffold(body: LibraryScreen()),
           ),
         ),
       );
       await tester.pumpAndSettle();
 
+      // Switch to History tab
+      await tester.tap(find.textContaining('History'));
+      await tester.pumpAndSettle();
+
       // Verify title and episode progress text
       expect(find.text('Sousou no Frieren'), findsOneWidget);
-      expect(find.text('Episode 5 · 12:00 / 24:00'), findsOneWidget);
+      expect(find.text('Episode 5'), findsOneWidget);
       expect(find.byType(LinearProgressIndicator), findsOneWidget);
 
-      // Clear all button exists in app bar
-      expect(find.text('Clear all'), findsOneWidget);
+      // Clear button exists in header
+      expect(find.text('Clear'), findsOneWidget);
 
-      // Tap Clear all
-      await tester.tap(find.text('Clear all'));
+      // Tap Clear
+      await tester.tap(find.text('Clear'));
       await tester.pumpAndSettle();
 
       // Confirmation dialog appears
       expect(find.text('Clear Watch History'), findsOneWidget);
-      expect(find.text('Are you sure you want to clear your entire watch history? This action cannot be undone.'), findsOneWidget);
+      expect(find.text('Remove all items from your playback history?'), findsOneWidget);
 
-      // Tap Clear All in dialog
-      await tester.tap(find.text('Clear All'));
+      // Tap Clear in dialog
+      await tester.tap(find.descendant(of: find.byType(AlertDialog), matching: find.text('Clear')));
       await tester.pumpAndSettle();
 
       // History is now empty
-      expect(find.text('No watch history'), findsOneWidget);
+      expect(find.text('No watch history yet'), findsOneWidget);
     });
   });
 }

@@ -18,6 +18,8 @@ import '../../../library/domain/models/followed_anime.dart';
 import '../../../metadata/presentation/providers/metadata_providers.dart';
 import '../../../../core/presentation/widgets/pressable_scale.dart';
 import '../../../../core/presentation/widgets/shimmer_box.dart';
+import '../../../../core/presentation/widgets/hero_shuttle_builder.dart';
+export '../../../../core/presentation/widgets/hero_shuttle_builder.dart';
 import '../../../explore/presentation/providers/explore_providers.dart';
 
 /// State provider for Home screen genre filter pill bar.
@@ -184,19 +186,28 @@ class HomeScreen extends ConsumerWidget {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Container(
-                          width: 38,
-                          height: 38,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF141914),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: const Color(0xFF263526), width: 0.9),
-                          ),
-                          child: IconButton(
-                            padding: EdgeInsets.zero,
-                            icon: const Icon(Icons.search_rounded, color: Colors.white, size: 20),
-                            tooltip: 'Search anime',
-                            onPressed: () => context.push('/search'),
+                        Tooltip(
+                          message: 'Search anime',
+                          child: InkWell(
+                            onTap: () => context.push('/search'),
+                            borderRadius: BorderRadius.circular(24),
+                            child: Container(
+                              width: 48,
+                              height: 48,
+                              alignment: Alignment.center,
+                              child: Container(
+                                width: 38,
+                                height: 38,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF141914),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: const Color(0xFF263526), width: 0.9),
+                                ),
+                                child: const Center(
+                                  child: Icon(Icons.search_rounded, color: Colors.white, size: 20),
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -712,23 +723,6 @@ class _ProfileDropdownButton extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // Genre Filter Pill Bar (matching user reference screenshot: All, Action, Adventure, Fantasy)
 // ---------------------------------------------------------------------------
-Widget smoothHeroFlightShuttleBuilder(
-  BuildContext flightContext,
-  Animation<double> animation,
-  HeroFlightDirection flightDirection,
-  BuildContext fromHeroContext,
-  BuildContext toHeroContext,
-) {
-  final Widget toHeroWidget = (toHeroContext.widget as Hero).child;
-  return Material(
-    type: MaterialType.transparency,
-    child: ClipRRect(
-      borderRadius: BorderRadius.circular(14),
-      clipBehavior: Clip.antiAlias,
-      child: toHeroWidget,
-    ),
-  );
-}
 
 class _GenreFilterPillBar extends ConsumerWidget {
   const _GenreFilterPillBar();
@@ -1553,24 +1547,29 @@ class _SectionHeader extends StatelessWidget {
           const SizedBox(width: 8),
           PressableScale(
             onTap: onSeeAll,
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'See All',
-                  style: TextStyle(
-                    color: Color(0xFF8E9E8E),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              constraints: const BoxConstraints(minHeight: 44),
+              alignment: Alignment.center,
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'See All',
+                    style: TextStyle(
+                      color: Color(0xFF8E9E8E),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-                SizedBox(width: 4),
-                Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  size: 10,
-                  color: Color(0xFF8E9E8E),
-                ),
-              ],
+                  SizedBox(width: 4),
+                  Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 10,
+                    color: Color(0xFF8E9E8E),
+                  ),
+                ],
+              ),
             ),
           ),
         ],

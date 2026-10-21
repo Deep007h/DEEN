@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../theme/app_motion.dart';
 
 /// Reusable tactile bounce/scale micro-interaction widget with Material 3 spring physics.
@@ -38,6 +40,11 @@ class _PressableScaleState extends State<PressableScale> {
   void _handleTapDown(TapDownDetails details) {
     if (widget.onTap == null && widget.onLongPress == null) return;
     setState(() => _isPressed = true);
+    if (!kIsWeb) {
+      try {
+        HapticFeedback.lightImpact();
+      } catch (_) {}
+    }
   }
 
   void _handleTapUp(TapUpDetails details) {
@@ -55,7 +62,7 @@ class _PressableScaleState extends State<PressableScale> {
   void _handleTap() {
     if (widget.onTap == null) return;
     final now = DateTime.now().millisecondsSinceEpoch;
-    if (now - _lastTapTimestamp < 400) return;
+    if (now - _lastTapTimestamp < 150) return;
     _lastTapTimestamp = now;
     widget.onTap!();
   }

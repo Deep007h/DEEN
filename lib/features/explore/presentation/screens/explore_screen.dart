@@ -284,6 +284,8 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                   child: trendingAsync.when(
                     data: (list) => ListView.separated(
                       scrollDirection: Axis.horizontal,
+                      // ignore: deprecated_member_use
+                      cacheExtent: 350,
                       physics: AppMotion.m3ScrollPhysics,
                       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
                       itemCount: list.length,
@@ -325,6 +327,8 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                   child: topRatedAsync.when(
                     data: (list) => ListView.separated(
                       scrollDirection: Axis.horizontal,
+                      // ignore: deprecated_member_use
+                      cacheExtent: 350,
                       physics: AppMotion.m3ScrollPhysics,
                       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
                       itemCount: list.length,
@@ -365,6 +369,8 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                   child: popularAsync.when(
                     data: (list) => ListView.separated(
                       scrollDirection: Axis.horizontal,
+                      // ignore: deprecated_member_use
+                      cacheExtent: 350,
                       physics: AppMotion.m3ScrollPhysics,
                       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
                       itemCount: list.length,
@@ -897,43 +903,44 @@ class _ExplorePosterCard extends StatelessWidget {
     final title = item.titles.preferredTitle();
     final heroTag = 'poster_${item.id}_${contextPrefix}_${rank ?? 0}';
 
-    return PressableScale(
-      onTap: () => context.push(
-        '/anime/${item.id}?heroTag=$heroTag',
-        extra: {'posterUrl': item.posterUrl, 'title': title, 'heroTag': heroTag},
-      ),
-      child: SizedBox(
-        width: 143,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: const Color(0xFF263526), width: 1.0),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(13),
-                      child: Hero(
-                        tag: heroTag,
-                        createRectTween: (begin, end) => RectTween(begin: begin, end: end),
-                        child: CachedNetworkImage(
-                          imageUrl: item.posterUrl ?? '',
-                          fit: BoxFit.cover,
-                          memCacheWidth: 320,
-                          placeholder: (_, __) => Container(color: const Color(0xFF141914)),
-                          errorWidget: (_, __, ___) => Container(
-                            color: const Color(0xFF141914),
-                            child: const Icon(Icons.broken_image, color: Colors.white24),
+    return RepaintBoundary(
+      child: PressableScale(
+        onTap: () => context.push(
+          '/anime/${item.id}?heroTag=$heroTag',
+          extra: {'posterUrl': item.posterUrl, 'title': title, 'heroTag': heroTag},
+        ),
+        child: SizedBox(
+          width: 143,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFF263526), width: 1.0),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(13),
+                        child: Hero(
+                          tag: heroTag,
+                          createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
+                          child: CachedNetworkImage(
+                            imageUrl: item.posterUrl ?? '',
+                            fit: BoxFit.cover,
+                            memCacheWidth: 320,
+                            placeholder: (_, __) => Container(color: AppColors.surfaceContainerLow),
+                            errorWidget: (_, __, ___) => Container(
+                              color: AppColors.surfaceContainerLow,
+                              child: const Icon(Icons.broken_image, color: Colors.white24),
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
                   if (rank != null)
                     Positioned(
                       top: 7,
@@ -1005,7 +1012,8 @@ class _ExplorePosterCard extends StatelessWidget {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 }
 
@@ -1058,13 +1066,13 @@ class _CatalogGridCard extends StatelessWidget {
                     children: [
                       Hero(
                         tag: heroTag,
-                        createRectTween: (begin, end) => RectTween(begin: begin, end: end),
+                        createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
                         child: CachedNetworkImage(
                           imageUrl: item.posterUrl ?? '',
                           fit: BoxFit.cover,
                           memCacheWidth: 400,
-                          placeholder: (_, __) => Container(color: const Color(0xFF16161E)),
-                          errorWidget: (_, __, ___) => Container(color: const Color(0xFF16161E)),
+                          placeholder: (_, __) => Container(color: AppColors.surfaceContainerLow),
+                          errorWidget: (_, __, ___) => Container(color: AppColors.surfaceContainerLow),
                         ),
                       ),
                       Container(
@@ -1197,14 +1205,14 @@ class _CatalogListCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 child: Hero(
                   tag: heroTag,
-                  createRectTween: (begin, end) => RectTween(begin: begin, end: end),
+                  createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
                   child: CachedNetworkImage(
                     imageUrl: item.posterUrl ?? '',
                     width: 70,
                     height: 97,
                     fit: BoxFit.cover,
-                    placeholder: (_, __) => Container(color: const Color(0xFF1C1C24)),
-                    errorWidget: (_, __, ___) => Container(color: const Color(0xFF1C1C24)),
+                    placeholder: (_, __) => Container(color: AppColors.surfaceContainerLow),
+                    errorWidget: (_, __, ___) => Container(color: AppColors.surfaceContainerLow),
                   ),
                 ),
               ),
@@ -1310,12 +1318,12 @@ class _CatalogWideCard extends StatelessWidget {
               children: [
                 Hero(
                   tag: heroTag,
-                  createRectTween: (begin, end) => RectTween(begin: begin, end: end),
+                  createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
                   child: CachedNetworkImage(
                     imageUrl: item.posterUrl ?? '',
                     fit: BoxFit.cover,
-                    placeholder: (_, __) => Container(color: const Color(0xFF14141B)),
-                    errorWidget: (_, __, ___) => Container(color: const Color(0xFF14141B)),
+                    placeholder: (_, __) => Container(color: AppColors.surfaceContainerLow),
+                    errorWidget: (_, __, ___) => Container(color: AppColors.surfaceContainerLow),
                   ),
                 ),
                 Container(

@@ -13,6 +13,7 @@ import '../../../../core/theme/app_text.dart';
 import '../../../../l10n/app_localizations.dart';
 import 'package:anime_stream/features/metadata/presentation/providers/metadata_providers.dart';
 import 'package:anime_stream/features/metadata/domain/models/anime_titles.dart';
+import 'package:anime_stream/features/metadata/domain/models/anime_detail.dart';
 import 'package:anime_stream/features/stream/presentation/providers/stream_providers.dart';
 import 'package:anime_stream/features/library/domain/models/followed_anime.dart';
 
@@ -61,6 +62,8 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
   bool _isSynopsisExpanded = false;
   bool _isGridView = true;
   int _selectedSeasonId = 0;
+  final List<int> _seasonHistory = [];
+  AnimeDetail? _lastLoadedDetail;
   int _lastEpisodeNavTime = 0;
   final Set<String> _prewarmedEpisodes = {};
 
@@ -99,6 +102,10 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
     final currentId = _selectedSeasonId != 0 ? _selectedSeasonId : (int.tryParse(widget.animeId) ?? 0);
 
     final detailAsync = ref.watch(animeDetailProvider(currentId));
+    if (detailAsync.hasValue) {
+      _lastLoadedDetail = detailAsync.value;
+    }
+    final detail = detailAsync.valueOrNull ?? _lastLoadedDetail;
     final titlePref = ref.watch(titlePreferenceProvider);
     final isFollowedAsync = ref.watch(isFollowingProvider(currentId));
     final lastWatchedEpAsync = ref.watch(lastWatchedEpisodeProvider(currentId));
@@ -109,18 +116,31 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
     final activeProvider = registry?.getProvider(selectedProviderId) ?? registry?.getProvider(defaultProviderId);
     final providerLabel = activeProvider?.displayName.split(' ').first ?? 'MegaVid';
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Stack(
-        children: [
-          // 1. Scrollable Content Layer
-          detailAsync.when(
-            data: (detail) {
-              final displayTitle = detail.titles.preferredTitle(titlePref);
-              final isFollowed = isFollowedAsync.valueOrNull ?? false;
-              final lastWatchedEp = lastWatchedEpAsync.valueOrNull;
-              final dubAvailableAsync = ref.watch(animeDubAvailabilityProvider(detail));
-              final hasDub = dubAvailableAsync.valueOrNull ?? false;
+    return PopScope(
+      canPop: _seasonHistory.isEmpty,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_seasonHistory.isNotEmpty) {
+          setState(() {
+            _selectedSeasonId = _seasonHistory.removeLast();
+          });
+        } else if (context.canPop()) {
+          context.pop();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: Stack(
+          children: [
+            // 1. Scrollable Content Layer
+            Builder(
+              builder: (context) {
+                if (detail != null) {
+                  final displayTitle = detail.titles.preferredTitle(titlePref);
+                  final isFollowed = isFollowedAsync.valueOrNull ?? false;
+                  final lastWatchedEp = lastWatchedEpAsync.valueOrNull;
+                  final dubAvailableAsync = ref.watch(animeDubAvailabilityProvider(detail));
+                  final hasDub = dubAvailableAsync.valueOrNull ?? false;
 
               // Pre-resolve target episode stream in background for instant 0ms playback
               final targetEp = lastWatchedEp ?? 1;
@@ -133,6 +153,10 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                   });
                 });
               }
+
+              final effectiveBackdrop = (detail.bannerUrl != null && detail.bannerUrl!.trim().isNotEmpty)
+                  ? detail.bannerUrl!
+                  : (detail.posterUrl != null && detail.posterUrl!.trim().isNotEmpty ? detail.posterUrl! : null);
 
               return RefreshIndicator(
                 color: AppColors.accent,
@@ -153,7 +177,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                       child: Stack(
                         children: [
                           // 1. Blurred Backdrop Image (cached in GPU layer)
-                          if (detail.posterUrl != null && detail.posterUrl!.isNotEmpty)
+                          if (effectiveBackdrop != null)
                             Positioned(
                               top: 0,
                               left: 0,
@@ -167,7 +191,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                                       child: Transform.scale(
                                         scale: 1.25,
                                         child: CachedNetworkImage(
-                                          imageUrl: detail.bannerUrl ?? detail.posterUrl!,
+                                          imageUrl: effectiveBackdrop,
                                           fit: BoxFit.cover,
                                           memCacheWidth: 720,
                                           errorWidget: (_, __, ___) => const SizedBox.shrink(),
@@ -215,7 +239,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 // Spacer reserving room for the persistent floating back button
-                                const SizedBox(height: 44),
+                                SizedBox(height: MediaQuery.paddingOf(context).top + 48),
 
                                 const SizedBox(height: AppSpacing.md),
 
@@ -226,7 +250,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                                 // Sharp Poster Card with Hero animation
                                 Hero(
                                   tag: widget.heroTag ?? 'poster_${detail.id}',
-                                  createRectTween: (begin, end) => RectTween(begin: begin, end: end),
+                                  createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
                                   flightShuttleBuilder: smoothDetailHeroFlightShuttleBuilder,
                                   child: Container(
                                     width: 115,
@@ -636,13 +660,18 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                         children: [
                           Text('Synopsis', style: AppText.sectionTitle.copyWith(fontSize: 16)),
                           const SizedBox(height: AppSpacing.xs),
-                          Text(
-                            detail.summary!,
-                            maxLines: _isSynopsisExpanded ? null : 3,
-                            overflow: _isSynopsisExpanded ? null : TextOverflow.ellipsis,
-                            style: AppText.bodySecondary.copyWith(
-                              height: 1.45,
-                              color: AppColors.textSecondary,
+                          AnimatedSize(
+                            duration: AppMotion.medium2,
+                            curve: Curves.easeOutCubic,
+                            alignment: Alignment.topLeft,
+                            child: Text(
+                              detail.summary!,
+                              maxLines: _isSynopsisExpanded ? null : 3,
+                              overflow: _isSynopsisExpanded ? null : TextOverflow.ellipsis,
+                              style: AppText.bodySecondary.copyWith(
+                                height: 1.45,
+                                color: AppColors.textSecondary,
+                              ),
                             ),
                           ),
                           if (detail.summary!.length > 120) ...[
@@ -676,7 +705,22 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Seasons', style: AppText.sectionTitle.copyWith(fontSize: 16)),
+                          Row(
+                            children: [
+                              Text('Seasons', style: AppText.sectionTitle.copyWith(fontSize: 16)),
+                              if (detailAsync.isLoading) ...[
+                                const SizedBox(width: AppSpacing.sm),
+                                const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AppColors.accent,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
                           const SizedBox(height: AppSpacing.sm),
                           SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
@@ -703,6 +747,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                                     ),
                                     onSelected: (selected) {
                                       if (selected && season.id != currentId) {
+                                        _seasonHistory.add(currentId);
                                         setState(() {
                                           _selectedSeasonId = season.id;
                                         });
@@ -967,45 +1012,57 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
               ],
             ),
           );
-        },
-        loading: () => _DetailLoadingSkeleton(
-          heroTag: widget.heroTag ?? 'poster_${widget.animeId}',
-          previewPoster: widget.previewPoster,
-          previewTitle: widget.previewTitle,
-        ),
-        error: (err, stack) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.xl),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.error_outline_rounded, size: 48, color: AppColors.accent),
-                const SizedBox(height: AppSpacing.md),
-                Text(l10n.errorLoading, style: AppText.sectionTitle),
-                const SizedBox(height: AppSpacing.xs),
-                Text(err.toString(), textAlign: TextAlign.center, style: AppText.meta),
-                const SizedBox(height: AppSpacing.lg),
-                ElevatedButton.icon(
-                  onPressed: () => ref.refresh(animeDetailProvider(currentId)),
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: Text(l10n.retry),
-                ),
-              ],
+        } else if (detailAsync.isLoading) {
+          return _DetailLoadingSkeleton(
+            heroTag: widget.heroTag ?? 'poster_${widget.animeId}',
+            previewPoster: widget.previewPoster,
+            previewTitle: widget.previewTitle,
+          );
+        } else {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.xl),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.error_outline_rounded, size: 48, color: AppColors.accent),
+                  const SizedBox(height: AppSpacing.md),
+                  Text(l10n.errorLoading, style: AppText.sectionTitle),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(detailAsync.error?.toString() ?? '', textAlign: TextAlign.center, style: AppText.meta),
+                  const SizedBox(height: AppSpacing.lg),
+                  ElevatedButton.icon(
+                    onPressed: () => ref.refresh(animeDetailProvider(currentId)),
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: Text(l10n.retry),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ),
-      ),
+          );
+        }
+      },
+    ),
 
-      // 2. Persistent Floating Glass Back Button (pinned on top of all content)
-      Positioned(
-        top: topPadding + AppSpacing.xs,
-        left: AppSpacing.pageMargin,
-        child: _FloatingBackButton(
-          onPressed: () => context.pop(),
-        ),
+    // 2. Persistent Floating Glass Back Button (pinned on top of all content)
+    Positioned(
+      top: topPadding + AppSpacing.xs,
+      left: AppSpacing.pageMargin,
+      child: _FloatingBackButton(
+        onPressed: () {
+          if (_seasonHistory.isNotEmpty) {
+            setState(() {
+              _selectedSeasonId = _seasonHistory.removeLast();
+            });
+          } else if (context.canPop()) {
+            context.pop();
+          }
+        },
       ),
-    ],
-  ),
+    ),
+  ],
+),
+),
 );
   }
 
@@ -1017,15 +1074,13 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      showDragHandle: true,
+      isScrollControlled: true,
       builder: (ctx) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.pageMargin,
-            vertical: AppSpacing.lg,
+            vertical: AppSpacing.sm,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1040,7 +1095,9 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                   ),
                   TextButton(
                     onPressed: () {
-                      Navigator.pop(ctx);
+                      if (ctx.mounted && Navigator.canPop(ctx)) {
+                        Navigator.pop(ctx);
+                      }
                       context.push('/settings/sources');
                     },
                     child: const Text('Manage Sources', style: TextStyle(color: AppColors.accent)),
@@ -1048,27 +1105,47 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                 ],
               ),
               const SizedBox(height: AppSpacing.sm),
-              ...enabledProviders.map<Widget>((p) {
-                final isSelected = p.id == currentProviderId;
-                return ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(
-                    isSelected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
-                    color: isSelected ? AppColors.accent : AppColors.textSecondary,
-                  ),
-                  title: Text(
-                    p.displayName,
-                    style: AppText.body.copyWith(
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              if (enabledProviders.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+                  child: Center(
+                    child: Text(
+                      'All stream sources are disabled.',
+                      style: AppText.meta,
                     ),
                   ),
-                  onTap: () async {
-                    await registry.setAnimeSelectedProviderId(currentId, p.id);
-                    if (ctx.mounted) Navigator.pop(ctx);
-                    setState(() {});
-                  },
-                );
-              }),
+                )
+              else
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: enabledProviders.length,
+                    itemBuilder: (ctx, index) {
+                      final p = enabledProviders[index];
+                      final isSelected = p.id == currentProviderId;
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(
+                          isSelected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+                          color: isSelected ? AppColors.accent : AppColors.textSecondary,
+                        ),
+                        title: Text(
+                          p.displayName,
+                          style: AppText.body.copyWith(
+                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                          ),
+                        ),
+                        onTap: () async {
+                          await registry.setAnimeSelectedProviderId(currentId, p.id);
+                          if (ctx.mounted && Navigator.canPop(ctx)) {
+                            Navigator.pop(ctx);
+                          }
+                          setState(() {});
+                        },
+                      );
+                    },
+                  ),
+                ),
             ],
           ),
         ),
@@ -1254,7 +1331,7 @@ class _DetailLoadingSkeleton extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Spacer matching the persistent floating back button
-                const SizedBox(height: 44),
+                SizedBox(height: MediaQuery.paddingOf(context).top + 48),
                 const SizedBox(height: AppSpacing.md),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1262,7 +1339,7 @@ class _DetailLoadingSkeleton extends StatelessWidget {
                     if (heroTag != null && previewPoster != null && previewPoster!.isNotEmpty)
                       Hero(
                         tag: heroTag!,
-                        createRectTween: (begin, end) => RectTween(begin: begin, end: end),
+                        createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
                         flightShuttleBuilder: smoothDetailHeroFlightShuttleBuilder,
                         child: Container(
                           width: 115,
@@ -1433,9 +1510,7 @@ class _SpringStarButtonState extends State<_SpringStarButton>
           width: 1,
         ),
         minimumSize: const Size.fromHeight(48),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
+        shape: const StadiumBorder(),
         backgroundColor: widget.isFollowed
             ? AppColors.ratingStar.withValues(alpha: 0.12)
             : AppColors.surface,
