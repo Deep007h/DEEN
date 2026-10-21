@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/presentation/widgets/floating_nav_bar.dart';
+import '../../../../core/presentation/widgets/hero_shuttle_builder.dart';
 import '../../../../core/presentation/widgets/shimmer_box.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_motion.dart';
@@ -244,7 +245,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                   borderRadius: BorderRadius.circular(14),
                                   child: Hero(
                                     tag: 'poster_${item.id}',
-                                    createRectTween: (begin, end) => RectTween(begin: begin, end: end),
+                                    createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
+                                    flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
                                     child: CachedNetworkImage(
                                       imageUrl: item.posterUrl ?? '',
                                       fit: BoxFit.cover,

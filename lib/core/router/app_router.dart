@@ -144,7 +144,7 @@ final GoRouter appRouter = GoRouter(
         }
         return CustomTransitionPage(
           key: state.pageKey,
-          transitionDuration: const Duration(milliseconds: 420),
+          transitionDuration: const Duration(milliseconds: 440),
           reverseTransitionDuration: const Duration(milliseconds: 360),
           child: DetailScreen(
             animeId: animeId,
@@ -153,14 +153,26 @@ final GoRouter appRouter = GoRouter(
             previewTitle: previewTitle,
           ),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            final curve = CurvedAnimation(
+            final curvedAnimation = CurvedAnimation(
               parent: animation,
               curve: Curves.easeOutCubic,
-              reverseCurve: Curves.easeInCubic,
+              reverseCurve: Curves.easeOutCubic,
             );
-            return FadeTransition(
-              opacity: curve,
-              child: child,
+            final scale = Tween<double>(
+              begin: 0.965,
+              end: 1.0,
+            ).animate(curvedAnimation);
+            final fade = CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+              reverseCurve: Curves.easeOutCubic,
+            );
+            return ScaleTransition(
+              scale: scale,
+              child: FadeTransition(
+                opacity: fade,
+                child: child,
+              ),
             );
           },
         );
@@ -187,8 +199,8 @@ final GoRouter appRouter = GoRouter(
 
         return CustomTransitionPage(
           key: const ValueKey('player_screen_route'),
-          transitionDuration: const Duration(milliseconds: 260),
-          reverseTransitionDuration: const Duration(milliseconds: 220),
+          transitionDuration: const Duration(milliseconds: 300),
+          reverseTransitionDuration: const Duration(milliseconds: 260),
           child: PlayerScreen(
             animeId: animeId,
             episodeNumber: episodeNumber,
@@ -198,7 +210,7 @@ final GoRouter appRouter = GoRouter(
             final curvedAnimation = CurvedAnimation(
               parent: animation,
               curve: Curves.easeOutCubic,
-              reverseCurve: Curves.easeOutQuad,
+              reverseCurve: Curves.easeOutCubic,
             );
 
             // Smooth cinematic zoom scale without jagged corner tilts
@@ -211,7 +223,7 @@ final GoRouter appRouter = GoRouter(
             final fade = CurvedAnimation(
               parent: animation,
               curve: Curves.easeOutCubic,
-              reverseCurve: Curves.easeInQuad,
+              reverseCurve: Curves.easeOutCubic,
             );
 
             return ScaleTransition(
@@ -220,9 +232,9 @@ final GoRouter appRouter = GoRouter(
                 opacity: fade,
                 child: child,
               ),
-          );
-        },
-      );
+            );
+          },
+        );
     },
   ),
 ],

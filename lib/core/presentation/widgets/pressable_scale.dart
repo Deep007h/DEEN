@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../theme/app_motion.dart';
 
 /// Reusable tactile bounce/scale micro-interaction widget with Material 3 spring physics.
 /// Scales down swiftly on press and springs back with an expressive M3 overshoot on release.
@@ -22,10 +21,10 @@ class PressableScale extends StatefulWidget {
     required this.child,
     this.onTap,
     this.onLongPress,
-    this.targetScale = 0.95,
-    this.pressDuration = const Duration(milliseconds: 80),
-    this.releaseDuration = const Duration(milliseconds: 285),
-    this.curve = AppMotion.expressiveFastSpatial,
+    this.targetScale = 0.965,
+    this.pressDuration = const Duration(milliseconds: 90),
+    this.releaseDuration = const Duration(milliseconds: 320),
+    this.curve = Curves.easeOutCubic,
     this.pressCurve = Curves.easeOutQuad,
     this.behavior = HitTestBehavior.opaque,
     this.enableHaptics = true,

@@ -169,8 +169,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     super.initState();
     _sidePanelController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 250),
-      reverseDuration: const Duration(milliseconds: 220),
+      duration: const Duration(milliseconds: 280),
+      reverseDuration: const Duration(milliseconds: 240),
     );
     _sidePanelController.addStatusListener((status) {
       if (status == AnimationStatus.dismissed && mounted) {
@@ -1905,7 +1905,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                     Positioned.fill(
                       child: GestureDetector(
                         behavior: HitTestBehavior.opaque,
-                        onTap: _closeSidePanel,
                         child: Container(
                           color: Colors.black.withValues(alpha: 0.45 * animProgress),
                         ),

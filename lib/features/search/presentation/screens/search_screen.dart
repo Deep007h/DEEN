@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/presentation/widgets/floating_nav_bar.dart';
+import '../../../../core/presentation/widgets/hero_shuttle_builder.dart';
 import '../../../../core/presentation/widgets/pressable_scale.dart';
 import '../../../../core/presentation/widgets/shimmer_box.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -747,7 +748,8 @@ class _PosterGridCard extends StatelessWidget {
                 children: [
                   Hero(
                     tag: 'poster_${anime.id}',
-                    createRectTween: (begin, end) => RectTween(begin: begin, end: end),
+                    createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
+                    flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
                     child: anime.posterUrl != null && anime.posterUrl!.isNotEmpty
                         ? CachedNetworkImage(
                             imageUrl: anime.posterUrl!,

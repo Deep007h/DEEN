@@ -724,7 +724,7 @@ class _ExploreHeroSpotlight extends StatelessWidget {
                 // Backdrop banner image
                 Hero(
                   tag: heroTag,
-                  createRectTween: (begin, end) => RectTween(begin: begin, end: end),
+                  createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
                   flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
                   child: CachedNetworkImage(
                     imageUrl: hero.bannerUrl ?? hero.posterUrl ?? '',
@@ -932,7 +932,7 @@ class _ExplorePosterCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(13),
                         child: Hero(
                           tag: heroTag,
-                          createRectTween: (begin, end) => RectTween(begin: begin, end: end),
+                          createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
                           flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
                           child: CachedNetworkImage(
                             imageUrl: item.posterUrl ?? '',
@@ -1072,7 +1072,7 @@ class _CatalogGridCard extends StatelessWidget {
                     children: [
                       Hero(
                         tag: heroTag,
-                        createRectTween: (begin, end) => RectTween(begin: begin, end: end),
+                        createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
                         flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
                         child: CachedNetworkImage(
                           imageUrl: item.posterUrl ?? '',
@@ -1212,7 +1212,7 @@ class _CatalogListCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 child: Hero(
                   tag: heroTag,
-                  createRectTween: (begin, end) => RectTween(begin: begin, end: end),
+                  createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
                   flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
                   child: CachedNetworkImage(
                     imageUrl: item.posterUrl ?? '',
@@ -1326,7 +1326,7 @@ class _CatalogWideCard extends StatelessWidget {
               children: [
                 Hero(
                   tag: heroTag,
-                  createRectTween: (begin, end) => RectTween(begin: begin, end: end),
+                  createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
                   flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
                   child: CachedNetworkImage(
                     imageUrl: item.posterUrl ?? '',

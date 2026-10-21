@@ -50,9 +50,6 @@ class MetadataRepositoryImpl implements MetadataRepository {
     final cacheKey = 'search_${trimmed}_${tagsKey}_${sort.name}_${limit}_$offset';
     final cached = cache.get<List<AnimeSummary>>(cacheKey);
     if (cached != null) {
-      for (final s in cached) {
-        _recordSourceOrigin(s.id, 'anilist');
-      }
       return cached;
     }
 

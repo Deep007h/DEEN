@@ -238,29 +238,31 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 // Sharp Poster Card with Hero animation
-                                Hero(
-                                  tag: widget.heroTag ?? 'poster_${detail.id}',
-                                  createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
-                                  flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
-                                  child: Container(
-                                    width: 115,
-                                    height: 165,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(14),
-                                      border: Border.all(
-                                        color: Colors.white.withValues(alpha: 0.15),
-                                        width: 1,
-                                      ),
-                                      boxShadow: const [
-                                        BoxShadow(
-                                          color: Color(0x7A000000),
-                                          blurRadius: 16,
-                                          offset: Offset(0, 8),
-                                        ),
-                                      ],
+                                Container(
+                                  width: 115,
+                                  height: 165,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(
+                                      color: Colors.white.withValues(alpha: 0.15),
+                                      width: 1,
                                     ),
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(13),
+                                    boxShadow: const [
+                                      BoxShadow(
+                                        color: Color(0x7A000000),
+                                        blurRadius: 16,
+                                        offset: Offset(0, 8),
+                                      ),
+                                    ],
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(13),
+                                    child: Hero(
+                                      tag: (_selectedSeasonId != 0 && _selectedSeasonId != (int.tryParse(widget.animeId) ?? 0))
+                                          ? 'poster_$_selectedSeasonId'
+                                          : (widget.heroTag ?? 'poster_${detail.id}'),
+                                      createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
+                                      flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
                                       child: detail.posterUrl != null &&
                                               detail.posterUrl!.isNotEmpty
                                           ? CachedNetworkImage(
@@ -1339,29 +1341,29 @@ class _DetailLoadingSkeleton extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (heroTag != null && previewPoster != null && previewPoster!.isNotEmpty)
-                      Hero(
-                        tag: heroTag!,
-                        createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
-                        flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
-                        child: Container(
-                          width: 115,
-                          height: 165,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.15),
-                              width: 1,
-                            ),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0x7A000000),
-                                blurRadius: 16,
-                                offset: Offset(0, 8),
-                              ),
-                            ],
+                      Container(
+                        width: 115,
+                        height: 165,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.15),
+                            width: 1,
                           ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(13),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x7A000000),
+                              blurRadius: 16,
+                              offset: Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(13),
+                          child: Hero(
+                            tag: heroTag!,
+                            createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
+                            flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
                             child: CachedNetworkImage(
                               imageUrl: previewPoster!,
                               fit: BoxFit.cover,

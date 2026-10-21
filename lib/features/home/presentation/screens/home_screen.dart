@@ -816,15 +816,15 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
 
   void _startAutoScroll() {
     _autoScrollTimer?.cancel();
-    _autoScrollTimer = Timer.periodic(const Duration(seconds: 6), (_) {
+    _autoScrollTimer = Timer.periodic(const Duration(milliseconds: 7200), (_) {
       if (!mounted || !_pageController.hasClients || widget.items.isEmpty) return;
       final count = widget.items.length.clamp(1, 5);
       if (count <= 1) return;
       final next = (_currentPageNotifier.value + 1) % count;
       _pageController.animateToPage(
         next,
-        duration: const Duration(milliseconds: 600),
-        curve: Curves.easeOutCubic,
+        duration: const Duration(milliseconds: 720),
+        curve: Curves.easeInOutCubic,
       );
     });
   }
@@ -942,7 +942,7 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
                         if (imageUrl != null && imageUrl.isNotEmpty)
                           Hero(
                             tag: heroTag,
-                            createRectTween: (begin, end) => RectTween(begin: begin, end: end),
+                            createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
                             flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(22),
@@ -1195,7 +1195,7 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
                     children: List.generate(count, (dotIdx) {
                       final isActive = dotIdx == activeIndex;
                       return AnimatedContainer(
-                        duration: const Duration(milliseconds: 220),
+                        duration: const Duration(milliseconds: 264),
                         curve: Curves.easeOutCubic,
                         margin: const EdgeInsets.symmetric(horizontal: 1.5),
                         width: isActive ? 16 : 4,
@@ -1299,7 +1299,7 @@ class _TrendingLargeCardsList extends StatelessWidget {
                           children: [
                         Hero(
                           tag: heroTag,
-                          createRectTween: (begin, end) => RectTween(begin: begin, end: end),
+                          createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
                           flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(15),
@@ -1486,7 +1486,7 @@ class _PopularThisWeekList extends StatelessWidget {
                   child: item.posterUrl != null && item.posterUrl!.isNotEmpty
                       ? Hero(
                           tag: heroTag,
-                          createRectTween: (begin, end) => RectTween(begin: begin, end: end),
+                          createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
                           flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(13),
@@ -1760,7 +1760,7 @@ class _TopRatedHorizontalList extends StatelessWidget {
                           child: item.posterUrl != null
                               ? Hero(
                                   tag: heroTag,
-                                  createRectTween: (begin, end) => RectTween(begin: begin, end: end),
+                                  createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
                                   flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
                                   child: ClipRRect(
                                     borderRadius: BorderRadius.circular(13),
@@ -1889,7 +1889,7 @@ class _RecentlyAddedHorizontalList extends StatelessWidget {
                               child: item.posterUrl != null
                                   ? Hero(
                                       tag: heroTag,
-                                      createRectTween: (begin, end) => RectTween(begin: begin, end: end),
+                                      createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
                                       flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
                                       child: ClipRRect(
                                         borderRadius: BorderRadius.circular(13),

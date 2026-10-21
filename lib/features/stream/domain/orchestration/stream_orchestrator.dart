@@ -119,8 +119,9 @@ class StreamOrchestrator {
     final effectiveProviderId = preferredProviderId ??
         registry.getOrderedEnabledProviders().firstOrNull?.id ??
         'megavid';
+    final effectiveAudio = prefsRepo.getEffectiveAudioLanguage(anime.id);
     final title = anime.titles.preferredTitle();
-    final cacheKey = '${anime.id}_${episodeNumber}_$effectiveProviderId';
+    final cacheKey = '${anime.id}_${episodeNumber}_${effectiveProviderId}_$effectiveAudio';
     final cached = _resolutionCache[cacheKey];
     if (cached != null && DateTime.now().difference(cached.$1).inMinutes < 10) {
       diagnostics.info('Using prewarmed/cached stream resolution for "$title" Ep: $episodeNumber');
@@ -211,8 +212,6 @@ class StreamOrchestrator {
             break;
           }
         }
-
-        final effectiveAudio = prefsRepo.getEffectiveAudioLanguage(anime.id);
 
         final epId = targetEpisode?.id ?? '${match.id}_ep_$episodeNumber';
         final epTitle = targetEpisode?.title ?? 'Episode $episodeNumber';
