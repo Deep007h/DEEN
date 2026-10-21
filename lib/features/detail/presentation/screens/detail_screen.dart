@@ -135,7 +135,11 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                 _prewarmedEpisodes.add(prewarmKey);
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   ref.read(streamOrchestratorProvider.future).then((orch) {
-                    orch.prewarmEpisode(anime: detail, episodeNumber: targetEp);
+                    orch.prewarmEpisode(
+                      anime: detail,
+                      episodeNumber: targetEp,
+                      preferredProviderId: selectedProviderId,
+                    );
                   });
                 });
               }
@@ -600,30 +604,25 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                                       ? detail.tags
                                       : detail.tags.take(6))
                                   .map((tag) {
-                                return Material(
-                                  color: AppColors.surfaceElevated,
-                                  borderRadius: AppRadius.pillBorder,
-                                  child: InkWell(
-                                    borderRadius: AppRadius.pillBorder,
-                                    onTap: () {
-                                      // Add tag to search filter and navigate to search
-                                      ref.read(selectedTagsProvider.notifier).addTag(tag.name);
-                                      context.push('/search');
-                                    },
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 5,
-                                      ),
-                                      child: Text(
-                                        '${tag.name} ${tag.count}',
-                                        style: AppText.meta.copyWith(
-                                          color: AppColors.textPrimary,
-                                          fontSize: 11.5,
-                                        ),
-                                      ),
-                                    ),
+                                return ActionChip(
+                                  label: Text('${tag.name} ${tag.count}'),
+                                  labelStyle: AppText.meta.copyWith(
+                                    color: AppColors.textPrimary,
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w500,
                                   ),
+                                  backgroundColor: AppColors.surfaceElevated,
+                                  side: const BorderSide(
+                                    color: Color(0x334E604E),
+                                    width: 0.8,
+                                  ),
+                                  shape: const StadiumBorder(),
+                                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  onPressed: () {
+                                    ref.read(selectedTagsProvider.notifier).addTag(tag.name);
+                                    context.push('/search');
+                                  },
                                 );
                               }).toList(),
                             ),
@@ -1242,9 +1241,9 @@ class _FloatingBackButton extends StatelessWidget {
                   child: Tooltip(
                     message: 'Back',
                     child: Icon(
-                      Icons.arrow_back_ios_new_rounded,
+                      Icons.arrow_back_rounded,
                       color: AppColors.textPrimary,
-                      size: 16,
+                      size: 19,
                     ),
                   ),
                 ),

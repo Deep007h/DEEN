@@ -21,6 +21,7 @@ import '../../../../core/presentation/widgets/pressable_scale.dart';
 import '../../../../core/presentation/widgets/shimmer_box.dart';
 import '../../../../core/presentation/widgets/hero_shuttle_builder.dart';
 export '../../../../core/presentation/widgets/hero_shuttle_builder.dart';
+import '../../../../core/presentation/widgets/floating_nav_bar.dart';
 import '../../../explore/presentation/providers/explore_providers.dart';
 
 /// State provider for Home screen genre filter pill bar.
@@ -460,8 +461,8 @@ class HomeScreen extends ConsumerWidget {
             ),
 
             // Bottom padding for comfortable scroll above floating nav bar
-            const SliverToBoxAdapter(
-              child: SizedBox(height: 100),
+            SliverToBoxAdapter(
+              child: SizedBox(height: FloatingNavBar.getBottomPadding(context)),
             ),
           ],
         ),
@@ -755,47 +756,33 @@ class _GenreFilterPillBar extends ConsumerWidget {
           final genre = genres[index];
           final isSelected = genre == selected;
 
-          return PressableScale(
-            targetScale: 0.94,
-            onTap: () {
+          return FilterChip(
+            selected: isSelected,
+            showCheckmark: false,
+            label: Text(genre),
+            labelStyle: TextStyle(
+              color: isSelected ? const Color(0xFFC6F16D) : const Color(0xFFD6DFD6),
+              fontSize: 13.5,
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              letterSpacing: -0.1,
+            ),
+            backgroundColor: const Color(0xFF141714),
+            selectedColor: const Color(0xFF263618),
+            side: BorderSide(
+              color: isSelected
+                  ? const Color(0xFFC6F16D)
+                  : Colors.white.withValues(alpha: 0.08),
+              width: isSelected ? 1.0 : 0.8,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            onSelected: (_) {
               HapticFeedback.selectionClick();
               ref.read(homeGenreFilterProvider.notifier).state = genre;
             },
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOutCubic,
-              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
-              decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFF263618) : const Color(0xFF141714),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isSelected
-                      ? const Color(0xFFC6F16D)
-                      : Colors.white.withValues(alpha: 0.08),
-                  width: isSelected ? 1.0 : 0.8,
-                ),
-                boxShadow: isSelected
-                    ? [
-                        BoxShadow(
-                          color: const Color(0xFFC6F16D).withValues(alpha: 0.18),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Center(
-                child: Text(
-                  genre,
-                  style: TextStyle(
-                    color: isSelected ? const Color(0xFFC6F16D) : const Color(0xFFD6DFD6),
-                    fontSize: 14,
-                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                    letterSpacing: -0.1,
-                  ),
-                ),
-              ),
-            ),
           );
         },
       ),
@@ -878,10 +865,14 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
     final count = widget.items.length.clamp(1, 5);
     final followedIds = ref.watch(followedAnimeIdsProvider).value ?? const <int>{};
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
-      child: Container(
-        height: 350,
+    final clampedScaler = MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.25);
+    return MediaQuery(
+      data: MediaQuery.of(context).copyWith(textScaler: clampedScaler),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 350, maxHeight: 385),
+          height: 350,
         decoration: BoxDecoration(
           color: const Color(0xFF141914),
           borderRadius: BorderRadius.circular(22),
@@ -1219,7 +1210,8 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
                 },
               ),
             ),
-          ],
+            ],
+          ),
         ),
       ),
     ),
@@ -2222,39 +2214,43 @@ class _ContinueWatchingCard extends ConsumerWidget {
                           ),
                         ),
                         const SizedBox(width: 4),
-                        PopupMenuButton<String>(
-                          padding: EdgeInsets.zero,
-                          iconSize: 18,
-                          tooltip: 'Options',
-                          icon: const Icon(
-                            Icons.more_vert_rounded,
-                            color: Colors.white70,
-                            size: 18,
-                          ),
-                          color: AppColors.surfaceElevated,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            side: const BorderSide(color: Color(0x384E604E), width: 0.8),
-                          ),
-                          onSelected: (val) async {
-                            if (val == 'remove') {
-                              final repo = ref.read(playbackHistoryRepositoryProvider);
-                              await repo.deleteHistoryItem(item.animeId, item.episodeNumber);
-                            }
-                          },
-                          itemBuilder: (context) => [
-                            const PopupMenuItem<String>(
-                              value: 'remove',
-                              height: 36,
-                              child: Row(
-                                children: [
-                                  Icon(Icons.delete_outline_rounded, size: 16, color: Colors.white70),
-                                  SizedBox(width: 8),
-                                  Text('Remove from history', style: TextStyle(fontSize: 12, color: Colors.white)),
-                                ],
-                              ),
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () {},
+                          child: PopupMenuButton<String>(
+                            padding: EdgeInsets.zero,
+                            iconSize: 18,
+                            tooltip: 'Options',
+                            icon: const Icon(
+                              Icons.more_vert_rounded,
+                              color: Colors.white70,
+                              size: 18,
                             ),
-                          ],
+                            color: AppColors.surfaceElevated,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              side: const BorderSide(color: Color(0x384E604E), width: 0.8),
+                            ),
+                            onSelected: (val) async {
+                              if (val == 'remove') {
+                                final repo = ref.read(playbackHistoryRepositoryProvider);
+                                await repo.deleteHistoryItem(item.animeId, item.episodeNumber);
+                              }
+                            },
+                            itemBuilder: (context) => [
+                              const PopupMenuItem<String>(
+                                value: 'remove',
+                                height: 36,
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.delete_outline_rounded, size: 16, color: Colors.white70),
+                                    SizedBox(width: 8),
+                                    Text('Remove from history', style: TextStyle(fontSize: 12, color: Colors.white)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),

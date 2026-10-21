@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/presentation/widgets/floating_nav_bar.dart';
 import '../../../../core/presentation/widgets/pressable_scale.dart';
 import '../../../../core/presentation/widgets/shimmer_box.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -72,7 +73,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       ref.read(searchQueryProvider.notifier).state = val;
     } else {
       _kshowDebounceTimer?.cancel();
-      _kshowDebounceTimer = Timer(const Duration(milliseconds: 400), () {
+      _kshowDebounceTimer = Timer(const Duration(milliseconds: 300), () {
         _searchKShows(val);
       });
     }
@@ -184,9 +185,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   padding: EdgeInsets.zero,
                   onPressed: () => context.pop(),
                   icon: const Icon(
-                    Icons.arrow_back_ios_new_rounded,
+                    Icons.arrow_back_rounded,
                     color: AppColors.textPrimary,
-                    size: 16,
+                    size: 20,
                   ),
                 ),
               ),
@@ -699,7 +700,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               ),
             ),
 
-          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.floatingBarBottomPadding)),
+          SliverToBoxAdapter(child: SizedBox(height: FloatingNavBar.getBottomPadding(context))),
         ],
       ),
     );

@@ -86,6 +86,21 @@ class StreamOrchestrator {
   final DiagnosticsRepository diagnostics;
   final Map<String, List<SourceEpisode>> _episodesCache = {};
   final Map<String, (DateTime, StreamResolutionResult)> _resolutionCache = {};
+  static const int _maxCacheEntries = 60;
+
+  void _cacheResolution(String key, StreamResolutionResult result) {
+    if (_resolutionCache.length >= _maxCacheEntries) {
+      _resolutionCache.remove(_resolutionCache.keys.first);
+    }
+    _resolutionCache[key] = (DateTime.now(), result);
+  }
+
+  void _cacheEpisodes(String key, List<SourceEpisode> episodes) {
+    if (_episodesCache.length >= _maxCacheEntries) {
+      _episodesCache.remove(_episodesCache.keys.first);
+    }
+    _episodesCache[key] = episodes;
+  }
 
   StreamOrchestrator({
     required this.registry,
@@ -101,8 +116,11 @@ class StreamOrchestrator {
     required int episodeNumber,
     String? preferredProviderId,
   }) async {
+    final effectiveProviderId = preferredProviderId ??
+        registry.getOrderedEnabledProviders().firstOrNull?.id ??
+        'megavid';
     final title = anime.titles.preferredTitle();
-    final cacheKey = '${anime.id}_${episodeNumber}_${preferredProviderId ?? ''}';
+    final cacheKey = '${anime.id}_${episodeNumber}_$effectiveProviderId';
     final cached = _resolutionCache[cacheKey];
     if (cached != null && DateTime.now().difference(cached.$1).inMinutes < 10) {
       diagnostics.info('Using prewarmed/cached stream resolution for "$title" Ep: $episodeNumber');
@@ -111,7 +129,7 @@ class StreamOrchestrator {
 
     diagnostics.info(
       'Starting resolution for "$title" (ID: ${anime.id}) Ep: $episodeNumber',
-      {'preferredProvider': preferredProviderId ?? 'none'},
+      {'preferredProvider': effectiveProviderId},
     );
 
     // 1. Build ordered list of providers to attempt
@@ -182,7 +200,7 @@ class StreamOrchestrator {
         if (episodes.isEmpty) {
           episodes = await provider.episodes(match).timeout(const Duration(seconds: 10));
           if (episodes.isNotEmpty) {
-            _episodesCache[cacheKey] = episodes;
+            _cacheEpisodes(cacheKey, episodes);
           }
         }
         SourceEpisode? targetEpisode;
@@ -221,7 +239,7 @@ class StreamOrchestrator {
           continue;
         }
 
-        // Validate variants: reject truncated (<60s) or broken /vid/ streams concurrently
+        // Validate variants: reject truncated or broken /vid/ streams
         final candidates = variants.where((v) {
           if (v.url.contains('/vid/')) {
             diagnostics.warn('Banned /vid/ proxy URL rejected: ${v.url}');
@@ -230,22 +248,39 @@ class StreamOrchestrator {
           return true;
         }).toList();
 
-        final probeResults = await Future.wait(
-          candidates.map((v) => _probeAndEnrichVariant(v)),
-        );
+        if (candidates.isEmpty) {
+          diagnostics.warn('Provider ${provider.displayName} returned 0 valid variants');
+          continue;
+        }
 
+        // Fast streaming path: libmpv/ffmpeg parses master playlists natively with hardware acceleration.
+        // We only probe if candidate has no qualities and is an explicit test or needs enrich.
         final healthyVariants = <StreamVariant>[];
-        for (int i = 0; i < candidates.length; i++) {
-          final (isHealthy, enriched) = probeResults[i];
-          if (isHealthy) {
-            healthyVariants.add(enriched);
+        final toProbe = <StreamVariant>[];
+        for (final v in candidates) {
+          if (v.qualities.isNotEmpty || !v.isHls) {
+            healthyVariants.add(v);
           } else {
-            diagnostics.warn('Variant failed health check: ${candidates[i].url}');
+            toProbe.add(v);
+          }
+        }
+
+        if (toProbe.isNotEmpty) {
+          final probeResults = await Future.wait(
+            toProbe.map((v) => _probeAndEnrichVariant(v)),
+          );
+          for (int i = 0; i < toProbe.length; i++) {
+            final (isHealthy, enriched) = probeResults[i];
+            if (isHealthy) {
+              healthyVariants.add(enriched);
+            } else {
+              diagnostics.warn('Variant failed health check: ${toProbe[i].url}');
+            }
           }
         }
 
         if (healthyVariants.isEmpty) {
-          diagnostics.warn('Provider ${provider.displayName} has 0 healthy variants (>60s)');
+          diagnostics.warn('Provider ${provider.displayName} has 0 healthy variants');
           continue;
         }
 
@@ -314,7 +349,7 @@ class StreamOrchestrator {
           selectedQuality: selectedQuality,
           candidateMatches: allCandidates,
         );
-        _resolutionCache[cacheKey] = (DateTime.now(), result);
+        _cacheResolution(cacheKey, result);
         return result;
       } catch (e, stack) {
         diagnostics.warn(
@@ -470,6 +505,13 @@ class StreamOrchestrator {
       }
 
       return (true, variant);
+    } on DioException catch (dioErr) {
+      final status = dioErr.response?.statusCode;
+      if (status != null && status >= 400) {
+        diagnostics.warn('Variant returned HTTP $status: ${variant.url}');
+        return (false, variant);
+      }
+      return (!variant.url.contains('/vid/'), variant);
     } catch (e) {
       // If probing times out or fails with network glitch, accept if not /vid/
       return (!variant.url.contains('/vid/'), variant);

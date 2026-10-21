@@ -151,11 +151,17 @@ class GenreCatalogNotifier extends StateNotifier<GenreCatalogState> {
       state = state.copyWith(isLoadingMore: false);
     }
   }
+
+  @override
+  void dispose() {
+    _cancelToken?.cancel('GenreCatalogNotifier disposed');
+    super.dispose();
+  }
 }
 
-/// Family provider yielding an infinite catalog manager per genre.
+/// Family provider yielding an auto-disposing infinite catalog manager per genre.
 final genreCatalogProvider =
-    StateNotifierProvider.family<GenreCatalogNotifier, GenreCatalogState, String>((ref, genre) {
+    StateNotifierProvider.autoDispose.family<GenreCatalogNotifier, GenreCatalogState, String>((ref, genre) {
   final repo = ref.watch(metadataRepositoryProvider);
   return GenreCatalogNotifier(repo, genre);
 });

@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/presentation/widgets/floating_nav_bar.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_radius.dart';
@@ -87,9 +88,9 @@ class SettingsScreen extends ConsumerWidget {
                           padding: EdgeInsets.zero,
                           onPressed: () => context.pop(),
                           icon: const Icon(
-                            Icons.arrow_back_ios_new_rounded,
+                            Icons.arrow_back_rounded,
                             color: AppColors.textPrimary,
-                            size: 16,
+                            size: 20,
                           ),
                         ),
                       ),
@@ -566,8 +567,8 @@ class SettingsScreen extends ConsumerWidget {
                         icon: Icons.system_update_rounded,
                         title: 'Check for Updates',
                         trailing: const Icon(
-                          Icons.arrow_forward_ios_rounded,
-                          size: 14,
+                          Icons.chevron_right_rounded,
+                          size: 20,
                           color: AppColors.textMuted,
                         ),
                         onTap: () => _handleManualUpdateCheck(context, ref),
@@ -616,8 +617,8 @@ class SettingsScreen extends ConsumerWidget {
           ),
 
           // Bottom padding for floating navigation bar
-          const SliverToBoxAdapter(
-            child: SizedBox(height: AppSpacing.floatingBarBottomPadding),
+          SliverToBoxAdapter(
+            child: SizedBox(height: FloatingNavBar.getBottomPadding(context)),
           ),
         ],
       ),
@@ -668,7 +669,7 @@ class SettingsScreen extends ConsumerWidget {
       builder: (dialogCtx) {
         return AlertDialog(
           backgroundColor: AppColors.surfaceElevated,
-          shape: const RoundedRectangleBorder(borderRadius: AppRadius.cardBorder),
+          shape: const RoundedRectangleBorder(borderRadius: AppRadius.modalBorder),
           title: const Text('Export Data (JSON)', style: AppText.sectionTitle),
           content: SizedBox(
             width: double.maxFinite,
@@ -738,7 +739,7 @@ class SettingsScreen extends ConsumerWidget {
       builder: (dialogCtx) {
         return AlertDialog(
           backgroundColor: AppColors.surfaceElevated,
-          shape: const RoundedRectangleBorder(borderRadius: AppRadius.cardBorder),
+          shape: const RoundedRectangleBorder(borderRadius: AppRadius.modalBorder),
           title: const Text('Import Data (JSON)', style: AppText.sectionTitle),
           content: SizedBox(
             width: double.maxFinite,
@@ -812,7 +813,7 @@ class SettingsScreen extends ConsumerWidget {
                   builder: (confirmCtx) {
                     return AlertDialog(
                       backgroundColor: AppColors.surfaceElevated,
-                      shape: const RoundedRectangleBorder(borderRadius: AppRadius.cardBorder),
+                      shape: const RoundedRectangleBorder(borderRadius: AppRadius.modalBorder),
                       title: const Text('Import Data', style: AppText.sectionTitle),
                       content: Text(
                         'This will replace your current ${currentFavorites.length} favorites and ${currentHistory.length} history records. Continue?',

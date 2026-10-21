@@ -489,9 +489,10 @@ class LocalHlsServer {
       }
     }
 
-    // Prefetch first 2 segments asynchronously in background to ensure zero start delay
-    if (segmentUrlsToPrefetch.isNotEmpty) {
-      _prefetchSegments(session, segmentUrlsToPrefetch.take(2).toList());
+    // Prefetch upcoming segments (skip segment 0 so MPV streams segment 0 chunk-by-chunk with zero wait!)
+    final upcomingToPrefetch = segmentUrlsToPrefetch.skip(1).take(2).toList();
+    if (upcomingToPrefetch.isNotEmpty) {
+      _prefetchSegments(session, upcomingToPrefetch);
     }
 
     return output.join('\n');

@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/presentation/widgets/floating_nav_bar.dart';
+import '../../../../core/presentation/widgets/hero_shuttle_builder.dart';
 import '../../../../core/presentation/widgets/pressable_scale.dart';
 import '../../../../core/presentation/widgets/shimmer_box.dart';
 import '../../../metadata/data/datasources/anilist_remote_data_source.dart' show FeaturedAnimeItem;
@@ -574,7 +576,9 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
           ],
 
           // Bottom padding so content is not obscured by floating nav bar
-          const SliverToBoxAdapter(child: SizedBox(height: 100)),
+          SliverToBoxAdapter(
+            child: SizedBox(height: FloatingNavBar.getBottomPadding(context)),
+          ),
         ],
       ),
     );
@@ -720,7 +724,8 @@ class _ExploreHeroSpotlight extends StatelessWidget {
                 // Backdrop banner image
                 Hero(
                   tag: heroTag,
-                  createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
+                  createRectTween: (begin, end) => RectTween(begin: begin, end: end),
+                  flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
                   child: CachedNetworkImage(
                     imageUrl: hero.bannerUrl ?? hero.posterUrl ?? '',
                     fit: BoxFit.cover,
@@ -927,7 +932,8 @@ class _ExplorePosterCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(13),
                         child: Hero(
                           tag: heroTag,
-                          createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
+                          createRectTween: (begin, end) => RectTween(begin: begin, end: end),
+                          flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
                           child: CachedNetworkImage(
                             imageUrl: item.posterUrl ?? '',
                             fit: BoxFit.cover,
@@ -1066,7 +1072,8 @@ class _CatalogGridCard extends StatelessWidget {
                     children: [
                       Hero(
                         tag: heroTag,
-                        createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
+                        createRectTween: (begin, end) => RectTween(begin: begin, end: end),
+                        flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
                         child: CachedNetworkImage(
                           imageUrl: item.posterUrl ?? '',
                           fit: BoxFit.cover,
@@ -1205,7 +1212,8 @@ class _CatalogListCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 child: Hero(
                   tag: heroTag,
-                  createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
+                  createRectTween: (begin, end) => RectTween(begin: begin, end: end),
+                  flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
                   child: CachedNetworkImage(
                     imageUrl: item.posterUrl ?? '',
                     width: 70,
@@ -1318,7 +1326,8 @@ class _CatalogWideCard extends StatelessWidget {
               children: [
                 Hero(
                   tag: heroTag,
-                  createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
+                  createRectTween: (begin, end) => RectTween(begin: begin, end: end),
+                  flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
                   child: CachedNetworkImage(
                     imageUrl: item.posterUrl ?? '',
                     fit: BoxFit.cover,

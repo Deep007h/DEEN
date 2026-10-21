@@ -25,6 +25,15 @@ class MetadataRepositoryImpl implements MetadataRepository {
         anilistDataSource = anilist ?? AniListRemoteDataSource(),
         cache = cache ?? MetadataCache();
 
+  void _recordSourceOrigin(int id, String origin) {
+    _idSourceMap[id] = origin;
+    cache.set('source_origin_$id', origin, const Duration(days: 7));
+  }
+
+  String? _getSourceOrigin(int id) {
+    return _idSourceMap[id] ?? cache.get<String>('source_origin_$id');
+  }
+
   @override
   Future<List<AnimeSummary>> searchAnime(
     String query, {
@@ -42,7 +51,7 @@ class MetadataRepositoryImpl implements MetadataRepository {
     final cached = cache.get<List<AnimeSummary>>(cacheKey);
     if (cached != null) {
       for (final s in cached) {
-        _idSourceMap.putIfAbsent(s.id, () => 'anilist');
+        _recordSourceOrigin(s.id, 'anilist');
       }
       return cached;
     }
@@ -61,7 +70,7 @@ class MetadataRepositoryImpl implements MetadataRepository {
         );
         if (anilistResults.isNotEmpty) {
           for (final s in anilistResults) {
-            _idSourceMap[s.id] = 'anilist';
+            _recordSourceOrigin(s.id, 'anilist');
           }
           cache.set(cacheKey, anilistResults, MetadataCache.searchTtl);
           return anilistResults;
@@ -83,7 +92,7 @@ class MetadataRepositoryImpl implements MetadataRepository {
       ).timeout(const Duration(seconds: 4));
 
       for (final s in results) {
-        _idSourceMap[s.id] = 'bangumi';
+        _recordSourceOrigin(s.id, 'bangumi');
       }
 
       cache.set(cacheKey, results, MetadataCache.searchTtl);
@@ -100,6 +109,9 @@ class MetadataRepositoryImpl implements MetadataRepository {
             cancelToken: cancelToken,
           );
           if (anilistResults.isNotEmpty) {
+            for (final s in anilistResults) {
+              _recordSourceOrigin(s.id, 'anilist');
+            }
             cache.set(cacheKey, anilistResults, MetadataCache.searchTtl);
             return anilistResults;
           }
@@ -122,7 +134,7 @@ class MetadataRepositoryImpl implements MetadataRepository {
     final cached = cache.get<AnimeDetail>(cacheKey);
     if (cached != null) return cached;
 
-    final sourceOrigin = _idSourceMap[id];
+    final sourceOrigin = _getSourceOrigin(id);
 
     // If this ID is known to be from Bangumi, prioritize Bangumi to avoid AniList ID space collisions
     if (sourceOrigin == 'bangumi') {

@@ -22,7 +22,6 @@ class EpisodeSelectorSheet extends StatelessWidget {
     final count = totalEpisodes > 0 ? totalEpisodes : 24;
 
     return Container(
-      width: 370,
       margin: const EdgeInsets.fromLTRB(6, 12, 14, 12),
       decoration: BoxDecoration(
         color: const Color(0xFF0F140F),

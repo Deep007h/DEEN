@@ -77,14 +77,14 @@ final selectedTagsProvider = StateNotifierProvider<SelectedTagsNotifier, List<St
   return SelectedTagsNotifier();
 });
 
-/// Debounced search query provider (400ms debounce)
+/// Debounced search query provider (300ms debounce)
 final debouncedSearchQueryProvider = StreamProvider.autoDispose<String>((ref) {
   final controller = StreamController<String>();
   Timer? timer;
 
   final sub = ref.listen<String>(searchQueryProvider, (previous, next) {
     timer?.cancel();
-    timer = Timer(const Duration(milliseconds: 400), () {
+    timer = Timer(const Duration(milliseconds: 300), () {
       if (!controller.isClosed) {
         controller.add(next.trim());
       }

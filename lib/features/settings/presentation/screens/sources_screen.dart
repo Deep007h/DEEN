@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/presentation/widgets/floating_nav_bar.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -53,9 +54,9 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                   padding: EdgeInsets.zero,
                   onPressed: () => context.pop(),
                   icon: const Icon(
-                    Icons.arrow_back_ios_new_rounded,
+                    Icons.arrow_back_rounded,
                     color: AppColors.textPrimary,
-                    size: 16,
+                    size: 20,
                   ),
                 ),
               ),
@@ -350,7 +351,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                 ),
               ),
 
-              const SliverToBoxAdapter(child: SizedBox(height: 60)),
+              SliverToBoxAdapter(child: SizedBox(height: FloatingNavBar.getBottomPadding(context))),
             ],
           );
         },
@@ -412,7 +413,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
         context: context,
         builder: (ctx) => AlertDialog(
           backgroundColor: AppColors.surface,
-          shape: const RoundedRectangleBorder(borderRadius: AppRadius.cardBorder),
+          shape: const RoundedRectangleBorder(borderRadius: AppRadius.modalBorder),
           title: const Text('Direct URL Pattern', style: AppText.sectionTitle),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -469,7 +470,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
         context: context,
         builder: (ctx) => AlertDialog(
           backgroundColor: AppColors.surface,
-          shape: const RoundedRectangleBorder(borderRadius: AppRadius.cardBorder),
+          shape: const RoundedRectangleBorder(borderRadius: AppRadius.modalBorder),
           title: const Text('Jellyfin Server', style: AppText.sectionTitle),
           content: Column(
             mainAxisSize: MainAxisSize.min,

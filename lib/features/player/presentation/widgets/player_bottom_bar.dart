@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 /// Bottom controls bar matching reference image 1:1:
@@ -16,6 +17,7 @@ class PlayerBottomBar extends StatefulWidget {
   final ValueChanged<Duration> onSeek;
   final ValueChanged<Duration> onSeekStart;
   final ValueChanged<Duration> onSeekEnd;
+  final VoidCallback? onSeekCancel;
   final VoidCallback onOpenEpisodes;
   final VoidCallback onOpenSettings;
   final VoidCallback onToggleFullscreen;
@@ -35,6 +37,7 @@ class PlayerBottomBar extends StatefulWidget {
     required this.onSeek,
     required this.onSeekStart,
     required this.onSeekEnd,
+    this.onSeekCancel,
     required this.onOpenEpisodes,
     required this.onOpenSettings,
     required this.onToggleFullscreen,
@@ -90,10 +93,14 @@ class _PlayerBottomBarState extends State<PlayerBottomBar> {
     final progressRatio = totalMillis > 0 ? (currentMillis / totalMillis).clamp(0.0, 1.0) : 0.0;
     final bufferRatio = totalMillis > 0 ? (bufferMillis / totalMillis).clamp(0.0, 1.0) : 0.0;
 
+    final insets = MediaQuery.paddingOf(context);
+    final leftPadding = math.max(insets.left + 16.0, 24.0);
+    final rightPadding = math.max(insets.right + 16.0, 24.0);
+
     return Container(
-      padding: const EdgeInsets.only(
-        left: 24,
-        right: 24,
+      padding: EdgeInsets.only(
+        left: leftPadding,
+        right: rightPadding,
         top: 14,
         bottom: 20,
       ),
@@ -172,6 +179,10 @@ class _PlayerBottomBarState extends State<PlayerBottomBar> {
                         _isDragging = false;
                       });
                       widget.onSeekEnd(target);
+                    },
+                    onHorizontalDragCancel: () {
+                      setState(() => _isDragging = false);
+                      widget.onSeekCancel?.call();
                     },
                     onTapDown: (details) {
                       if (totalMillis <= 0 || barWidth <= 0) return;

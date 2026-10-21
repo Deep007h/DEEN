@@ -186,7 +186,7 @@ final GoRouter appRouter = GoRouter(
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
         return CustomTransitionPage(
-          key: state.pageKey,
+          key: const ValueKey('player_screen_route'),
           transitionDuration: const Duration(milliseconds: 260),
           reverseTransitionDuration: const Duration(milliseconds: 220),
           child: PlayerScreen(

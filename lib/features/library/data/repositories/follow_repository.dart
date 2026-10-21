@@ -60,7 +60,14 @@ class FollowRepository {
               idSet.add(followed.id);
             }
           }
-        } catch (_) {}
+        } catch (_) {
+          // Backup corrupted data before it is lost or overwritten
+          try {
+            final backupKey = '${_dataKey}_corrupt_backup_${DateTime.now().millisecondsSinceEpoch}';
+            _prefs?.setString(backupKey, dataJsonStr);
+            _getAsyncPrefs.setString(backupKey, dataJsonStr);
+          } catch (_) {}
+        }
       }
 
       // Merge legacy IDs if any are not in the structured list

@@ -13,6 +13,7 @@ class ApiClient {
     String userAgent = defaultUserAgent,
     Duration connectTimeout = const Duration(seconds: 15),
     Duration receiveTimeout = const Duration(seconds: 15),
+    Duration sendTimeout = const Duration(seconds: 15),
     int maxRetries = 2,
     Duration retryInterval = const Duration(milliseconds: 800),
   }) : dio = Dio(
@@ -20,6 +21,7 @@ class ApiClient {
             baseUrl: baseUrl ?? '',
             connectTimeout: connectTimeout,
             receiveTimeout: receiveTimeout,
+            sendTimeout: sendTimeout,
             headers: {
               'User-Agent': userAgent,
               'Accept': 'application/json',
@@ -63,9 +65,16 @@ class _RetryInterceptor extends Interceptor {
     final retryCount = (requestOptions.extra['retryCount'] as int? ?? 0);
     if (retryCount < maxRetries) {
       requestOptions.extra['retryCount'] = retryCount + 1;
-      final backoff = isRateLimited
-          ? Duration(milliseconds: 1200 * (retryCount + 1))
-          : retryInterval * (retryCount + 1);
+      Duration backoff;
+      final retryAfterStr = err.response?.headers.value('retry-after');
+      final retryAfterSeconds = retryAfterStr != null ? int.tryParse(retryAfterStr) : null;
+      if (retryAfterSeconds != null && retryAfterSeconds > 0 && retryAfterSeconds <= 60) {
+        backoff = Duration(seconds: retryAfterSeconds);
+      } else {
+        backoff = isRateLimited
+            ? Duration(milliseconds: 1200 * (retryCount + 1))
+            : retryInterval * (retryCount + 1);
+      }
       await Future.delayed(backoff);
 
       try {

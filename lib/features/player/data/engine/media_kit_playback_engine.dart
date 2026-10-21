@@ -153,8 +153,8 @@ class MediaKitPlaybackEngine implements VideoPlaybackEngine {
       if (isHls) {
         properties.addAll([
           platform?.setProperty('demuxer-lavf-format', 'hls'),
-          platform?.setProperty('demuxer-lavf-probesize', '500000'), // Fast 500 KB probe
-          platform?.setProperty('demuxer-lavf-analyzeduration', '0.5'), // Fast 0.5s analyze duration for instant start
+          platform?.setProperty('demuxer-lavf-probesize', '65536'), // Fast 64 KB probe
+          platform?.setProperty('demuxer-lavf-analyzeduration', '0.1'), // Fast 0.1s analyze duration for instant start
           platform?.setProperty(
             'demuxer-lavf-o',
             'allowed_segment_extensions=ALL,allowed_extensions=ALL,extension_picky=0,seg_max_retry=5,reconnect_streamed=1,reconnect_delay_max=4,reconnect_on_http_error=403\\,404\\,5xx,fflags=+genpts+discardcorrupt+fastseek',
@@ -163,9 +163,9 @@ class MediaKitPlaybackEngine implements VideoPlaybackEngine {
           platform?.setProperty('demuxer-readahead-secs', '30'), // Fast 30s buffer ahead
           platform?.setProperty('cache-secs', '60'),
           platform?.setProperty('cache-pause-initial', 'no'), // Do not pause to fill cache before starting
-          platform?.setProperty('cache-pause-wait', '1'), // Auto-resume promptly once 1s is buffered
+          platform?.setProperty('cache-pause-wait', '0'), // Auto-resume immediately without waiting to buffer
           platform?.setProperty('demuxer-max-bytes', '67108864'), // 64 MB demuxer memory buffer
-          platform?.setProperty('demuxer-lavf-buffersize', '524288'), // 512 KB buffer for immediate first frame
+          platform?.setProperty('demuxer-lavf-buffersize', '262144'), // 256 KB buffer for immediate first frame
           platform?.setProperty('prefetch-playlist', 'yes'),
           platform?.setProperty('network-timeout', '10'),
           platform?.setProperty('force-seekable', 'yes'),

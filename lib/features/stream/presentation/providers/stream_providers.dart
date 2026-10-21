@@ -22,7 +22,8 @@ import '../../../settings/data/repositories/app_settings_repository.dart';
 
 /// Global shared diagnostics repository provider.
 final diagnosticsRepositoryProvider = Provider<DiagnosticsRepository>((ref) {
-  return DiagnosticsRepository();
+  final prefs = ref.watch(sharedPreferencesAsyncProvider).valueOrNull;
+  return DiagnosticsRepository(prefs);
 });
 
 /// Shared preferences async provider with crash-safe fallback.
@@ -74,7 +75,9 @@ final streamPreferencesRepositoryProvider = FutureProvider<StreamPreferencesRepo
   try {
     await prefs.reload();
   } catch (_) {}
-  final settings = ref.watch(appSettingsProvider);
+  // Selectively watch only defaultAudioLanguage so theme/appearance changes don't restart playback
+  final defaultAudioLanguage = ref.watch(appSettingsProvider.select((s) => s.defaultAudioLanguage));
+  final settings = ref.read(appSettingsProvider).copyWith(defaultAudioLanguage: defaultAudioLanguage);
   return StreamPreferencesRepository(prefs, settings: settings);
 });
 

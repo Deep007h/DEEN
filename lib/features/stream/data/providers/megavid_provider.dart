@@ -357,16 +357,16 @@ class MegaVidProvider implements StreamProvider {
     if (primaryVariant != null) {
       variants.add(primaryVariant);
 
-      // Wait up to 2.5s for secondary track (Dub / Sub) to provide multi-audio experience
+      // Wait up to 200ms for secondary track (Dub / Sub) if immediately available
       try {
         final secondaryVariant = await secondaryFuture.timeout(
-          const Duration(milliseconds: 2500),
+          const Duration(milliseconds: 200),
         );
         if (secondaryVariant != null && !variants.any((v) => v.audio.code == secondaryVariant.audio.code)) {
           variants.add(secondaryVariant);
         }
       } catch (_) {
-        // If secondary took longer than 2.5s, populate cache in background when it arrives
+        // If secondary took longer than 200ms, populate cache in background when it arrives
         secondaryFuture.then((sec) {
           if (sec != null) {
             final existing = _variantMemoryCache[cacheKey]?.$1 ?? [primaryVariant!];

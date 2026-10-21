@@ -113,6 +113,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   bool _showVerticalHud = false;
   bool _isVerticalHudVolume = true;
+  bool _isUserDraggingVertical = false;
+  bool _autoplayDismissedForCurrentEpisode = false;
   ScreenHalf? _verticalDragHalf;
   double _verticalDragStartY = 0.0;
   double _verticalDragStartVal = 0.0;
@@ -220,7 +222,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     // Listen to physical volume buttons to update state and show HUD
     _deviceControls.addVolumeListener((newVol) {
       if (mounted) {
-        if (_isLocked) return;
+        if (_isLocked || _isUserDraggingVertical) return;
         setState(() {
           _volume = newVol;
           _isVerticalHudVolume = true;
@@ -248,9 +250,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   void _restoreOrientations() {
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
-      DeviceOrientation.portraitDown,
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
     ]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   }
@@ -297,7 +296,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   void _closeSidePanel() {
-    _sidePanelController.reverse();
+    setState(() {
+      _showSettingsSheet = false;
+      _showEpisodeSheet = false;
+      _showMoreSheet = false;
+    });
+    _sidePanelController.reset();
   }
 
   void _toggleSettings() {
@@ -377,7 +381,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         final target = _languageSwitchSeekTarget!;
         _languageSwitchSeekTarget = null;
         _hasCheckedResume = true;
-        _engine?.seek(target);
+        // startPosition was already supplied to _engine!.open(), avoid redundant second seek!
         if (_isSwitchingAudio) {
           final minutes = target.inMinutes.remainder(60).toString().padLeft(2, '0');
           final seconds = target.inSeconds.remainder(60).toString().padLeft(2, '0');
@@ -574,8 +578,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       _hasCheckedResume = false;
       _savedResumePosition = null;
       _position = Duration.zero;
+      _positionNotifier.value = Duration.zero;
       _duration = Duration.zero;
       _bufferingStuckSeconds = 0;
+      _autoplayDismissedForCurrentEpisode = false;
+      _showNextEpisodeCountdown = false;
       final currentResult = ref.read(activeStreamProvider(_params)).valueOrNull;
       if (currentResult != null) {
         _openStreamIfReady(currentResult);
@@ -779,6 +786,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   void _checkEpisodeEndCountdown(Duration currentPos, Duration totalDur) {
     if (totalDur <= const Duration(minutes: 1)) return;
+    if (_autoplayDismissedForCurrentEpisode) return;
     final settings = ref.read(appSettingsProvider);
     if (!settings.autoplayNext) return;
 
@@ -786,6 +794,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
     if (remaining <= 5 && remaining >= 0 && !_showNextEpisodeCountdown) {
       _triggerNextEpisodeCountdown();
+    } else if (remaining > 15 && _autoplayDismissedForCurrentEpisode) {
+      // Re-enable autoplay if user sought backward
+      _autoplayDismissedForCurrentEpisode = false;
     }
   }
 
@@ -817,6 +828,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _countdownTimer?.cancel();
     setState(() {
       _showNextEpisodeCountdown = false;
+      _autoplayDismissedForCurrentEpisode = true;
     });
   }
 
@@ -824,14 +836,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _countdownTimer?.cancel();
     _saveCurrentProgress();
     final nextEp = widget.episodeNumber + 1;
-    context.pushReplacement('/player?animeId=${widget.animeId}&ep=$nextEp');
+    final prov = widget.preferredProviderId != null ? '&provider=${widget.preferredProviderId}' : '';
+    context.go('/player?animeId=${widget.animeId}&ep=$nextEp$prov');
   }
 
   void _playPreviousEpisode() {
     if (widget.episodeNumber <= 1) return;
     _saveCurrentProgress();
     final prevEp = widget.episodeNumber - 1;
-    context.pushReplacement('/player?animeId=${widget.animeId}&ep=$prevEp');
+    final prov = widget.preferredProviderId != null ? '&provider=${widget.preferredProviderId}' : '';
+    context.go('/player?animeId=${widget.animeId}&ep=$prevEp$prov');
   }
 
   // Auto-hide controls
@@ -934,6 +948,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
             ? Duration.zero
             : (_duration > Duration.zero && target > _duration ? _duration : target);
         setState(() => _position = seekTarget);
+        _positionNotifier.value = seekTarget;
         _engine?.seek(seekTarget);
         _showDoubleTapBadge(offset);
       }
@@ -955,8 +970,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       return;
     }
     _singleTapTimer?.cancel();
-    _singleTapTimer = Timer(const Duration(milliseconds: 260), () {
-      if (mounted && !_isHolding2x && !_isScrubbing && !_showVerticalHud) {
+    _singleTapTimer = Timer(const Duration(milliseconds: 300), () {
+      if (mounted && !_isHolding2x && !_isScrubbing && !_showVerticalHud && !_consecutiveTapHandled) {
         _toggleControls();
       }
     });
@@ -1037,6 +1052,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       deltaX: deltaX,
       totalWidth: screenWidth,
     );
+    _positionNotifier.value = target;
     setState(() {
       _scrubTargetPosition = target;
     });
@@ -1045,6 +1061,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   void _handleHorizontalDragEnd() {
     if (!_isScrubbing) return;
     _position = _scrubTargetPosition;
+    _positionNotifier.value = _scrubTargetPosition;
     _engine?.seek(_scrubTargetPosition);
     setState(() {
       _isScrubbing = false;
@@ -1061,6 +1078,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     if (!settings.gesturesEnabled) return;
 
     _singleTapTimer?.cancel();
+    _isUserDraggingVertical = true;
     _verticalDragHalf = _gestureMath.getScreenHalf(details.localPosition.dx, screenWidth);
     _verticalDragStartY = details.localPosition.dy;
     _verticalDragStartVal = _verticalDragHalf == ScreenHalf.left ? _brightness : _volume;
@@ -1094,6 +1112,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   void _handleVerticalDragEnd() {
+    _isUserDraggingVertical = false;
     if (_isLocked || _isHolding2x || !_showVerticalHud) return;
     _verticalHudTimer?.cancel();
     _verticalHudTimer = Timer(const Duration(milliseconds: 1000), () {
@@ -1471,7 +1490,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
               // 7. Next Episode Auto-Play Countdown Card
               if (_showNextEpisodeCountdown && !_isHolding2x && !_isLocked)
                 AnimatedPositioned(
-                  right: 24,
+                  right: math.max(MediaQuery.paddingOf(context).right + 16.0, 24.0),
                   bottom: _controlsVisible ? 94.0 : 28.0,
                   duration: const Duration(milliseconds: 250),
                   curve: Curves.easeOutCubic,
@@ -1489,11 +1508,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                   if (_isHolding2x || _isLocked) return const SizedBox.shrink();
                   final posSec = _position.inMilliseconds / 1000.0;
                   final selectedVar = result.selectedVariant;
+                  final notchRight = math.max(MediaQuery.paddingOf(context).right + 16.0, 24.0);
+
                   if (selectedVar.hasIntro &&
                       posSec >= selectedVar.introStart! &&
                       posSec < selectedVar.introEnd!) {
                     return AnimatedPositioned(
-                      right: 24,
+                      right: notchRight,
                       bottom: _controlsVisible ? 94.0 : 28.0,
                       duration: AppMotion.medium1,
                       curve: Curves.easeOutCubic,
@@ -1503,6 +1524,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                           final targetMs = (selectedVar.introEnd! * 1000).round();
                           final target = Duration(milliseconds: targetMs);
                           setState(() => _position = target);
+                          _positionNotifier.value = target;
                           _engine?.seek(target);
                         },
                       ),
@@ -1514,7 +1536,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                         ? (_controlsVisible ? 168.0 : 138.0)
                         : (_controlsVisible ? 94.0 : 28.0);
                     return AnimatedPositioned(
-                      right: 24,
+                      right: notchRight,
                       bottom: skipBottom,
                       duration: AppMotion.medium1,
                       curve: Curves.easeOutCubic,
@@ -1524,6 +1546,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                           final targetMs = (selectedVar.outroEnd! * 1000).round();
                           final target = Duration(milliseconds: targetMs);
                           setState(() => _position = target);
+                          _positionNotifier.value = target;
                           _engine?.seek(target);
                         },
                       ),
@@ -1674,6 +1697,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                               final raw = _position - Duration(seconds: step);
                               final target = raw < Duration.zero ? Duration.zero : raw;
                               setState(() => _position = target);
+                              _positionNotifier.value = target;
                               _engine?.seek(target);
                               _showDoubleTapBadge(-step);
                               _resetControlsHideTimer();
@@ -1683,6 +1707,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                               final raw = _position + Duration(seconds: step);
                               final target = (_duration > Duration.zero && raw > _duration) ? _duration : raw;
                               setState(() => _position = target);
+                              _positionNotifier.value = target;
                               _engine?.seek(target);
                               _showDoubleTapBadge(step);
                               _resetControlsHideTimer();
@@ -1691,29 +1716,30 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                         },
                       ),
 
-                      // Skip Intro (+85s) Chip
-                      Positioned(
-                        left: 24,
-                        bottom: 74,
-                        child: ValueListenableBuilder<Duration>(
-                          valueListenable: _positionNotifier,
-                          builder: (context, currentPos, _) {
-                            if (currentPos.inSeconds < 90 && _duration.inSeconds > 120) {
-                              return SkipIntroButton(
-                                onSkip: () {
-                                  final raw = currentPos + const Duration(seconds: 85);
-                                  final target = (_duration > Duration.zero && raw > _duration) ? _duration : raw;
-                                  _position = target;
-                                  _positionNotifier.value = target;
-                                  _engine?.seek(target);
-                                  _resetControlsHideTimer();
-                                },
-                              );
-                            }
-                            return const SizedBox.shrink();
-                          },
+                      // Skip Intro (+85s) Chip (only shown when metadata intro timestamps are NOT available)
+                      if (!result.selectedVariant.hasIntro)
+                        Positioned(
+                          left: math.max(MediaQuery.paddingOf(context).left + 16.0, 24.0),
+                          bottom: 74,
+                          child: ValueListenableBuilder<Duration>(
+                            valueListenable: _positionNotifier,
+                            builder: (context, currentPos, _) {
+                              if (currentPos.inSeconds < 90 && _duration.inSeconds > 120) {
+                                return SkipIntroButton(
+                                  onSkip: () {
+                                    final raw = currentPos + const Duration(seconds: 85);
+                                    final target = (_duration > Duration.zero && raw > _duration) ? _duration : raw;
+                                    _position = target;
+                                    _positionNotifier.value = target;
+                                    _engine?.seek(target);
+                                    _resetControlsHideTimer();
+                                  },
+                                );
+                              }
+                              return const SizedBox.shrink();
+                            },
+                          ),
                         ),
-                      ),
 
                       // Bottom Bar (Seek bar + action buttons)
                       Positioned(
@@ -1740,6 +1766,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                           onSeek: (target) {
                             _position = target;
                             _positionNotifier.value = target;
+                          },
+                          onSeekCancel: () {
+                            _isUserSeeking = false;
+                            _positionNotifier.value = _position;
+                            _resetControlsHideTimer();
                           },
                           onSeekEnd: (target) async {
                             _position = target;
@@ -1864,21 +1895,22 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                   ? sidePanelWidth
                   : math.min(screenSize.width * 0.88, 430.0);
 
-              final videoRightInset = (showPanel && isLandscape)
-                  ? (sidePanelWidth * animProgress)
-                  : 0.0;
-
               return Stack(
                 fit: StackFit.expand,
                 children: [
-                  Positioned(
-                    top: 0,
-                    bottom: 0,
-                    left: 0,
-                    right: videoRightInset,
+                  Positioned.fill(
                     child: videoStack,
                   ),
-                  if (showPanel)
+                  if (showPanel) ...[
+                    Positioned.fill(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _closeSidePanel,
+                        child: Container(
+                          color: Colors.black.withValues(alpha: 0.45 * animProgress),
+                        ),
+                      ),
+                    ),
                     Positioned(
                       top: 0,
                       bottom: 0,
@@ -1886,6 +1918,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                       width: effectivePanelWidth,
                       child: panelCard,
                     ),
+                  ],
                 ],
               );
             },

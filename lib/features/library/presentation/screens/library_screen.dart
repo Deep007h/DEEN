@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/presentation/widgets/floating_nav_bar.dart';
 import '../../../../core/presentation/widgets/shimmer_box.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_motion.dart';
@@ -66,6 +67,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                 context: context,
                                 builder: (ctx) => AlertDialog(
                                   backgroundColor: theme.colorScheme.surfaceContainerHigh,
+                                  shape: const RoundedRectangleBorder(borderRadius: AppRadius.modalBorder),
                                   title: const Text('Clear Watch History'),
                                   content: const Text('Remove all items from your playback history?'),
                                   actions: [
@@ -153,6 +155,12 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                           const Text('No followed anime yet', style: TextStyle(color: Colors.white70, fontSize: 16)),
                           const SizedBox(height: 4),
                           const Text('Tap the star on any anime detail to follow it', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                          const SizedBox(height: 20),
+                          FilledButton.icon(
+                            onPressed: () => context.go('/explore'),
+                            icon: const Icon(Icons.explore_rounded, size: 18),
+                            label: const Text('Explore Anime'),
+                          ),
                         ],
                       ),
                     ),
@@ -184,7 +192,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                               context: context,
                               builder: (ctx) => AlertDialog(
                                 backgroundColor: theme.colorScheme.surfaceContainerHigh,
-                                shape: const RoundedRectangleBorder(borderRadius: AppRadius.cardBorder),
+                                shape: const RoundedRectangleBorder(borderRadius: AppRadius.modalBorder),
                                 title: Text('Unfollow ${item.title}?'),
                                 content: const Text('Remove this anime from your bookmarks?'),
                                 actions: [
@@ -304,6 +312,12 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                           const Text('No watch history yet', style: TextStyle(color: Colors.white70, fontSize: 16)),
                           const SizedBox(height: 4),
                           const Text('Played episodes will automatically appear here', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                          const SizedBox(height: 20),
+                          FilledButton.icon(
+                            onPressed: () => context.go('/explore'),
+                            icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                            label: const Text('Start Watching'),
+                          ),
                         ],
                       ),
                     ),
@@ -323,10 +337,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                             alignment: Alignment.centerRight,
                             padding: const EdgeInsets.only(right: 20),
                             decoration: BoxDecoration(
-                              color: Colors.red.withValues(alpha: 0.8),
+                              color: theme.colorScheme.errorContainer,
                               borderRadius: BorderRadius.circular(16),
                             ),
-                            child: const Icon(Icons.delete_rounded, color: Colors.white),
+                            child: Icon(Icons.delete_rounded, color: theme.colorScheme.onErrorContainer),
                           ),
                           onDismissed: (_) async {
                             final repo = ref.read(playbackHistoryRepositoryProvider);
@@ -484,7 +498,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               ),
             ),
 
-          const SliverToBoxAdapter(child: SizedBox(height: 100)),
+          SliverToBoxAdapter(child: SizedBox(height: FloatingNavBar.getBottomPadding(context))),
         ],
       ),
     );

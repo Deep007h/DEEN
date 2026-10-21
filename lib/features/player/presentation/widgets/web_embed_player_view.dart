@@ -187,10 +187,13 @@ class _WebEmbedPlayerViewState extends State<WebEmbedPlayerView> {
         children: [
           // 1. Fullscreen WebView Rendering the Iframe
           if (_controller != null)
-            GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onTap: _toggleControls,
-              child: WebViewWidget(controller: _controller!),
+            IgnorePointer(
+              ignoring: widget.isLocked,
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: _toggleControls,
+                child: WebViewWidget(controller: _controller!),
+              ),
             )
           else
             GestureDetector(
