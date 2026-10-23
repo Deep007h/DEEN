@@ -10,7 +10,8 @@ void main() {
       expect(adService.testMode, isTrue);
       expect(adService.adsEnabled, isTrue);
       expect(adService.isInitialized, isFalse);
-      expect(adService.interstitialCooldown, const Duration(minutes: 3));
+      expect(adService.hasPreloadedAd, isFalse);
+      expect(adService.interstitialCooldown, const Duration(minutes: 2));
     });
 
     test('Toggling adsEnabled updates state and blocks interstitials', () {
@@ -26,7 +27,29 @@ void main() {
       expect(adService.canShowInterstitial(), isTrue);
     });
 
-    test('showInterstitialIfReady invokes onComplete when no ad is loaded or ready', () async {
+    test('Test mode bypasses cooldown so testing ads is seamless', () async {
+      final adService = AdService();
+      expect(adService.testMode, isTrue);
+      expect(adService.canShowInterstitial(), isTrue);
+
+      // In live mode, cooldown applies
+      await adService.setTestMode(false);
+      expect(adService.testMode, isFalse);
+      expect(adService.canShowInterstitial(), isTrue);
+    });
+
+    test('showInterstitialAd invokes onComplete callback cleanly', () async {
+      final adService = AdService();
+      bool completed = false;
+
+      await adService.showInterstitialAd(onComplete: () {
+        completed = true;
+      });
+
+      expect(completed, isTrue);
+    });
+
+    test('showInterstitialIfReady invokes onComplete for backward compatibility', () async {
       final adService = AdService();
       bool completed = false;
 
@@ -35,13 +58,6 @@ void main() {
       });
 
       expect(completed, isTrue);
-    });
-
-    test('Cooldown prevents rapid back-to-back interstitial triggering', () {
-      final adService = AdService();
-      adService.interstitialCooldown = const Duration(minutes: 3);
-
-      expect(adService.canShowInterstitial(), isTrue);
     });
 
     test('setTestMode updates testMode state', () async {

@@ -20,6 +20,7 @@ import 'package:anime_stream/features/metadata/presentation/providers/metadata_p
 import 'package:anime_stream/features/stream/domain/models/source_match.dart';
 import 'package:anime_stream/features/stream/presentation/providers/stream_providers.dart';
 import 'package:anime_stream/features/player/presentation/widgets/embed_stream_dialog.dart';
+import '../../../../core/services/ad_providers.dart';
 
 enum SearchCatalogKind { anime, kshow }
 
@@ -568,7 +569,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       final match = _kshowResults[index];
                       return _KShowPosterCard(
                         match: match,
-                        onTap: () => context.push('/player?animeId=${match.id}&ep=1&provider=megavid'),
+                        onTap: () {
+                          ref.read(adServiceProvider).showInterstitialAd(
+                            onComplete: () => context.push('/player?animeId=${match.id}&ep=1&provider=megavid'),
+                          );
+                        },
                       );
                     },
                     childCount: _kshowResults.length,

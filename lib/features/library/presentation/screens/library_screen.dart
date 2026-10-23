@@ -10,6 +10,7 @@ import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../providers/library_providers.dart';
+import '../../../../core/services/ad_providers.dart';
 
 /// Unified Library Screen presenting Followed anime and Watch History with Material 3 SegmentedButton.
 class LibraryScreen extends ConsumerStatefulWidget {
@@ -389,7 +390,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                             ),
                             child: InkWell(
                               onTap: () {
-                                context.push('/player?animeId=${item.animeId}&ep=${item.episodeNumber}');
+                                ref.read(adServiceProvider).showInterstitialAd(
+                                  onComplete: () => context.push('/player?animeId=${item.animeId}&ep=${item.episodeNumber}'),
+                                );
                               },
                               child: Padding(
                                 padding: const EdgeInsets.all(10),
@@ -446,7 +449,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                       constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
                                       icon: const Icon(Icons.play_circle_fill_rounded, color: Colors.white, size: 32),
                                       onPressed: () {
-                                        context.push('/player?animeId=${item.animeId}&ep=${item.episodeNumber}');
+                                        ref.read(adServiceProvider).showInterstitialAd(
+                                          onComplete: () => context.push('/player?animeId=${item.animeId}&ep=${item.episodeNumber}'),
+                                        );
                                       },
                                     ),
                                   ],

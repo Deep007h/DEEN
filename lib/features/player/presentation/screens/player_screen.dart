@@ -34,6 +34,7 @@ import '../widgets/player_settings_sheet.dart';
 import '../widgets/player_top_bar.dart';
 import '../widgets/skip_intro_button.dart';
 import '../widgets/web_embed_player_view.dart';
+import '../../../../core/services/ad_providers.dart';
 
 /// Full-screen landscape video player matching the reference design:
 /// - Letterboxed centered video canvas
@@ -837,7 +838,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _saveCurrentProgress();
     final nextEp = widget.episodeNumber + 1;
     final prov = widget.preferredProviderId != null ? '&provider=${widget.preferredProviderId}' : '';
-    context.go('/player?animeId=${widget.animeId}&ep=$nextEp$prov');
+    ref.read(adServiceProvider).showInterstitialAd(
+      onComplete: () {
+        if (mounted) context.go('/player?animeId=${widget.animeId}&ep=$nextEp$prov');
+      },
+    );
   }
 
   void _playPreviousEpisode() {
@@ -1294,7 +1299,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                             onSelectEpisode: (ep) {
                               _closeSidePanel();
                               _saveCurrentProgress();
-                              context.pushReplacement('/player?animeId=${widget.animeId}&ep=$ep');
+                              ref.read(adServiceProvider).showInterstitialAd(
+                                onComplete: () {
+                                  if (mounted) context.pushReplacement('/player?animeId=${widget.animeId}&ep=$ep');
+                                },
+                              );
                             },
                             onClose: _closeSidePanel,
                           )

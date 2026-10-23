@@ -74,11 +74,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
     }
 
     final adService = ref.read(adServiceProvider);
-    if (adService.canShowInterstitial()) {
-      adService.showInterstitialIfReady(onComplete: navigateToPlayer);
-    } else {
-      navigateToPlayer();
-    }
+    adService.showInterstitialAd(onComplete: navigateToPlayer);
   }
 
   @override

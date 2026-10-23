@@ -524,6 +524,8 @@ class SettingsScreen extends ConsumerWidget {
                         subtitle: 'Safely preview Start.io ads without policy risks',
                         value: testAdsEnabled,
                         onChanged: (val) async {
+                          final prefs = ref.read(sharedPreferencesProvider);
+                          await prefs?.setBool('test_ads_enabled', val);
                           ref.read(testAdsEnabledProvider.notifier).state = val;
                           await ref.read(adServiceProvider).setTestMode(val);
                           if (context.mounted) {
