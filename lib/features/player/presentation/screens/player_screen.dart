@@ -1373,9 +1373,27 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                           child: Center(
                             child: _engine != null
                                 ? _engine!.buildVideoView()
-                      : Container(color: Colors.black),
+                                : Container(color: Colors.black),
+                          ),
+                        ),
+
+              // 1b. Impenetrable Lock Screen Guard (intercepts ALL touches when locked)
+              if (_isLocked)
+                Positioned.fill(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _showLockedPrompt,
+                    onDoubleTap: _showLockedPrompt,
+                    onVerticalDragStart: (_) => _showLockedPrompt(),
+                    onVerticalDragUpdate: (_) {},
+                    onVerticalDragEnd: (_) {},
+                    onHorizontalDragStart: (_) => _showLockedPrompt(),
+                    onHorizontalDragUpdate: (_) {},
+                    onHorizontalDragEnd: (_) {},
+                    onLongPress: _showLockedPrompt,
+                    child: const SizedBox.expand(),
+                  ),
                 ),
-              ),
 
               // Unified Center Buffering Spinner (visible whenever buffering or switching audio)
               if ((_isBuffering || _isSwitchingAudio) && !_isHolding2x && !_isLocked)
@@ -1483,9 +1501,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                   ),
                 ),
 
-              // 6. Resume Toast ("Resumed from mm:ss")
-              if (_resumeToastMessage != null && !_isHolding2x && !_isLocked)
-                _buildResumeToast(),
 
               // 7. Next Episode Auto-Play Countdown Card
               if (_showNextEpisodeCountdown && !_isHolding2x && !_isLocked)
@@ -1628,50 +1643,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                         ),
                       ),
 
-                      // Floating Screen Lock Button (Left Side Dock - Safe from camera punch holes)
-                      Positioned(
-                        left: math.max(MediaQuery.paddingOf(context).left + 24, 64),
-                        top: 0,
-                        bottom: 0,
-                        child: Center(
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: _lockPlayer,
-                              borderRadius: BorderRadius.circular(24),
-                              child: Tooltip(
-                                message: 'Lock Screen',
-                                child: Container(
-                                  width: 46,
-                                  height: 46,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xCC141914),
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: const Color(0xFF263526),
-                                      width: 1.2,
-                                    ),
-                                    boxShadow: const [
-                                      BoxShadow(
-                                        color: Color(0x66000000),
-                                        blurRadius: 10,
-                                        offset: Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: const Center(
-                                    child: Icon(
-                                      Icons.lock_outline_rounded,
-                                      color: Colors.white,
-                                      size: 22,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
 
                       // Center Controls (Prev Ep, Replay-10, Play/Pause circle, Forward-10, Next Ep)
                       Builder(
@@ -1805,7 +1776,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                 ),
               ),
 
-              // 10. Floating Unlock Button (visible when tapped while locked)
+              // 10. Resume Toast Overlay (Rendered above controls so taps are received directly)
+              if (_resumeToastMessage != null && !_isHolding2x && !_isLocked)
+                _buildResumeToast(),
+
+              // 11. Floating Unlock Button (visible when tapped while locked)
               if (_isLocked && _showUnlockButton && !_isHolding2x)
                 Positioned(
                   left: math.max(MediaQuery.paddingOf(context).left + 24, 64),
@@ -1816,18 +1791,21 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                       color: Colors.transparent,
                       child: InkWell(
                         onTap: _unlockPlayer,
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(16),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                           decoration: BoxDecoration(
-                            color: const Color(0xEE141914),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: const Color(0xFF263526), width: 1.0),
+                            color: Colors.black.withValues(alpha: 0.85),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.20),
+                              width: 1.0,
+                            ),
                             boxShadow: const [
                               BoxShadow(
                                 color: Color(0x66000000),
-                                blurRadius: 10,
-                                offset: Offset(0, 2),
+                                blurRadius: 12,
+                                offset: Offset(0, 3),
                               ),
                             ],
                           ),
@@ -2037,18 +2015,20 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                   _position = _savedResumePosition!;
                   _positionNotifier.value = _savedResumePosition!;
                 }
+                _resumeToastTimer?.cancel();
+                if (mounted) setState(() => _resumeToastMessage = null);
               },
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(16),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
-                  color: const Color(0xEE141914),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFF263526), width: 1.0),
+                  color: Colors.black.withValues(alpha: 0.85),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.20), width: 1.0),
                   boxShadow: const [
                     BoxShadow(
                       color: Color(0x66000000),
-                      blurRadius: 8,
+                      blurRadius: 10,
                       offset: Offset(0, 2),
                     ),
                   ],
