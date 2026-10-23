@@ -5,9 +5,9 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('AdService Logic & Cooldown Tests', () {
-    test('Default states are initialized safely', () {
+    test('Default states are initialized safely in live monetization mode', () {
       final adService = AdService();
-      expect(adService.testMode, isTrue);
+      expect(adService.testMode, isFalse);
       expect(adService.adsEnabled, isTrue);
       expect(adService.isInitialized, isFalse);
       expect(adService.hasPreloadedAd, isFalse);
@@ -27,14 +27,13 @@ void main() {
       expect(adService.canShowInterstitial(), isTrue);
     });
 
-    test('Test mode bypasses cooldown so testing ads is seamless', () async {
+    test('Test mode bypasses cooldown when enabled', () async {
       final adService = AdService();
-      expect(adService.testMode, isTrue);
+      expect(adService.testMode, isFalse);
       expect(adService.canShowInterstitial(), isTrue);
 
-      // In live mode, cooldown applies
-      await adService.setTestMode(false);
-      expect(adService.testMode, isFalse);
+      await adService.setTestMode(true);
+      expect(adService.testMode, isTrue);
       expect(adService.canShowInterstitial(), isTrue);
     });
 
@@ -62,13 +61,13 @@ void main() {
 
     test('setTestMode updates testMode state', () async {
       final adService = AdService();
-      expect(adService.testMode, isTrue);
-
-      await adService.setTestMode(false);
       expect(adService.testMode, isFalse);
 
       await adService.setTestMode(true);
       expect(adService.testMode, isTrue);
+
+      await adService.setTestMode(false);
+      expect(adService.testMode, isFalse);
     });
   });
 }

@@ -12,7 +12,7 @@ class AdService {
   bool get _isTestEnv => Platform.environment.containsKey('FLUTTER_TEST');
 
   bool _initialized = false;
-  bool _testMode = true; // Safe test mode by default
+  bool _testMode = false; // Live monetized ads mode by default
   bool _adsEnabled = true;
 
   StartAppInterstitialAd? _preloadedInterstitial;
@@ -30,8 +30,8 @@ class AdService {
   bool get adsEnabled => _adsEnabled;
   bool get hasPreloadedAd => _preloadedInterstitial != null;
 
-  /// Initialize Start.io SDK and configure test ad mode.
-  Future<void> initialize({bool testMode = true}) async {
+  /// Initialize Start.io SDK and configure live/test ad mode.
+  Future<void> initialize({bool testMode = false}) async {
     if (_initialized) return;
     _testMode = testMode;
     if (_isTestEnv) {

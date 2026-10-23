@@ -22,10 +22,9 @@ void main() async {
     debugPrint('Failed to load SharedPreferences on start: $e');
   }
 
-  // Initialize Start.io AdService early so first interstitial is cached
-  final testMode = prefs?.getBool('test_ads_enabled') ?? true;
+  // Initialize Start.io AdService for live monetization so first interstitial is cached
   try {
-    await AdService.instance.initialize(testMode: testMode);
+    await AdService.instance.initialize(testMode: false);
   } catch (e) {
     debugPrint('AdService startup initialization error: $e');
   }

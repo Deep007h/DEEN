@@ -22,7 +22,6 @@ import '../../data/repositories/app_settings_repository.dart';
 import '../../domain/models/data_backup.dart';
 import '../../../updater/presentation/providers/updater_providers.dart';
 import '../../../updater/presentation/widgets/update_dialog.dart';
-import '../../../../core/services/ad_providers.dart';
 
 /// Available accent colors in the Appearance settings.
 const List<Color> _kAccentColors = [
@@ -55,7 +54,6 @@ class SettingsScreen extends ConsumerWidget {
     final topPadding = MediaQuery.paddingOf(context).top;
     final settings = ref.watch(appSettingsProvider);
     final settingsNotifier = ref.read(appSettingsProvider.notifier);
-    final testAdsEnabled = ref.watch(testAdsEnabledProvider);
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -508,66 +506,6 @@ class SettingsScreen extends ConsumerWidget {
                           Icons.chevron_right_rounded,
                           color: AppColors.textSecondary,
                         ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: AppSpacing.xl),
-
-                  // AD MONETIZATION
-                  const _SectionHeader(title: 'Ad Monetization'),
-                  _SettingsCard(
-                    children: [
-                      _SettingsSwitchTile(
-                        icon: Icons.ads_click_rounded,
-                        title: 'Test Ads Mode',
-                        subtitle: 'Safely preview Start.io ads without policy risks',
-                        value: testAdsEnabled,
-                        onChanged: (val) async {
-                          final prefs = ref.read(sharedPreferencesProvider);
-                          await prefs?.setBool('test_ads_enabled', val);
-                          ref.read(testAdsEnabledProvider.notifier).state = val;
-                          await ref.read(adServiceProvider).setTestMode(val);
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                backgroundColor: AppColors.surfaceElevated,
-                                content: Text(
-                                  val ? 'Test ads mode enabled' : 'Live ads mode enabled',
-                                ),
-                                duration: const Duration(seconds: 2),
-                              ),
-                            );
-                          }
-                        },
-                      ),
-                      const Divider(height: 1),
-                      _SettingsTile(
-                        icon: Icons.play_circle_outline_rounded,
-                        title: 'Test Interstitial Ad',
-                        trailing: const Icon(
-                          Icons.chevron_right_rounded,
-                          size: 20,
-                          color: AppColors.textMuted,
-                        ),
-                        onTap: () async {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              backgroundColor: AppColors.surfaceElevated,
-                              content: Text('Requesting test ad...'),
-                              duration: Duration(seconds: 1),
-                            ),
-                          );
-                          final success = await ref.read(adServiceProvider).showTestInterstitial();
-                          if (context.mounted && !success) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                backgroundColor: AppColors.surfaceElevated,
-                                content: Text('Ad not ready or failed to display. Ensure network connection.'),
-                              ),
-                            );
-                          }
-                        },
                       ),
                     ],
                   ),
