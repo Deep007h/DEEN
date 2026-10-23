@@ -17,6 +17,8 @@ import 'package:anime_stream/features/metadata/domain/models/anime_detail.dart';
 import 'package:anime_stream/features/stream/presentation/providers/stream_providers.dart';
 import 'package:anime_stream/features/library/domain/models/followed_anime.dart';
 import '../../../../core/presentation/widgets/hero_shuttle_builder.dart';
+import '../../../../core/presentation/widgets/start_io_banner.dart';
+import '../../../../core/services/ad_providers.dart';
 
 /// Detail screen matching reference Screen 2.
 /// Features blurred backdrop fade, sharp hero poster, rating and rank badges,
@@ -56,22 +58,34 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
     _lastEpisodeNavTime = now;
     ref.read(playbackHistoryRepositoryProvider).setLastWatchedEpisode(currentId, epNum);
     ref.invalidate(lastWatchedEpisodeProvider(currentId));
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
-    context.push('/player?animeId=$currentId&ep=$epNum&provider=$selectedProviderId').then((_) {
+
+    void navigateToPlayer() {
+      if (!mounted) return;
       SystemChrome.setPreferredOrientations([
-        DeviceOrientation.portraitUp,
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
       ]);
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    });
+      context.push('/player?animeId=$currentId&ep=$epNum&provider=$selectedProviderId').then((_) {
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.portraitUp,
+        ]);
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      });
+    }
+
+    final adService = ref.read(adServiceProvider);
+    if (adService.canShowInterstitial()) {
+      adService.showInterstitialIfReady(onComplete: navigateToPlayer);
+    } else {
+      navigateToPlayer();
+    }
   }
 
   @override
   void initState() {
     super.initState();
     _selectedSeasonId = int.tryParse(widget.animeId) ?? 0;
+    ref.read(adServiceProvider).preloadInterstitial();
   }
 
   @override
@@ -761,6 +775,10 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                       ),
                     ),
                   ),
+                // Start.io Sponsor Banner
+                const SliverToBoxAdapter(
+                  child: StartIoBannerWidget(),
+                ),
 
                 // Episodes Header with List / Grid View Switcher
                 SliverToBoxAdapter(
