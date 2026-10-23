@@ -5,13 +5,13 @@
 </p>
 
 <p align="center">
-  <strong>The Ultimate Ad-Free Anime Streaming Experience. Pure Entertainment, Uninterrupted.</strong>
+  <strong>The Ultimate Anime Streaming Experience. Minimal Ads, Pure Entertainment.</strong>
 </p>
 
 <p align="center">
   <a href="https://github.com/Deep007h/DEEN/releases/latest"><img src="https://img.shields.io/github/v/release/Deep007h/DEEN?color=E50914&style=for-the-badge&logo=android&logoColor=white" alt="Latest Release"/></a>
   <img src="https://img.shields.io/badge/Platform-Android_5.0+-24292e?style=for-the-badge&logo=android" alt="Platform"/>
-  <img src="https://img.shields.io/badge/Experience-100%25_Ad--Free-success?style=for-the-badge&logo=shield" alt="Ad Free"/>
+  <img src="https://img.shields.io/badge/Ads-Minimal_and_Non--Intrusive-success?style=for-the-badge&logo=shield" alt="Minimal Ads"/>
   <img src="https://img.shields.io/badge/Price-100%25_Free-blue?style=for-the-badge" alt="Free"/>
 </p>
 
@@ -19,9 +19,9 @@
 
 ## 🌟 Overview
 
-**DEEN** is a modern, high-performance anime streaming application designed specifically for enthusiasts who value aesthetic perfection, extensive catalogs, and an uninterrupted viewing experience. 
+**DEEN** is a modern, high-performance anime streaming application designed specifically for enthusiasts who value aesthetic perfection, extensive catalogs, and a smooth viewing experience. 
 
-Built with an unwavering commitment to quality, DEEN blends a striking dark obsidian user interface with responsive touch controls, instant playback, and access to an enormous library of anime titles across all eras. Best of all: **zero advertisements, zero interruptions, and no paywalls**.
+Built with an unwavering commitment to quality, DEEN blends a striking dark obsidian user interface with responsive touch controls, instant playback, and access to an enormous library of anime titles across all eras. Best of all: **minimal, non-intrusive ads that never interrupt your enjoyment, and absolutely no paywalls**.
 
 ---
 
@@ -57,12 +57,13 @@ Discover, explore, and track an expansive world of animation:
 
 ---
 
-## 🚫 100% Ad-Free & Pure Entertainment
-
-Say goodbye to frustrating streaming hindrances:
-
-- **No Pop-Ups, No Video Ads**: Stream directly into content without waiting for countdowns, interstitial banners, or sponsor breaks.
-- **No Subscriptions or Hidden Fees**: Every title, season, and quality stream is fully unlocked and completely free to enjoy.
+## 🛡️ Minimal & Non-Intrusive Ads
+ 
+Enjoy your favorite shows without the frustration of aggressive, annoying advertising:
+ 
+- **Minimal, Non-Annoying Ads**: Ads are kept to an absolute minimum so your watch flow and navigation remain smooth, seamless, and enjoyable.
+- **No Aggressive Pop-Ups or Spam**: Zero deceptive countdown traps, spam redirects, or intrusive full-screen blocking ads.
+- **No Subscriptions or Hidden Fees**: Every title, season, and quality stream is 100% unlocked and completely free to enjoy.
 - **Instant Playback**: Fast loading times and a streamlined UI ensure you spend your time watching, not waiting.
 
 ---
