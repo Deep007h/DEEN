@@ -103,12 +103,11 @@ The latest release APKs are hosted directly under [GitHub Releases](https://gith
 
 | Package Architecture | File Name | Recommended For | Direct Download |
 | :--- | :--- | :--- | :--- |
-| **ARM64 (64-bit)** | `DEEN-v1.0.1-arm64-v8a.apk` | Most modern Android smartphones & tablets | [Download APK](https://github.com/Deep007h/DEEN/releases/download/v1.0.1/DEEN-v1.0.1-arm64-v8a.apk) |
-| **Universal (All Devices)** | `DEEN-v1.0.1-universal.apk` | All-in-one package compatible with any device | [Download APK](https://github.com/Deep007h/DEEN/releases/download/v1.0.1/DEEN-v1.0.1-universal.apk) |
-| **ARMv7 (32-bit)** | `DEEN-v1.0.1-armeabi-v7a.apk` | Older Android phones & legacy devices | [Download APK](https://github.com/Deep007h/DEEN/releases/download/v1.0.1/DEEN-v1.0.1-armeabi-v7a.apk) |
-| **x86_64** | `DEEN-v1.0.1-x86_64.apk` | Android Emulators (BlueStacks, LDPlayer), Chromebooks & PC | [Download APK](https://github.com/Deep007h/DEEN/releases/download/v1.0.1/DEEN-v1.0.1-x86_64.apk) |
+| **ARM64 (64-bit)** | `DEEN-v1-arm64-v8a.apk` | Most modern Android smartphones & tablets | [Download APK](https://github.com/Deep007h/DEEN/releases/download/v1/DEEN-v1-arm64-v8a.apk) |
+| **ARMv7 (32-bit)** | `DEEN-v1-armeabi-v7a.apk` | Older Android phones & legacy devices | [Download APK](https://github.com/Deep007h/DEEN/releases/download/v1/DEEN-v1-armeabi-v7a.apk) |
+| **x86_64** | `DEEN-v1-x86_64.apk` | Android Emulators (BlueStacks, LDPlayer), Chromebooks & PC | [Download APK](https://github.com/Deep007h/DEEN/releases/download/v1/DEEN-v1-x86_64.apk) |
 
-> **Tip**: If you are unsure which version to pick, download **`DEEN-v1.0.1-arm64-v8a.apk`** for modern phones or **`DEEN-v1.0.1-universal.apk`** for universal compatibility.
+> **Tip**: If you are unsure which version to pick, download **`DEEN-v1-arm64-v8a.apk`** (recommended for almost all modern Android devices).
 
 ---
 
@@ -128,17 +127,14 @@ The latest release APKs are hosted directly under [GitHub Releases](https://gith
 Verify the authenticity of your downloaded package:
 
 ```text
-DEEN-v1.0.1-arm64-v8a.apk:
-04a979a4d3509141edcba833dc5d8fa694c06fa23a56939b6dea0e837f86362e
+DEEN-v1-arm64-v8a.apk:
+356123c5dbb23436fc028e8e0a03c86c33798ae9a6dcef2dac8dfec766800650
 
-DEEN-v1.0.1-universal.apk:
-90761f591d7a1c8dbd36da6bf0bff03afa2d3f220eee09da0476526be862963e
+DEEN-v1-armeabi-v7a.apk:
+deae2f3b0fbd26baeb6cf49b86f92bc8890db13fb3144fbda73bd34e387347a7
 
-DEEN-v1.0.1-armeabi-v7a.apk:
-573ac17c04c6ce46c97a2c60996cf661364132d793acdc1a7b2b06f35a76da2e
-
-DEEN-v1.0.1-x86_64.apk:
-41fd6877e5eba1f72ec269f0ba7f36f53dfb98109f01db8727d012b857a5c974
+DEEN-v1-x86_64.apk:
+af4a35c37122db284ea6c1b37cc355da7c036b2d79bb0546e04c5671c4618686
 ```
 
 ---
