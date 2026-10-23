@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_motion.dart';
+import 'player_corner_banner_ad.dart';
 
 /// Full-screen in-app WebView player that renders the authorized megavid.buzz
 /// iframe embed technique. This is the primary/default player for 100% reliable
@@ -221,6 +222,15 @@ class _WebEmbedPlayerViewState extends State<WebEmbedPlayerView> {
                     ),
                   )
                 : const SizedBox.shrink(key: ValueKey('web_embed_loaded')),
+          ),
+
+          // 2b. Minimal Corner Letterbox Banner Ad during playback
+          Positioned(
+            top: math.max(MediaQuery.paddingOf(context).top, 8.0),
+            right: math.max(MediaQuery.paddingOf(context).right, 12.0),
+            child: PlayerCornerBannerAd(
+              isVisible: !_controlsVisible && !widget.isLocked && !_isLoading,
+            ),
           ),
 
           // 3. Floating Overlay Top Bar

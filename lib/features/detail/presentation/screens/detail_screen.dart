@@ -18,7 +18,6 @@ import 'package:anime_stream/features/stream/presentation/providers/stream_provi
 import 'package:anime_stream/features/library/domain/models/followed_anime.dart';
 import '../../../../core/presentation/widgets/hero_shuttle_builder.dart';
 import '../../../../core/presentation/widgets/start_io_banner.dart';
-import '../../../../core/services/ad_providers.dart';
 
 /// Detail screen matching reference Screen 2.
 /// Features blurred backdrop fade, sharp hero poster, rating and rank badges,
@@ -59,29 +58,23 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
     ref.read(playbackHistoryRepositoryProvider).setLastWatchedEpisode(currentId, epNum);
     ref.invalidate(lastWatchedEpisodeProvider(currentId));
 
-    void navigateToPlayer() {
-      if (!mounted) return;
+    if (!mounted) return;
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+    context.push('/player?animeId=$currentId&ep=$epNum&provider=$selectedProviderId').then((_) {
       SystemChrome.setPreferredOrientations([
-        DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight,
+        DeviceOrientation.portraitUp,
       ]);
-      context.push('/player?animeId=$currentId&ep=$epNum&provider=$selectedProviderId').then((_) {
-        SystemChrome.setPreferredOrientations([
-          DeviceOrientation.portraitUp,
-        ]);
-        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-      });
-    }
-
-    final adService = ref.read(adServiceProvider);
-    adService.showInterstitialAd(onComplete: navigateToPlayer);
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    });
   }
 
   @override
   void initState() {
     super.initState();
     _selectedSeasonId = int.tryParse(widget.animeId) ?? 0;
-    ref.read(adServiceProvider).preloadInterstitial();
   }
 
   @override

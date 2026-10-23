@@ -22,7 +22,6 @@ import '../../../../core/presentation/widgets/shimmer_box.dart';
 import '../../../../core/presentation/widgets/hero_shuttle_builder.dart';
 import '../../../../core/presentation/widgets/floating_nav_bar.dart';
 import '../../../explore/presentation/providers/explore_providers.dart';
-import '../../../../core/services/ad_providers.dart';
 
 /// State provider for Home screen genre filter pill bar.
 final homeGenreFilterProvider = StateProvider<String>((ref) => 'All');
@@ -1087,9 +1086,7 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
                                 PressableScale(
                                   targetScale: 0.94,
                                   onTap: () {
-                                    ref.read(adServiceProvider).showInterstitialAd(
-                                      onComplete: () => context.push('/player?animeId=${item.id}&ep=1'),
-                                    );
+                                    context.push('/player?animeId=${item.id}&ep=1');
                                   },
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -2078,9 +2075,7 @@ class _ContinueWatchingCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return PressableScale(
       onTap: () {
-        ref.read(adServiceProvider).showInterstitialAd(
-          onComplete: () => context.push('/player?animeId=${item.animeId}&ep=${item.episodeNumber}'),
-        );
+        context.push('/player?animeId=${item.animeId}&ep=${item.episodeNumber}');
       },
       child: SizedBox(
         width: 275,

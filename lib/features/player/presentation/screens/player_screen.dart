@@ -34,7 +34,7 @@ import '../widgets/player_settings_sheet.dart';
 import '../widgets/player_top_bar.dart';
 import '../widgets/skip_intro_button.dart';
 import '../widgets/web_embed_player_view.dart';
-import '../../../../core/services/ad_providers.dart';
+import '../widgets/player_corner_banner_ad.dart';
 
 /// Full-screen landscape video player matching the reference design:
 /// - Letterboxed centered video canvas
@@ -838,11 +838,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _saveCurrentProgress();
     final nextEp = widget.episodeNumber + 1;
     final prov = widget.preferredProviderId != null ? '&provider=${widget.preferredProviderId}' : '';
-    ref.read(adServiceProvider).showInterstitialAd(
-      onComplete: () {
-        if (mounted) context.go('/player?animeId=${widget.animeId}&ep=$nextEp$prov');
-      },
-    );
+    if (mounted) context.go('/player?animeId=${widget.animeId}&ep=$nextEp$prov');
   }
 
   void _playPreviousEpisode() {
@@ -1299,11 +1295,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                             onSelectEpisode: (ep) {
                               _closeSidePanel();
                               _saveCurrentProgress();
-                              ref.read(adServiceProvider).showInterstitialAd(
-                                onComplete: () {
-                                  if (mounted) context.pushReplacement('/player?animeId=${widget.animeId}&ep=$ep');
-                                },
-                              );
+                              if (mounted) context.pushReplacement('/player?animeId=${widget.animeId}&ep=$ep');
                             },
                             onClose: _closeSidePanel,
                           )
@@ -1578,6 +1570,21 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                   }
                   return const SizedBox.shrink();
                 },
+              ),
+
+              // 8b. Minimal Corner Letterbox Banner Ad during playback
+              Positioned(
+                top: math.max(MediaQuery.paddingOf(context).top, 8.0),
+                right: math.max(MediaQuery.paddingOf(context).right, 12.0),
+                child: PlayerCornerBannerAd(
+                  isVisible: !_controlsVisible &&
+                      !_isLocked &&
+                      !_isHolding2x &&
+                      !_isScrubbing &&
+                      !_showSettingsSheet &&
+                      !_showEpisodeSheet &&
+                      !_showMoreSheet,
+                ),
               ),
 
               // 9. Auto-hiding Controls Overlay
