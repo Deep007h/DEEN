@@ -86,7 +86,7 @@ class UpdateDialog extends StatelessWidget {
                     borderRadius: AppRadius.squircleInnerBorder,
                     border: Border.all(color: AppColors.accentBorder, width: 1),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.rocket_launch_rounded,
                     color: AppColors.accent,
                     size: 22,
@@ -311,7 +311,7 @@ class _FormattedReleaseNotes extends StatelessWidget {
                     margin: const EdgeInsets.only(top: 6, right: 8),
                     width: 5,
                     height: 5,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       color: AppColors.accent,
                       shape: BoxShape.circle,
                     ),

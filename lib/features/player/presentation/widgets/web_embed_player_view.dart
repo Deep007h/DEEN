@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_motion.dart';
+import 'player_corner_banner_ad.dart';
 
 /// Full-screen in-app WebView player that renders the authorized megavid.buzz
 /// iframe embed technique. This is the primary/default player for 100% reliable
@@ -182,8 +183,20 @@ class _WebEmbedPlayerViewState extends State<WebEmbedPlayerView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Stack(
-        fit: StackFit.expand,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final screenWidth = constraints.maxWidth;
+          final screenHeight = constraints.maxHeight;
+          final screenAspect = screenWidth / (screenHeight > 0 ? screenHeight : 1.0);
+          const videoAspect = 16.0 / 9.0;
+          double pillarboxWidth = 0.0;
+          if (screenAspect > videoAspect) {
+            final contentWidth = screenHeight * videoAspect;
+            pillarboxWidth = (screenWidth - contentWidth) / 2.0;
+          }
+
+          return Stack(
+            fit: StackFit.expand,
             children: [
               // 1. Fullscreen WebView Rendering the Iframe
               if (_controller != null)
@@ -213,8 +226,8 @@ class _WebEmbedPlayerViewState extends State<WebEmbedPlayerView> {
               AnimatedSwitcher(
                 duration: AppMotion.short4,
                 child: _isLoading
-                    ? const Center(
-                        key: ValueKey('web_embed_loading'),
+                    ? Center(
+                        key: const ValueKey('web_embed_loading'),
                         child: CircularProgressIndicator(
                           strokeWidth: 3,
                           valueColor: AlwaysStoppedAnimation<Color>(AppColors.accent),
@@ -222,6 +235,21 @@ class _WebEmbedPlayerViewState extends State<WebEmbedPlayerView> {
                       )
                     : const SizedBox.shrink(key: ValueKey('web_embed_loaded')),
               ),
+
+              // 2b. Minimal Vertical Banner Ad in non-content pillarbox during web playback
+              if (pillarboxWidth >= 40.0)
+                Positioned(
+                  top: math.max(0.0, (screenHeight - math.min(screenHeight - 16.0, 336.0)) / 2.0),
+                  right: math.max(
+                    MediaQuery.paddingOf(context).right + 4.0,
+                    (pillarboxWidth - math.min(50.0, pillarboxWidth - 8.0)) / 2.0,
+                  ),
+                  child: PlayerCornerBannerAd(
+                    isVisible: !_controlsVisible && !widget.isLocked && !_isLoading,
+                    availableWidth: pillarboxWidth,
+                    availableHeight: screenHeight,
+                  ),
+                ),
 
           // 3. Floating Overlay Top Bar
           if (_controlsVisible && !widget.isLocked)
@@ -287,7 +315,7 @@ class _WebEmbedPlayerViewState extends State<WebEmbedPlayerView> {
                                     borderRadius: BorderRadius.circular(4),
                                     border: Border.all(color: AppColors.accent.withValues(alpha: 0.4)),
                                   ),
-                                  child: const Text(
+                                  child: Text(
                                     'WEB EMBED (DEFAULT)',
                                     style: TextStyle(
                                       color: AppColors.accent,
@@ -445,29 +473,29 @@ class _WebEmbedPlayerViewState extends State<WebEmbedPlayerView> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                       decoration: BoxDecoration(
-                        color: const Color(0xF0101510),
+                        color: AppColors.surfaceCard.withValues(alpha: 0.94),
                         borderRadius: BorderRadius.circular(28),
-                        border: Border.all(color: const Color(0xFFC6F16D), width: 1.5),
-                        boxShadow: const [
+                        border: Border.all(color: AppColors.accent, width: 1.5),
+                        boxShadow: [
                           BoxShadow(
-                            color: Color(0x66C6F16D),
+                            color: AppColors.accent.withValues(alpha: 0.4),
                             blurRadius: 16,
                             spreadRadius: 1,
-                            offset: Offset(0, 2),
+                            offset: const Offset(0, 2),
                           ),
-                          BoxShadow(
+                          const BoxShadow(
                             color: Color(0x99000000),
                             blurRadius: 18,
                             offset: Offset(0, 4),
                           ),
                         ],
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.lock_open_rounded, color: Color(0xFFC6F16D), size: 20),
-                          SizedBox(width: 8),
-                          Text(
+                          Icon(Icons.lock_open_rounded, color: AppColors.accent, size: 20),
+                          const SizedBox(width: 8),
+                          const Text(
                             'Tap to Unlock',
                             style: TextStyle(
                               color: Colors.white,
@@ -484,7 +512,9 @@ class _WebEmbedPlayerViewState extends State<WebEmbedPlayerView> {
               ),
             ),
         ],
-      ),
-    );
+      );
+    },
+  ),
+);
   }
 }

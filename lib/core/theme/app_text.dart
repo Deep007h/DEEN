@@ -60,7 +60,7 @@ abstract final class AppText {
   );
 
   // Navigation tab labels
-  static const TextStyle navActive = TextStyle(
+  static TextStyle get navActive => TextStyle(
     fontSize: 11.5,
     fontWeight: FontWeight.w700,
     color: AppColors.accent,
@@ -79,11 +79,11 @@ abstract final class AppText {
     fontSize: 15.0,
     fontWeight: FontWeight.w700,
     letterSpacing: 0.2,
-    color: Color(0xFF0B0E0B), // Pitch black on electric lime CTA
+    color: Color(0xFF0B0E0B), // Pitch black on CTA
   );
 
   // Studio Monospace & Telemetry Badges
-  static const TextStyle techBadge = TextStyle(
+  static TextStyle get techBadge => TextStyle(
     fontFamily: 'monospace',
     fontSize: 10.5,
     fontWeight: FontWeight.w700,

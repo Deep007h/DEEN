@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/logging/error_logger.dart';
 import 'core/router/app_router.dart';
+import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
 import 'features/settings/data/repositories/app_settings_repository.dart';
 import 'l10n/app_localizations.dart';
@@ -50,6 +51,7 @@ class DeenApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final accentColor = ref.watch(accentColorProvider);
+    AppColors.updateAccent(accentColor);
 
     return MaterialApp.router(
       title: 'DEEN',

@@ -1253,7 +1253,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         backgroundColor: Colors.black,
         body: streamAsync.when(
           skipLoadingOnReload: true,
-          loading: () => const Center(
+          loading: () => Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -1265,8 +1265,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                     valueColor: AlwaysStoppedAnimation<Color>(AppColors.accent),
                   ),
                 ),
-                SizedBox(height: AppSpacing.md),
-                Text(
+                const SizedBox(height: AppSpacing.md),
+                const Text(
                   'Resolving stream variants...',
                   style: TextStyle(color: Colors.white, fontSize: 15),
                 ),
@@ -1565,7 +1565,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                           ),
                         ],
                       ),
-                      child: const Center(
+                      child: Center(
                         child: SizedBox(
                           width: 34,
                           height: 34,
@@ -1593,7 +1593,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(color: AppColors.accent.withValues(alpha: 0.5)),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           SizedBox(
@@ -1604,8 +1604,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                               valueColor: AlwaysStoppedAnimation<Color>(AppColors.accent),
                             ),
                           ),
-                          SizedBox(width: 8),
-                          Text(
+                          const SizedBox(width: 8),
+                          const Text(
                             'Switching audio track...',
                             style: TextStyle(
                               color: Colors.white,
@@ -2193,7 +2193,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
+                Icon(
                   Icons.error_outline_rounded,
                   size: 44,
                   color: AppColors.accent,
@@ -2230,7 +2230,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                       label: const Text('Play in Web Player'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.accent,
-                        side: const BorderSide(color: AppColors.accent),
+                        side: BorderSide(color: AppColors.accent),
                       ),
                     ),
                     ElevatedButton.icon(
@@ -2246,7 +2246,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                       label: const Text('Retry'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.accent,
-                        foregroundColor: const Color(0xFF0F150D),
+                        foregroundColor: AppColors.accentContrast,
                       ),
                     ),
                   ],
@@ -2295,7 +2295,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.history_rounded, size: 16, color: AppColors.accent),
+                    Icon(Icons.history_rounded, size: 16, color: AppColors.accent),
                     const SizedBox(width: 8),
                     Text(
                       _resumeToastMessage!,
@@ -2350,7 +2350,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                 ),
               ),
               const SizedBox(width: 4),
-              const Icon(Icons.fast_forward_rounded, size: 16, color: AppColors.accent),
+              Icon(Icons.fast_forward_rounded, size: 16, color: AppColors.accent),
             ],
           ),
         ),
@@ -2365,7 +2365,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) ref.invalidate(activeStreamProvider(_params));
       });
-      return const Center(
+      return Center(
         child: CircularProgressIndicator(
           strokeWidth: 3,
           valueColor: AlwaysStoppedAnimation<Color>(AppColors.accent),
@@ -2401,7 +2401,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
+            Icon(
               Icons.error_outline_rounded,
               size: 48,
               color: AppColors.accent,
@@ -2456,7 +2456,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                   label: const Text('Play in Web Player'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.accent,
-                    side: const BorderSide(color: AppColors.accent),
+                    side: BorderSide(color: AppColors.accent),
                   ),
                 ),
                 OutlinedButton.icon(
@@ -2482,7 +2482,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                   label: const Text('Retry'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.accent,
-                    foregroundColor: const Color(0xFF0F150D),
+                    foregroundColor: AppColors.accentContrast,
                   ),
                 ),
               ],
@@ -2538,7 +2538,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       SnackBar(
         content: Row(
           children: [
-            const Icon(Icons.downloading_rounded, color: AppColors.accent, size: 20),
+            Icon(Icons.downloading_rounded, color: AppColors.accent, size: 20),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -2549,11 +2549,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
           ],
         ),
         duration: const Duration(seconds: 3),
-        backgroundColor: const Color(0xFF141914),
+        backgroundColor: AppColors.surfaceCard,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),
-          side: const BorderSide(color: Color(0xFF283628)),
+          side: const BorderSide(color: AppColors.border),
         ),
       ),
     );
@@ -2565,10 +2565,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF0F140F),
+      backgroundColor: AppColors.surfaceCard,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        side: BorderSide(color: Color(0xFF242E24), width: 1.2),
+        side: BorderSide(color: AppColors.border, width: 1.2),
       ),
       builder: (ctx) => SafeArea(
         child: Padding(
@@ -2602,11 +2602,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.speed_rounded, size: 14, color: AppColors.accent),
-                        SizedBox(width: 4),
+                        const SizedBox(width: 4),
                         Text(
                           'Auto-Fastest',
                           style: TextStyle(color: AppColors.accent, fontSize: 11, fontWeight: FontWeight.w700),
@@ -2626,7 +2626,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                 child: ListView.separated(
                   shrinkWrap: true,
                   itemCount: variants.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1, color: Color(0xFF1E281E)),
+                  separatorBuilder: (_, __) => const Divider(height: 1, color: AppColors.borderSubtle),
                   itemBuilder: (ctx, index) {
                     final v = variants[index];
                     final lat = latencies[v.url];
@@ -2640,7 +2640,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                         width: 36,
                         height: 36,
                         decoration: BoxDecoration(
-                          color: isCurrent ? AppColors.accent.withValues(alpha: 0.18) : const Color(0xFF182218),
+                          color: isCurrent ? AppColors.accent.withValues(alpha: 0.18) : AppColors.surfaceHighlight,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Icon(
@@ -2666,13 +2666,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                       trailing: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1A261A),
+                          color: AppColors.surfaceHighlight,
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: const Color(0xFF283828)),
+                          border: Border.all(color: AppColors.border),
                         ),
                         child: Text(
                           badge,
-                          style: const TextStyle(color: AppColors.accent, fontSize: 11, fontWeight: FontWeight.w600),
+                          style: TextStyle(color: AppColors.accent, fontSize: 11, fontWeight: FontWeight.w600),
                         ),
                       ),
                       onTap: () async {
@@ -2735,7 +2735,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                 children: [
                   const Text('Resolution Trace Logs', style: AppText.sectionTitle),
                   IconButton(
-                    icon: const Icon(Icons.copy_rounded, color: AppColors.accent, size: 20),
+                    icon: Icon(Icons.copy_rounded, color: AppColors.accent, size: 20),
                     onPressed: () {
                       Clipboard.setData(ClipboardData(text: report));
                       ScaffoldMessenger.of(context).showSnackBar(

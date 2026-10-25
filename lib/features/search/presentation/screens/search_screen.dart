@@ -228,7 +228,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     tooltip: 'Stream from Embed URL',
                     padding: EdgeInsets.zero,
                     onPressed: () => EmbedStreamDialog.show(context),
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.link_rounded,
                       color: AppColors.accent,
                       size: 20,
@@ -511,7 +511,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.error_outline_rounded, size: 44, color: AppColors.accent),
+                        Icon(Icons.error_outline_rounded, size: 44, color: AppColors.accent),
                         const SizedBox(height: AppSpacing.md),
                         Text('Error loading K-Shows', style: AppText.sectionTitle.copyWith(fontSize: 16)),
                         const SizedBox(height: AppSpacing.lg),
@@ -616,7 +616,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.error_outline_rounded, size: 44, color: AppColors.accent),
+                        Icon(Icons.error_outline_rounded, size: 44, color: AppColors.accent),
                         const SizedBox(height: AppSpacing.md),
                         Text(l10n.errorLoading, style: AppText.sectionTitle.copyWith(fontSize: 16)),
                         const SizedBox(height: AppSpacing.xs),
@@ -700,9 +700,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
           // Infinite Scroll Bottom Loading Spinner
           if (paginationState.isLoadingMore)
-            const SliverToBoxAdapter(
+            SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
                 child: Center(
                   child: SizedBox(
                     width: 24,

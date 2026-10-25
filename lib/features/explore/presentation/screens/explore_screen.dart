@@ -166,7 +166,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                               selectedGenre.toUpperCase(),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontFamily: 'monospace',
                                 color: AppColors.accent,
                                 fontSize: 9,
@@ -404,7 +404,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.auto_stories_rounded, color: AppColors.accent, size: 20),
+                      Icon(Icons.auto_stories_rounded, color: AppColors.accent, size: 20),
                       const SizedBox(width: 8),
                       Text(
                         'Browse All $selectedGenre',
@@ -432,9 +432,9 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
 
           // 8. Endless Scrolling Catalog Items (Grid vs Compact vs Wide)
           if (catalogState.isLoading && catalogState.items.isEmpty)
-            const SliverToBoxAdapter(
+            SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 40),
+                padding: const EdgeInsets.symmetric(vertical: 40),
                 child: Center(
                   child: CircularProgressIndicator(color: AppColors.accent, strokeWidth: 2),
                 ),
@@ -546,7 +546,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 24),
                 child: Center(
                   child: catalogState.isLoadingMore
-                      ? const Row(
+                      ? Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             SizedBox(
@@ -557,8 +557,8 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                                 strokeWidth: 2,
                               ),
                             ),
-                            SizedBox(width: 12),
-                            Text(
+                            const SizedBox(width: 12),
+                            const Text(
                               'Loading more anime...',
                               style: TextStyle(color: Colors.white54, fontSize: 13),
                             ),
@@ -978,7 +978,7 @@ class _ExplorePosterCard extends StatelessWidget {
                         ),
                         child: Text(
                           '#$rank',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontFamily: 'monospace',
                             color: AppColors.accent,
                             fontSize: 10,

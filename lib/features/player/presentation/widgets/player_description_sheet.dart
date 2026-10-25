@@ -35,10 +35,10 @@ class PlayerDescriptionSheet extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.fromLTRB(6, 10, 12, 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F140F),
+        color: AppColors.surfaceCard,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: const Color(0xFF242E24),
+          color: AppColors.border,
           width: 1.2,
         ),
         boxShadow: const [
@@ -58,16 +58,16 @@ class PlayerDescriptionSheet extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Row(
+                Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
                       Icons.info_outline_rounded,
-                      color: Color(0xFFC6F16D),
+                      color: AppColors.accent,
                       size: 19,
                     ),
-                    SizedBox(width: 8),
-                    Text(
+                    const SizedBox(width: 8),
+                    const Text(
                       'Anime Synopsis & Info',
                       style: TextStyle(
                         color: Colors.white,
@@ -168,7 +168,7 @@ class PlayerDescriptionSheet extends StatelessWidget {
                       if (status != null && status!.isNotEmpty)
                         _buildBadge(
                           text: status!,
-                          textColor: const Color(0xFFC6F16D),
+                          textColor: AppColors.accent,
                         ),
                     ],
                   ),
@@ -193,11 +193,11 @@ class PlayerDescriptionSheet extends StatelessWidget {
                         width: 3.5,
                         height: 15,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFB5F237),
+                          color: AppColors.accent,
                           borderRadius: BorderRadius.circular(2),
-                          boxShadow: const [
+                          boxShadow: [
                             BoxShadow(
-                              color: Color(0x66B5F237),
+                              color: AppColors.accent.withValues(alpha: 0.4),
                               blurRadius: 6,
                             ),
                           ],
@@ -248,15 +248,15 @@ class PlayerDescriptionSheet extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFF141914),
+        color: AppColors.surfaceCard,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF263526), width: 0.9),
+        border: Border.all(color: AppColors.border, width: 0.9),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, color: iconColor ?? const Color(0xFFC6F16D), size: 14),
+            Icon(icon, color: iconColor ?? AppColors.accent, size: 14),
             const SizedBox(width: 4),
           ],
           Text(

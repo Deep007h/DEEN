@@ -454,7 +454,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                             child: LinearProgressIndicator(
                                               value: progress,
                                               backgroundColor: Colors.white12,
-                                              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.accent),
+                                              valueColor: AlwaysStoppedAnimation<Color>(AppColors.accent),
                                               minHeight: 3,
                                             ),
                                           ),

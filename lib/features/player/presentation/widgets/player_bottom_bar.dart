@@ -1,3 +1,4 @@
+import '../../../../core/theme/app_colors.dart';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
@@ -142,10 +143,10 @@ class _PlayerBottomBarState extends State<PlayerBottomBar> {
               child: Text(
                 _formatDuration(displayPosition),
                 textAlign: TextAlign.start,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'monospace',
-                  fontFeatures: [FontFeature.tabularFigures()],
-                  color: Color(0xFFC6F16D),
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                  color: AppColors.accent,
                   fontSize: 12.0,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.4,
@@ -222,7 +223,7 @@ class _PlayerBottomBarState extends State<PlayerBottomBar> {
                             height: 3.5,
                             width: double.infinity,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF1E261E),
+                              color: AppColors.borderSubtle,
                               borderRadius: BorderRadius.circular(2),
                             ),
                           ),
@@ -233,7 +234,7 @@ class _PlayerBottomBarState extends State<PlayerBottomBar> {
                             child: Container(
                               height: 3.5,
                               decoration: BoxDecoration(
-                                color: const Color(0x40C6F16D),
+                                color: AppColors.accent.withValues(alpha: 0.35),
                                 borderRadius: BorderRadius.circular(2),
                               ),
                             ),
@@ -245,11 +246,11 @@ class _PlayerBottomBarState extends State<PlayerBottomBar> {
                             child: Container(
                               height: 3.5,
                               decoration: BoxDecoration(
-                                color: const Color(0xFFC6F16D),
+                                color: AppColors.accent,
                                 borderRadius: BorderRadius.circular(2),
-                                boxShadow: const [
+                                boxShadow: [
                                   BoxShadow(
-                                    color: Color(0x66C6F16D),
+                                    color: AppColors.accent.withValues(alpha: 0.4),
                                     blurRadius: 4,
                                   ),
                                 ],
@@ -265,14 +266,14 @@ class _PlayerBottomBarState extends State<PlayerBottomBar> {
                             child: Container(
                               width: 12,
                               height: 12,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFC6F16D),
+                              decoration: BoxDecoration(
+                                color: AppColors.accent,
                                 shape: BoxShape.circle,
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Color(0x80C6F16D),
+                                    color: AppColors.accent.withValues(alpha: 0.5),
                                     blurRadius: 6,
-                                    offset: Offset(0, 1),
+                                    offset: const Offset(0, 1),
                                   ),
                                 ],
                               ),
@@ -296,7 +297,7 @@ class _PlayerBottomBarState extends State<PlayerBottomBar> {
                 style: const TextStyle(
                   fontFamily: 'monospace',
                   fontFeatures: [FontFeature.tabularFigures()],
-                  color: Color(0xFF8E9E8E),
+                  color: AppColors.textSecondary,
                   fontSize: 12.0,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 0.3,
@@ -366,15 +367,15 @@ class _FrostedBarButton extends StatelessWidget {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: isActive ? const Color(0xFF1E2D1A) : const Color(0xEE141914),
+              color: isActive ? AppColors.accent.withValues(alpha: 0.18) : AppColors.surfaceCard.withValues(alpha: 0.92),
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: isActive ? const Color(0xFFC6F16D) : const Color(0xFF263526),
+                color: isActive ? AppColors.accent : AppColors.border,
                 width: isActive ? 1.5 : 1.0,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: isActive ? const Color(0x33C6F16D) : const Color(0x66000000),
+                  color: isActive ? AppColors.accent.withValues(alpha: 0.3) : const Color(0x66000000),
                   blurRadius: 4,
                   offset: const Offset(0, 1),
                 ),
@@ -384,7 +385,7 @@ class _FrostedBarButton extends StatelessWidget {
               child: Icon(
                 icon,
                 size: size,
-                color: isActive ? const Color(0xFFC6F16D) : Colors.white,
+                color: isActive ? AppColors.accent : Colors.white,
               ),
             ),
           ),

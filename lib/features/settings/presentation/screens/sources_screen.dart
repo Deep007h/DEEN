@@ -71,7 +71,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
         ),
       ),
       body: registryAsync.when(
-        loading: () => const Center(
+        loading: () => Center(
           child: CircularProgressIndicator(color: AppColors.accent),
         ),
         error: (err, _) => Center(
@@ -111,7 +111,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.info_outline_rounded,
                           size: 20,
                           color: AppColors.accent,
@@ -300,7 +300,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
                                               if (_isTesting(provider.id as String))
-                                                const SizedBox(
+                                                SizedBox(
                                                   width: 14,
                                                   height: 14,
                                                   child: CircularProgressIndicator(

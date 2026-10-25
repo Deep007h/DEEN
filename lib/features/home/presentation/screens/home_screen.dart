@@ -488,7 +488,7 @@ class _HomeTopBar extends StatelessWidget {
                                           width: 1.0,
                                         ),
                                       ),
-                                      child: const Text(
+                                      child: Text(
                                         'PRO',
                                         style: TextStyle(
                                           fontSize: 10,
@@ -629,7 +629,7 @@ class _NotificationButton extends StatelessWidget {
                   shape: BoxShape.circle,
                   border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
                 ),
-                child: const Icon(Icons.auto_awesome, color: AppColors.accent, size: 20),
+                child: Icon(Icons.auto_awesome, color: AppColors.accent, size: 20),
               ),
               title: const Text(
                 'DEEN PRO v2.0 Ready',
@@ -724,7 +724,7 @@ class _ProfileDropdownButton extends StatelessWidget {
             ),
           ],
         ),
-        content: const Column(
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -737,8 +737,8 @@ class _ProfileDropdownButton extends StatelessWidget {
                 fontSize: 12,
               ),
             ),
-            SizedBox(height: 8),
-            Text(
+            const SizedBox(height: 8),
+            const Text(
               'Engineered with AniList GraphQL, high-speed CDN multi-mirror streaming, zero-stall HLS demuxing, and Autonomous Studio telemetry.',
               style: TextStyle(color: Color(0xFF8E9E8E), fontSize: 13, height: 1.4),
             ),
@@ -747,7 +747,7 @@ class _ProfileDropdownButton extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Close', style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold)),
+            child: Text('Close', style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -807,7 +807,7 @@ class _ProfileDropdownButton extends StatelessWidget {
                 width: 9.5,
                 height: 9.5,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFC6F16D),
+                  color: AppColors.accent,
                   shape: BoxShape.circle,
                   border: Border.all(
                     color: const Color(0xFF0B0E0B),
@@ -865,13 +865,13 @@ class _ProfileDropdownButton extends StatelessWidget {
               ],
             ),
           ),
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'embed_stream',
             child: Row(
               children: [
                 Icon(Icons.link_rounded, color: AppColors.accent, size: 20),
-                SizedBox(width: 12),
-                Text('Play from Embed URL', style: TextStyle(color: Colors.white, fontSize: 14)),
+                const SizedBox(width: 12),
+                const Text('Play from Embed URL', style: TextStyle(color: Colors.white, fontSize: 14)),
               ],
             ),
           ),
@@ -1220,7 +1220,7 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.local_fire_department_rounded,
                                 color: AppColors.accent,
                                 size: 15,
@@ -1228,7 +1228,7 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
                               const SizedBox(width: 5),
                               Text(
                                 '#${index + 1} Trending',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: AppColors.accent,
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w800,
@@ -1312,27 +1312,27 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
                                     decoration: BoxDecoration(
                                       color: AppColors.accent,
                                       borderRadius: BorderRadius.circular(22),
-                                      boxShadow: const [
+                                      boxShadow: [
                                         BoxShadow(
                                           color: AppColors.accentSoft,
                                           blurRadius: 10,
-                                          offset: Offset(0, 3),
+                                          offset: const Offset(0, 3),
                                         ),
                                       ],
                                     ),
-                                    child: const Row(
+                                    child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Icon(
                                           Icons.play_arrow_rounded,
-                                          color: Colors.black,
+                                          color: AppColors.accentContrast,
                                           size: 20,
                                         ),
-                                        SizedBox(width: 5),
+                                        const SizedBox(width: 5),
                                         Text(
                                           'Watch Now',
                                           style: TextStyle(
-                                            color: Colors.black,
+                                            color: AppColors.accentContrast,
                                             fontWeight: FontWeight.w800,
                                             fontSize: 13.5,
                                             letterSpacing: 0.1,
@@ -1451,7 +1451,7 @@ class _TrendingLargeCardsList extends StatelessWidget {
   static Color _getRankColor(int index) {
     switch (index) {
       case 0:
-        return const Color(0xFFC6F16D); // Neon lime
+        return AppColors.accent; // Primary dynamic accent
       case 1:
         return const Color(0xFF00E5FF); // Electric cyan
       case 2:
@@ -1747,14 +1747,14 @@ class _GenresList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    const categories = [
-      (name: 'Action', color: Color(0xFFFF5722), icon: Icons.local_fire_department_rounded),
-      (name: 'Adventure', color: Color(0xFF00E676), icon: Icons.explore_rounded),
-      (name: 'Fantasy', color: Color(0xFFAB47BC), icon: Icons.auto_awesome_rounded),
-      (name: 'Romance', color: Color(0xFFFF4081), icon: Icons.favorite_rounded),
-      (name: 'Comedy', color: Color(0xFFFFC107), icon: Icons.sentiment_very_satisfied_rounded),
-      (name: 'Thriller', color: Color(0xFFE53935), icon: Icons.visibility_rounded),
-      (name: 'Sci-Fi', color: Color(0xFF00E5FF), icon: Icons.rocket_launch_rounded),
+    final categories = [
+      (name: 'Action', color: const Color(0xFFFF5722), icon: Icons.local_fire_department_rounded),
+      (name: 'Adventure', color: const Color(0xFF00E676), icon: Icons.explore_rounded),
+      (name: 'Fantasy', color: const Color(0xFFAB47BC), icon: Icons.auto_awesome_rounded),
+      (name: 'Romance', color: const Color(0xFFFF4081), icon: Icons.favorite_rounded),
+      (name: 'Comedy', color: const Color(0xFFFFC107), icon: Icons.sentiment_very_satisfied_rounded),
+      (name: 'Thriller', color: const Color(0xFFE53935), icon: Icons.visibility_rounded),
+      (name: 'Sci-Fi', color: const Color(0xFF00E5FF), icon: Icons.rocket_launch_rounded),
       (name: 'K-Drama', color: AppColors.accent, icon: Icons.live_tv_rounded),
     ];
 
@@ -1936,7 +1936,7 @@ class _RecommendedForYouList extends StatelessWidget {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.star_rounded, size: 11, color: AppColors.accent),
+                                Icon(Icons.star_rounded, size: 11, color: AppColors.accent),
                                 const SizedBox(width: 3),
                                 Text(
                                   item.score!.toStringAsFixed(1),
@@ -2113,7 +2113,7 @@ class _TopRatedHorizontalList extends StatelessWidget {
                         const SizedBox(width: 2),
                         Text(
                           item.score != null ? item.score!.toStringAsFixed(1) : '—',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontFamily: 'monospace',
                             color: AppColors.accent,
                             fontSize: 11,
@@ -2598,7 +2598,7 @@ class _ContinueWatchingCard extends StatelessWidget {
                           value: progress.clamp(0.0, 1.0),
                           minHeight: 3.5,
                           backgroundColor: const Color(0x66000000),
-                          valueColor: const AlwaysStoppedAnimation<Color>(AppColors.accent),
+                          valueColor: AlwaysStoppedAnimation<Color>(AppColors.accent),
                         ),
                       ),
                     ),

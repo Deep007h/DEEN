@@ -858,7 +858,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                               Text('Seasons', style: AppText.sectionTitle.copyWith(fontSize: 16)),
                               if (detailAsync.isLoading) ...[
                                 const SizedBox(width: AppSpacing.sm),
-                                const SizedBox(
+                                SizedBox(
                                   width: 14,
                                   height: 14,
                                   child: CircularProgressIndicator(
@@ -1172,8 +1172,8 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                                       ),
                                       // Watched indicator or air date
                                       if (isWatched)
-                                        const Padding(
-                                          padding: EdgeInsets.only(left: 6),
+                                        Padding(
+                                          padding: const EdgeInsets.only(left: 6),
                                           child: Icon(
                                             Icons.check_circle_rounded,
                                             size: 16,
@@ -1233,7 +1233,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.error_outline_rounded, size: 48, color: AppColors.accent),
+                            Icon(Icons.error_outline_rounded, size: 48, color: AppColors.accent),
                             const SizedBox(height: AppSpacing.md),
                             Text(l10n.errorLoading, style: AppText.sectionTitle),
                             const SizedBox(height: AppSpacing.xs),
@@ -1316,7 +1316,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                       }
                       context.push('/settings/sources');
                     },
-                    child: const Text('Manage Servers', style: TextStyle(color: AppColors.accent)),
+                    child: Text('Manage Servers', style: TextStyle(color: AppColors.accent)),
                   ),
                 ],
               ),

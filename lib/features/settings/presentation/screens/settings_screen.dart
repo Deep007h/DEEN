@@ -23,7 +23,7 @@ import '../../domain/models/data_backup.dart';
 
 /// Available accent colors in the Appearance settings.
 const List<Color> _kAccentColors = [
-  AppColors.accent, // Electric Lime (Default)
+  AppColors.defaultAccent, // Electric Lime (Default)
   Color(0xFFE50914), // Vivid Netflix / Anime Red
   Color(0xFFFF3B30), // Crimson
   Color(0xFF9D4EDD), // Electric Purple
@@ -33,7 +33,7 @@ const List<Color> _kAccentColors = [
 ];
 
 final Map<Color, String> _kAccentColorNames = {
-  AppColors.accent: 'Electric Lime',
+  AppColors.defaultAccent: 'Electric Lime',
   const Color(0xFFE50914): 'Vivid Red',
   const Color(0xFFFF3B30): 'Crimson',
   const Color(0xFF9D4EDD): 'Electric Purple',
@@ -605,7 +605,7 @@ class SettingsScreen extends ConsumerWidget {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.verified_outlined,
                               size: 16,
                               color: AppColors.accent,

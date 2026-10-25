@@ -111,10 +111,10 @@ class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
     return Container(
       margin: const EdgeInsets.fromLTRB(6, 10, 12, 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F140F),
+        color: AppColors.surfaceCard,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: const Color(0xFF242E24),
+          color: AppColors.border,
           width: 1.2,
         ),
         boxShadow: const [
@@ -157,17 +157,17 @@ class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
                       width: 32,
                       height: 32,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E281E),
+                        color: AppColors.surfaceHighlight,
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                          color: const Color(0xFF2E3D2E),
+                          color: AppColors.border,
                           width: 1.0,
                         ),
                       ),
                       child: const Center(
                         child: Icon(
                           Icons.close_rounded,
-                          color: Color(0xFFC0D0C0),
+                          color: AppColors.textSecondary,
                           size: 18,
                         ),
                       ),
@@ -201,12 +201,12 @@ class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
                           decoration: BoxDecoration(
                             color: isSelected
                                 ? AppColors.accent
-                                : const Color(0xFF172017),
+                                : AppColors.surfaceElevated,
                             borderRadius: BorderRadius.circular(19),
                             border: Border.all(
                               color: isSelected
                                   ? AppColors.accent
-                                  : const Color(0xFF263326),
+                                  : AppColors.border,
                               width: 1.0,
                             ),
                           ),
@@ -214,7 +214,7 @@ class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
                           child: Text(
                             _tabs[index],
                             style: TextStyle(
-                              color: isSelected ? const Color(0xFF0F160E) : const Color(0xFF90A490),
+                              color: isSelected ? AppColors.accentContrast : AppColors.textSecondary,
                               fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
                               fontSize: 11.5,
                             ),
@@ -229,7 +229,7 @@ class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
               ),
             ),
           ),
-          const Divider(color: Color(0xFF202A20), height: 1),
+          const Divider(color: AppColors.borderSubtle, height: 1),
 
           // Tab Content Area
           Expanded(
@@ -271,11 +271,11 @@ class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
             width: 32,
             height: 32,
             decoration: BoxDecoration(
-              color: const Color(0xFF1B281B),
+              color: AppColors.surfaceHighlight,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFF2C3E2C)),
+              border: Border.all(color: AppColors.border),
             ),
-            child: Icon(icon, color: const Color(0xFFC6F16D), size: 18),
+            child: Icon(icon, color: AppColors.accent, size: 18),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -293,7 +293,7 @@ class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
                 Text(
                   subtitle,
                   style: const TextStyle(
-                    color: Color(0xFF889988),
+                    color: AppColors.textMuted,
                     fontSize: 11.5,
                   ),
                 ),
@@ -323,10 +323,10 @@ class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: isSelected ? const Color(0xFF142412) : const Color(0xFF141A14),
+              color: isSelected ? AppColors.accent.withValues(alpha: 0.16) : AppColors.surfaceSecondary,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: isSelected ? const Color(0xFFC6F16D) : const Color(0xFF222B22),
+                color: isSelected ? AppColors.accent : AppColors.border,
                 width: isSelected ? 1.5 : 1.0,
               ),
             ),
@@ -339,7 +339,7 @@ class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: isSelected ? const Color(0xFFC6F16D) : const Color(0xFF556655),
+                      color: isSelected ? AppColors.accent : AppColors.textMuted,
                       width: 2.0,
                     ),
                   ),
@@ -348,8 +348,8 @@ class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
                           child: Container(
                             width: 8,
                             height: 8,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFC6F16D),
+                            decoration: BoxDecoration(
+                              color: AppColors.accent,
                               shape: BoxShape.circle,
                             ),
                           ),
@@ -364,7 +364,7 @@ class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
                       Text(
                         title,
                         style: TextStyle(
-                          color: isSelected ? Colors.white : const Color(0xFFD0DDD0),
+                          color: isSelected ? Colors.white : AppColors.textSecondary,
                           fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
                           fontSize: 13.5,
                         ),
@@ -374,7 +374,7 @@ class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
                         Text(
                           subtitle,
                           style: const TextStyle(
-                            color: Color(0xFF889988),
+                            color: AppColors.textMuted,
                             fontSize: 11,
                           ),
                         ),
@@ -386,14 +386,14 @@ class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1D291D),
+                      color: AppColors.surfaceHighlight,
                       borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: const Color(0xFF2E402E)),
+                      border: Border.all(color: AppColors.border),
                     ),
                     child: Text(
                       badge,
-                      style: const TextStyle(
-                        color: Color(0xFFC6F16D),
+                      style: TextStyle(
+                        color: AppColors.accent,
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
                       ),
@@ -405,7 +405,7 @@ class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
                   Text(
                     trailingText,
                     style: const TextStyle(
-                      color: Color(0xFF889988),
+                      color: AppColors.textMuted,
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
@@ -497,9 +497,9 @@ class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFF141A14),
+              color: AppColors.surfaceSecondary,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFF242E24), width: 1.0),
+              border: Border.all(color: AppColors.border, width: 1.0),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -515,7 +515,7 @@ class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
                               : (widget.currentVolume ?? 1.0) < 0.5
                                   ? Icons.volume_down_rounded
                                   : Icons.volume_up_rounded,
-                          color: const Color(0xFFC6F16D),
+                          color: AppColors.accent,
                           size: 18,
                         ),
                         const SizedBox(width: 8),
@@ -531,8 +531,8 @@ class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
                     ),
                     Text(
                       '${(((widget.currentVolume ?? 1.0).clamp(0.0, 1.0)) * 100).round()}%',
-                      style: const TextStyle(
-                        color: Color(0xFFC6F16D),
+                      style: TextStyle(
+                        color: AppColors.accent,
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                       ),
@@ -542,9 +542,9 @@ class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
                 const SizedBox(height: 6),
                 SliderTheme(
                   data: SliderTheme.of(context).copyWith(
-                    activeTrackColor: const Color(0xFFC6F16D),
-                    inactiveTrackColor: const Color(0xFF263326),
-                    thumbColor: const Color(0xFFC6F16D),
+                    activeTrackColor: AppColors.accent,
+                    inactiveTrackColor: AppColors.border,
+                    thumbColor: AppColors.accent,
                     trackHeight: 4,
                     thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
                     overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
@@ -596,12 +596,12 @@ class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
             onTap: () => widget.onSelectSubtitle(sub),
           );
         }),
-        const Divider(color: Color(0xFF202A20), height: 20),
+        const Divider(color: AppColors.borderSubtle, height: 20),
 
         // Font Size
         const Text(
           'Font Size',
-          style: TextStyle(color: Color(0xFF90A490), fontWeight: FontWeight.w600, fontSize: 12),
+          style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600, fontSize: 12),
         ),
         const SizedBox(height: 8),
         Wrap(
@@ -615,14 +615,14 @@ class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
               label: Text(label),
               selected: isSelected,
               selectedColor: AppColors.accent,
-              backgroundColor: const Color(0xFF161E16),
+              backgroundColor: AppColors.surfaceHighlight,
               labelStyle: TextStyle(
-                color: isSelected ? const Color(0xFF0F150D) : const Color(0xFF90A490),
+                color: isSelected ? AppColors.accentContrast : AppColors.textSecondary,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.normal,
                 fontSize: 11,
               ),
               side: BorderSide(
-                color: isSelected ? AppColors.accent : const Color(0xFF263326),
+                color: isSelected ? AppColors.accent : AppColors.border,
               ),
               onSelected: (_) => widget.onUpdateSubtitleSettings(
                 widget.subtitleSettings.copyWith(fontSize: size),
@@ -635,7 +635,7 @@ class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
         // Subtitle Sync Delay (±0.5s)
         const Text(
           'Subtitle Sync Delay',
-          style: TextStyle(color: Color(0xFF90A490), fontWeight: FontWeight.w600, fontSize: 12),
+          style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600, fontSize: 12),
         ),
         const SizedBox(height: 8),
         Row(
@@ -649,7 +649,7 @@ class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 10),
-                side: const BorderSide(color: Color(0xFF263326)),
+                side: const BorderSide(color: AppColors.border),
               ),
               child: const Text('-0.5s', style: TextStyle(fontSize: 11)),
             ),
@@ -670,7 +670,7 @@ class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 10),
-                side: const BorderSide(color: Color(0xFF263326)),
+                side: const BorderSide(color: AppColors.border),
               ),
               child: const Text('+0.5s', style: TextStyle(fontSize: 11)),
             ),

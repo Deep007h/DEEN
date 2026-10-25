@@ -169,16 +169,16 @@ class TermsConditionsScreen extends StatelessWidget {
                   onTap: () {
                     HapticFeedback.mediumImpact();
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
+                      SnackBar(
                         backgroundColor: AppColors.surfaceElevated,
                         content: Row(
                           children: [
                             Icon(Icons.check_circle_rounded, color: AppColors.accent, size: 20),
-                            SizedBox(width: 10),
-                            Text('Terms of Service acknowledged'),
+                            const SizedBox(width: 10),
+                            const Text('Terms of Service acknowledged'),
                           ],
                         ),
-                        duration: Duration(seconds: 2),
+                        duration: const Duration(seconds: 2),
                       ),
                     );
                     Navigator.of(context).maybePop();
@@ -189,11 +189,11 @@ class TermsConditionsScreen extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: AppColors.accent,
                       borderRadius: BorderRadius.circular(16),
-                      boxShadow: const [
+                      boxShadow: [
                         BoxShadow(
                           color: AppColors.accentSoft,
                           blurRadius: 16,
-                          offset: Offset(0, 4),
+                          offset: const Offset(0, 4),
                         ),
                       ],
                     ),
@@ -256,7 +256,7 @@ class _TermsHeroCard extends StatelessWidget {
                     width: 1,
                   ),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.verified_user_rounded,
                   color: AppColors.accent,
                   size: 24,
@@ -273,7 +273,7 @@ class _TermsHeroCard extends StatelessWidget {
                         color: AppColors.accent.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: const Text(
+                      child: Text(
                         'LEGAL & COMPLIANCE',
                         style: TextStyle(
                           color: AppColors.accent,

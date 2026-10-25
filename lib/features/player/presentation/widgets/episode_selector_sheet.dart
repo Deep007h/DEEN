@@ -24,10 +24,10 @@ class EpisodeSelectorSheet extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.fromLTRB(6, 12, 14, 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F140F),
+        color: AppColors.surfaceCard,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: const Color(0xFF242E24),
+          color: AppColors.border,
           width: 1.2,
         ),
         boxShadow: const [
@@ -64,17 +64,17 @@ class EpisodeSelectorSheet extends StatelessWidget {
                       width: 32,
                       height: 32,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E281E),
+                        color: AppColors.surfaceHighlight,
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                          color: const Color(0xFF2E3D2E),
+                          color: AppColors.border,
                           width: 1.0,
                         ),
                       ),
                       child: const Center(
                         child: Icon(
                           Icons.close_rounded,
-                          color: Color(0xFFC0D0C0),
+                          color: AppColors.textSecondary,
                           size: 18,
                         ),
                       ),
@@ -84,7 +84,7 @@ class EpisodeSelectorSheet extends StatelessWidget {
               ],
             ),
           ),
-          const Divider(color: Color(0xFF202A20), height: 1),
+          const Divider(color: AppColors.borderSubtle, height: 1),
             Expanded(
               child: GridView.builder(
                 padding: const EdgeInsets.all(AppSpacing.md),
@@ -117,7 +117,7 @@ class EpisodeSelectorSheet extends StatelessWidget {
                         child: Text(
                           '$ep',
                           style: TextStyle(
-                            color: isCurrent ? const Color(0xFF0F150D) : AppColors.textPrimary,
+                            color: isCurrent ? AppColors.accentContrast : AppColors.textPrimary,
                             fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
                             fontSize: 14,
                           ),
