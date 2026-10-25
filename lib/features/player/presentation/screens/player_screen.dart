@@ -78,6 +78,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   // Playback state
   Duration _position = Duration.zero;
   final ValueNotifier<Duration> _positionNotifier = ValueNotifier<Duration>(Duration.zero);
+  final ValueNotifier<Duration> _bufferNotifier = ValueNotifier<Duration>(Duration.zero);
+  bool _isSwitchingEpisode = false;
   Duration _duration = Duration.zero;
   Duration _buffer = Duration.zero;
   bool _isPlaying = true;
@@ -391,6 +393,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
     _engineSubscriptions.add(engine.positionStream.listen((pos) {
       if (!mounted) return;
+      if (_isSwitchingEpisode) return; // Prevent old episode position leaks during transition!
       if (_isScrubbing || _isUserSeeking) return; // Prevent overwriting user's active drag/scrub!
       if (pos > _position) {
         _eofRecoveryAttempts = 0;
@@ -406,6 +409,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       setState(() {
         _duration = dur;
       });
+
+      if (_isSwitchingEpisode) return;
 
       // Handle seamless position restoration on language switch
       if (_languageSwitchSeekTarget != null && _languageSwitchSeekTarget! > Duration.zero) {
@@ -433,23 +438,26 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
     _engineSubscriptions.add(engine.bufferStream.listen((buf) {
       if (!mounted) return;
-      setState(() {
-        _buffer = buf;
-      });
+      _buffer = buf;
+      _bufferNotifier.value = buf;
     }));
 
     _engineSubscriptions.add(engine.isPlayingStream.listen((playing) {
       if (!mounted) return;
-      setState(() {
-        _isPlaying = playing;
-      });
+      if (_isPlaying != playing) {
+        setState(() {
+          _isPlaying = playing;
+        });
+      }
     }));
 
     _engineSubscriptions.add(engine.isBufferingStream.listen((buffering) {
       if (!mounted) return;
-      setState(() {
-        _isBuffering = buffering;
-      });
+      if (_isBuffering != buffering) {
+        setState(() {
+          _isBuffering = buffering;
+        });
+      }
     }));
 
     _engineSubscriptions.add(engine.playbackRateStream.listen((rate) {
@@ -520,7 +528,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     }
   }
 
-  Future<void> _openStreamIfReady(StreamResolutionResult result) async {
+  Future<void> _openStreamIfReady(StreamResolutionResult result, {bool isNewEpisode = false}) async {
     if (_useEmbedPlayer) {
       _engine?.pause();
       return;
@@ -531,17 +539,28 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         ? result.selectedQuality.url!
         : result.selectedVariant.url;
 
-    if (_currentlyLoadedUrl != activeUrl) {
-      final isStreamSwitch = _currentlyLoadedUrl != null && _position > Duration.zero;
+    if (_currentlyLoadedUrl != activeUrl || isNewEpisode || _isSwitchingEpisode) {
+      final isStreamSwitch = !isNewEpisode && !_isSwitchingEpisode && _currentlyLoadedUrl != null && _position > Duration.zero;
       if (isStreamSwitch) {
         _languageSwitchSeekTarget = _position;
         _isSwitchingAudio = true;
+      } else {
+        _languageSwitchSeekTarget = null;
+        _isSwitchingAudio = false;
       }
       _currentlyLoadedUrl = activeUrl;
       _hasCheckedResume = false;
 
       Duration? startPos;
-      if (_position > Duration.zero) {
+      if (isNewEpisode || _isSwitchingEpisode) {
+        // When manually switching episode, strictly start from 0:00:00
+        startPos = Duration.zero;
+        _position = Duration.zero;
+        _positionNotifier.value = Duration.zero;
+        _savedResumePosition = null;
+        _hasCheckedResume = true;
+        _isSwitchingEpisode = false;
+      } else if (_position > Duration.zero) {
         startPos = _position;
       } else {
         final settings = ref.read(appSettingsProvider);
@@ -604,19 +623,26 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     if (oldWidget.episodeNumber != widget.episodeNumber ||
         oldWidget.animeId != widget.animeId ||
         oldWidget.preferredProviderId != widget.preferredProviderId) {
+      _isSwitchingEpisode = true;
+      _engine?.stop();
+      _engine?.pause();
       _currentlyLoadedUrl = null;
       _currentlyLoadedSubtitle = null;
-      _hasCheckedResume = false;
+      _hasCheckedResume = true; // Prevent automatic resume seeking for new episode
       _savedResumePosition = null;
+      _languageSwitchSeekTarget = null;
+      _isSwitchingAudio = false;
       _position = Duration.zero;
       _positionNotifier.value = Duration.zero;
+      _buffer = Duration.zero;
+      _bufferNotifier.value = Duration.zero;
       _duration = Duration.zero;
       _bufferingStuckSeconds = 0;
       _autoplayDismissedForCurrentEpisode = false;
       _showNextEpisodeCountdown = false;
       final currentResult = ref.read(activeStreamProvider(_params)).valueOrNull;
       if (currentResult != null) {
-        _openStreamIfReady(currentResult);
+        _openStreamIfReady(currentResult, isNewEpisode: true);
       }
     }
   }
@@ -661,6 +687,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _saveCurrentProgress();
 
     _positionNotifier.dispose();
+    _bufferNotifier.dispose();
 
     for (final sub in _engineSubscriptions) {
       sub.cancel();
@@ -868,6 +895,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   void _playNextEpisode() {
     _countdownTimer?.cancel();
     _saveCurrentProgress();
+    _isSwitchingEpisode = true;
+    _engine?.stop();
+    _engine?.pause();
+    _position = Duration.zero;
+    _positionNotifier.value = Duration.zero;
     final nextEp = widget.episodeNumber + 1;
     final prov = widget.preferredProviderId != null ? '&provider=${widget.preferredProviderId}' : '';
     final kshowParam = widget.isKShow ? '&isKShow=true' : '';
@@ -877,6 +909,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   void _playPreviousEpisode() {
     if (widget.episodeNumber <= 1) return;
     _saveCurrentProgress();
+    _isSwitchingEpisode = true;
+    _engine?.stop();
+    _engine?.pause();
+    _position = Duration.zero;
+    _positionNotifier.value = Duration.zero;
     final prevEp = widget.episodeNumber - 1;
     final prov = widget.preferredProviderId != null ? '&provider=${widget.preferredProviderId}' : '';
     final kshowParam = widget.isKShow ? '&isKShow=true' : '';
@@ -1101,9 +1138,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       totalWidth: screenWidth,
     );
     _positionNotifier.value = target;
-    setState(() {
-      _scrubTargetPosition = target;
-    });
+    final secChanged = target.inSeconds != _scrubTargetPosition.inSeconds;
+    _scrubTargetPosition = target;
+    if (secChanged) {
+      setState(() {});
+    }
   }
 
   void _handleHorizontalDragEnd() {
@@ -1147,16 +1186,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       totalHeight: screenHeight,
     );
 
-    setState(() {
-      if (_verticalDragHalf == ScreenHalf.left) {
-        _brightness = newVal;
-        _deviceControls.setScreenBrightness(newVal);
-      } else {
-        _volume = newVal;
-        _deviceControls.setVolume(newVal);
-        _engine?.setVolume(newVal);
-      }
-    });
+    if (_verticalDragHalf == ScreenHalf.left) {
+      final changed = (newVal - _brightness).abs() >= 0.01;
+      _brightness = newVal;
+      _deviceControls.setScreenBrightness(newVal);
+      if (changed) setState(() {});
+    } else {
+      final changed = (newVal - _volume).abs() >= 0.01;
+      _volume = newVal;
+      _deviceControls.setVolume(newVal);
+      _engine?.setVolume(newVal);
+      if (changed) setState(() {});
+    }
   }
 
   void _handleVerticalDragEnd() {
@@ -1346,6 +1387,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                             onSelectEpisode: (ep) {
                               _closeSidePanel();
                               _saveCurrentProgress();
+                              _isSwitchingEpisode = true;
+                              _engine?.stop();
+                              _engine?.pause();
+                              _position = Duration.zero;
+                              _positionNotifier.value = Duration.zero;
                               final prov = widget.preferredProviderId != null ? '&provider=${widget.preferredProviderId}' : '';
                               final kshowParam = widget.isKShow ? '&isKShow=true' : '';
                               if (mounted) context.pushReplacement('/player?animeId=${widget.animeId}&ep=$ep$prov$kshowParam');
@@ -1897,6 +1943,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                           positionNotifier: _positionNotifier,
                           duration: _duration,
                           buffer: _buffer,
+                          bufferNotifier: _bufferNotifier,
                           hasPreviousEpisode: widget.episodeNumber > 1,
                           hasNextEpisode: true,
                           isSettingsOpen: (_showSettingsSheet || _showEpisodeSheet || _showMoreSheet) &&

@@ -41,9 +41,10 @@ class FloatingNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final bottomSafe = MediaQuery.paddingOf(context).bottom;
 
-    return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xF50D120D),
+    return RepaintBoundary(
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Color(0xF50D120D),
         border: Border(
           top: BorderSide(
             color: Color(0x334E604E),
@@ -82,7 +83,8 @@ class FloatingNavBar extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }
 

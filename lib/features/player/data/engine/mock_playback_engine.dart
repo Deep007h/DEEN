@@ -126,6 +126,14 @@ class MockPlaybackEngine implements VideoPlaybackEngine {
   }
 
   @override
+  Future<void> stop() async {
+    _isPlaying = false;
+    _isPlayingController.add(false);
+    _position = Duration.zero;
+    _positionController.add(Duration.zero);
+  }
+
+  @override
   Future<void> togglePlay() async {
     if (_isPlaying) {
       await pause();

@@ -48,6 +48,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProviderStateMixin {
   late final AnimationController _hideController;
+  late final Animation<double> _topBarCurve;
   late final ScrollController _scrollController;
   bool _isTopBarHidden = false;
 
@@ -57,6 +58,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
     _hideController = AnimationController(
       vsync: this,
       duration: AppMotion.short4,
+    );
+    _topBarCurve = CurvedAnimation(
+      parent: _hideController,
+      curve: AppMotion.hyperOsDecelerate,
     );
     _scrollController = ScrollController();
     _scrollController.addListener(_onScroll);
@@ -376,27 +381,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
         left: 0,
         right: 0,
         child: AnimatedBuilder(
-          animation: _hideController,
+          animation: _topBarCurve,
           builder: (context, child) {
-            final curved = CurvedAnimation(
-              parent: _hideController,
-              curve: AppMotion.hyperOsDecelerate,
-            );
-            final translateY = -curved.value * topBarHeight;
-            final opacity = (1.0 - curved.value).clamp(0.0, 1.0);
+            final curvedVal = _topBarCurve.value;
+            final translateY = -curvedVal * topBarHeight;
+            final opacity = (1.0 - curvedVal).clamp(0.0, 1.0);
 
             return Transform.translate(
               offset: Offset(0, translateY),
               child: Opacity(
                 opacity: opacity,
                 child: IgnorePointer(
-                  ignoring: curved.value > 0.5,
+                  ignoring: curvedVal > 0.5,
                   child: child,
                 ),
               ),
             );
           },
-          child: _HomeTopBar(topPadding: topPadding),
+          child: RepaintBoundary(
+            child: _HomeTopBar(topPadding: topPadding),
+          ),
         ),
       ),
     ],

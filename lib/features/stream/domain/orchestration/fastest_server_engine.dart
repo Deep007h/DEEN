@@ -33,21 +33,24 @@ class FastestServerEngine {
 
   FastestServerEngine({
     Dio? client,
-    this.probeTimeout = const Duration(milliseconds: 1800),
+    this.probeTimeout = const Duration(milliseconds: 800),
   }) : _dio = client ??
             Dio(
               BaseOptions(
-                connectTimeout: const Duration(milliseconds: 1800),
-                receiveTimeout: const Duration(milliseconds: 1800),
+                connectTimeout: const Duration(milliseconds: 800),
+                receiveTimeout: const Duration(milliseconds: 800),
               ),
             );
 
   /// Probes candidate variants in parallel and returns them sorted by fastest response time.
-  Future<List<StreamVariant>> rankBySpeed(List<StreamVariant> variants) async {
+  Future<List<StreamVariant>> rankBySpeed(
+    List<StreamVariant> variants, [
+    List<ServerLatencyResult>? precomputedResults,
+  ]) async {
     if (variants.isEmpty) return const [];
     if (variants.length == 1) return variants;
 
-    final results = await probeAll(variants);
+    final results = precomputedResults ?? await probeAll(variants);
     final sorted = List<ServerLatencyResult>.from(results)
       ..sort((a, b) {
         if (a.isHealthy && !b.isHealthy) return -1;

@@ -275,31 +275,30 @@ class AniFamProvider implements StreamProvider {
       }
     }
 
-    // 2. Process resolvable upstream servers (e.g. HD-1, Vidstream-2, Vidstream-1)
-    // Resolve up to 2 upstream servers to give user and fastest-server-engine real options
+    // 2. Process resolvable upstream servers concurrently to eliminate sequential waiting
     final resolvableSources = sources.where((s) => s['resolvable'] == true && s['server_id'] != null).toList();
-    for (final src in resolvableSources.take(2)) {
-      final serverId = src['server_id'];
-      try {
-        final resolveResp = await _requestWithFailover<Map<String, dynamic>>(
-          '/api/v1/app/episodes/${episode.id}/resolve',
-          method: 'POST',
-          data: {
-            'server_id': serverId,
-            'track': track,
-          },
-        );
+    if (resolvableSources.isNotEmpty) {
+      final futures = resolvableSources.take(2).map((src) async {
+        final serverId = src['server_id'];
+        try {
+          final resolveResp = await _requestWithFailover<Map<String, dynamic>>(
+            '/api/v1/app/episodes/${episode.id}/resolve',
+            method: 'POST',
+            data: {
+              'server_id': serverId,
+              'track': track,
+            },
+          ).timeout(const Duration(milliseconds: 1800));
 
-        final rData = resolveResp.data ?? {};
-        final rUrl = rData['url']?.toString();
-        if (rUrl != null && rUrl.isNotEmpty) {
-          final mediaHeaders = (rData['media_headers'] as Map?)?.cast<String, String>() ?? {};
-          final subtitles = _parseSubtitles(rData['subtitles']);
-          final qualities = _parseQualities(rData['qualities']);
-          final (introStart, introEnd, outroStart, outroEnd) = _parseSkip(rData['skip']);
+          final rData = resolveResp.data ?? {};
+          final rUrl = rData['url']?.toString();
+          if (rUrl != null && rUrl.isNotEmpty) {
+            final mediaHeaders = (rData['media_headers'] as Map?)?.cast<String, String>() ?? {};
+            final subtitles = _parseSubtitles(rData['subtitles']);
+            final qualities = _parseQualities(rData['qualities']);
+            final (introStart, introEnd, outroStart, outroEnd) = _parseSkip(rData['skip']);
 
-          variants.add(
-            StreamVariant(
+            return StreamVariant(
               url: rUrl,
               headers: {
                 ...mediaHeaders,
@@ -314,10 +313,18 @@ class AniFamProvider implements StreamProvider {
               introEnd: introEnd,
               outroStart: outroStart,
               outroEnd: outroEnd,
-            ),
-          );
+            );
+          }
+        } catch (_) {}
+        return null;
+      });
+
+      final resolved = await Future.wait(futures);
+      for (final v in resolved) {
+        if (v != null) {
+          variants.add(v);
         }
-      } catch (_) {}
+      }
     }
 
     if (variants.isNotEmpty) {

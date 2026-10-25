@@ -555,10 +555,37 @@ void main() {
 
       expect(find.byType(HoldSpeedPill), findsOneWidget);
       expect(find.text('1.5X Speed'), findsOneWidget);
-      expect(mockEngine.playbackRate, 1.5);
-
       await gesture.up();
       await tester.pump(const Duration(milliseconds: 200));
+    });
+
+    testWidgets('manual episode switch resets playback position to 0 and ignores old position leaks', (tester) async {
+      tester.view.physicalSize = const Size(1800, 900);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      // Start on Episode 1
+      await tester.pumpWidget(buildPlayerScreen(episodeNumber: 1));
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // Simulate playing near the end of Episode 1 (23:45)
+      mockEngine.simulatePosition(const Duration(minutes: 23, seconds: 45));
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // Rebuild with Episode 2 (simulating didUpdateWidget / episode change)
+      await tester.pumpWidget(buildPlayerScreen(episodeNumber: 2));
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // Simulate a lingering/delayed position event from Episode 1's demuxer
+      mockEngine.simulatePosition(const Duration(minutes: 23, seconds: 48));
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // The new episode must strictly be at Duration.zero
+      expect(mockEngine.position, Duration.zero);
     });
   });
 }

@@ -368,7 +368,7 @@ class StreamOrchestrator {
           try {
             final engine = FastestServerEngine();
             latencyResults = await engine.probeAll(resolvedVariants);
-            rankedVariants = await engine.rankBySpeed(resolvedVariants);
+            rankedVariants = await engine.rankBySpeed(resolvedVariants, latencyResults);
             final fastest = latencyResults.firstWhereOrNull((l) => l.isHealthy);
             if (fastest != null) {
               diagnostics.info('Fastest server detected: ${fastest.serverName} (${fastest.latencyMs}ms)');
