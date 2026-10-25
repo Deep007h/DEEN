@@ -183,55 +183,73 @@ class _WebEmbedPlayerViewState extends State<WebEmbedPlayerView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          // 1. Fullscreen WebView Rendering the Iframe
-          if (_controller != null)
-            IgnorePointer(
-              ignoring: widget.isLocked,
-              child: GestureDetector(
-                behavior: HitTestBehavior.translucent,
-                onTap: _toggleControls,
-                child: WebViewWidget(controller: _controller!),
-              ),
-            )
-          else
-            GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onTap: _toggleControls,
-              child: Container(
-                color: Colors.black,
-                alignment: Alignment.center,
-                child: Text(
-                  'Web Embed Player: ${widget.embedUrl}',
-                  style: const TextStyle(color: Colors.white70),
-                ),
-              ),
-            ),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final screenWidth = constraints.maxWidth;
+          final screenHeight = constraints.maxHeight;
+          final screenAspect = screenWidth / (screenHeight > 0 ? screenHeight : 1.0);
+          const videoAspect = 16.0 / 9.0;
+          double pillarboxWidth = 0.0;
+          if (screenAspect > videoAspect) {
+            final contentWidth = screenHeight * videoAspect;
+            pillarboxWidth = (screenWidth - contentWidth) / 2.0;
+          }
 
-          // 2. Loading Spinner with smooth fade-out
-          AnimatedSwitcher(
-            duration: AppMotion.short4,
-            child: _isLoading
-                ? const Center(
-                    key: ValueKey('web_embed_loading'),
-                    child: CircularProgressIndicator(
-                      strokeWidth: 3,
-                      valueColor: AlwaysStoppedAnimation<Color>(AppColors.accent),
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              // 1. Fullscreen WebView Rendering the Iframe
+              if (_controller != null)
+                IgnorePointer(
+                  ignoring: widget.isLocked,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onTap: _toggleControls,
+                    child: WebViewWidget(controller: _controller!),
+                  ),
+                )
+              else
+                GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: _toggleControls,
+                  child: Container(
+                    color: Colors.black,
+                    alignment: Alignment.center,
+                    child: Text(
+                      'Web Embed Player: ${widget.embedUrl}',
+                      style: const TextStyle(color: Colors.white70),
                     ),
-                  )
-                : const SizedBox.shrink(key: ValueKey('web_embed_loaded')),
-          ),
+                  ),
+                ),
 
-          // 2b. Minimal Corner Letterbox Banner Ad during playback
-          Positioned(
-            top: math.max(MediaQuery.paddingOf(context).top, 8.0),
-            right: math.max(MediaQuery.paddingOf(context).right, 12.0),
-            child: PlayerCornerBannerAd(
-              isVisible: !_controlsVisible && !widget.isLocked && !_isLoading,
-            ),
-          ),
+              // 2. Loading Spinner with smooth fade-out
+              AnimatedSwitcher(
+                duration: AppMotion.short4,
+                child: _isLoading
+                    ? const Center(
+                        key: ValueKey('web_embed_loading'),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 3,
+                          valueColor: AlwaysStoppedAnimation<Color>(AppColors.accent),
+                        ),
+                      )
+                    : const SizedBox.shrink(key: ValueKey('web_embed_loaded')),
+              ),
+
+              // 2b. Minimal Vertical Banner Ad in non-content pillarbox during web playback
+              if (pillarboxWidth >= 40.0)
+                Positioned(
+                  top: math.max(0.0, (screenHeight - math.min(screenHeight - 16.0, 336.0)) / 2.0),
+                  right: math.max(
+                    MediaQuery.paddingOf(context).right + 4.0,
+                    (pillarboxWidth - math.min(50.0, pillarboxWidth - 8.0)) / 2.0,
+                  ),
+                  child: PlayerCornerBannerAd(
+                    isVisible: !_controlsVisible && !widget.isLocked && !_isLoading,
+                    availableWidth: pillarboxWidth,
+                    availableHeight: screenHeight,
+                  ),
+                ),
 
           // 3. Floating Overlay Top Bar
           if (_controlsVisible && !widget.isLocked)
@@ -494,7 +512,9 @@ class _WebEmbedPlayerViewState extends State<WebEmbedPlayerView> {
               ),
             ),
         ],
-      ),
-    );
+      );
+    },
+  ),
+);
   }
 }

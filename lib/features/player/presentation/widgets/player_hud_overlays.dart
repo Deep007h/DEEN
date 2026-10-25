@@ -130,7 +130,11 @@ class VerticalSliderHud extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 20, color: Colors.white),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 150),
+              transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child),
+              child: Icon(icon, key: ValueKey(icon), size: 20, color: Colors.white),
+            ),
             const SizedBox(height: 10),
             // Vertical bar
             Container(
@@ -143,7 +147,9 @@ class VerticalSliderHud extends StatelessWidget {
               child: Stack(
                 alignment: Alignment.bottomCenter,
                 children: [
-                  FractionallySizedBox(
+                  AnimatedFractionallySizedBox(
+                    duration: const Duration(milliseconds: 100),
+                    curve: Curves.easeOutCubic,
                     heightFactor: clamped,
                     child: Container(
                       width: 5,

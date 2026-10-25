@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:anime_stream/l10n/app_localizations.dart';
 import 'package:go_router/go_router.dart';
 import '../../theme/app_motion.dart';
 import 'floating_nav_bar.dart';
+import '../../../features/settings/data/repositories/app_settings_repository.dart';
 import '../../../features/updater/presentation/providers/updater_providers.dart';
 import '../../../features/updater/presentation/widgets/update_dialog.dart';
 
@@ -45,6 +47,14 @@ class _AppShellState extends ConsumerState<AppShell> {
       final release = await repo.checkForUpdate(currentVersion);
 
       if (release != null && mounted) {
+        // Prevent re-prompting if the user already dismissed this specific release tag
+        final prefs = ref.read(sharedPreferencesProvider) ?? await SharedPreferences.getInstance();
+        if (!mounted) return;
+        final dismissedTag = prefs.getString('dismissed_ota_tag');
+        if (dismissedTag == release.tagName) {
+          return;
+        }
+
         UpdateDialog.show(context, release);
       }
     } catch (_) {
@@ -80,14 +90,19 @@ class _AppShellState extends ConsumerState<AppShell> {
         label: l10n?.tabHome ?? 'Home',
       ),
       FloatingNavBarItem(
-        icon: Icons.grid_view_outlined,
-        activeIcon: Icons.grid_view_rounded,
+        icon: Icons.explore_outlined,
+        activeIcon: Icons.explore_rounded,
         label: l10n?.tabExplore ?? 'Explore',
       ),
       FloatingNavBarItem(
         icon: Icons.bookmark_outline_rounded,
         activeIcon: Icons.bookmark_rounded,
         label: l10n?.tabLibrary ?? 'Library',
+      ),
+      const FloatingNavBarItem(
+        icon: Icons.file_download_outlined,
+        activeIcon: Icons.download_rounded,
+        label: 'Downloads',
       ),
       FloatingNavBarItem(
         icon: Icons.settings_outlined,

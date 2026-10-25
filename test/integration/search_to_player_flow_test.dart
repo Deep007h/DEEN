@@ -155,7 +155,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // 5. Verify DetailScreen components (Header & Source Selector)
-    expect(find.text('Source: Demo ▼'), findsOneWidget);
+    expect(find.textContaining('Server 1'), findsOneWidget);
 
     // Scroll to see Synopsis and Episode list
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -400));

@@ -110,6 +110,7 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
     if (!_isLoaded) {
       _isLoaded = true;
       state = loaded;
+      await _repo.saveSettings(loaded);
       await _repo.syncStreamPreferences(loaded);
     }
   }

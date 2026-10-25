@@ -1,31 +1,24 @@
 import os
+import shutil
 from PIL import Image, ImageDraw
 
 def generate_icons():
-    source_path = "/home/deep/Downloads/Metallic D with Violet Slash.png"
+    source_path = "/home/deep/Downloads/banner.png"
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     print(f"Loading source logo from {source_path}...")
     source_img = Image.open(source_path).convert("RGBA")
     
-    # Target 1024x1024 master
-    master_size = 1024
-    master_square = source_img.resize((master_size, master_size), Image.Resampling.LANCZOS)
-
-    # Master round with smooth antialiased circular mask
-    mask = Image.new("L", (master_size * 2, master_size * 2), 0)
-    draw_mask = ImageDraw.Draw(mask)
-    draw_mask.ellipse((0, 0, master_size * 2, master_size * 2), fill=255)
-    mask = mask.resize((master_size, master_size), Image.Resampling.LANCZOS)
-    
-    master_round = master_square.copy()
-    master_round.putalpha(mask)
-
-    # 1. Flutter app asset
+    # 1. Flutter app asset (copy original 1:1 with zero distortion)
     assets_dir = os.path.join(base_dir, "assets", "images")
     os.makedirs(assets_dir, exist_ok=True)
     asset_logo_path = os.path.join(assets_dir, "logo.png")
-    master_square.save(asset_logo_path, "PNG")
-    print(f"Saved Flutter asset: {asset_logo_path}")
+    shutil.copyfile(source_path, asset_logo_path)
+    print(f"Saved Flutter asset 1:1: {asset_logo_path}")
+
+    # Target 1024x1024 master
+    master_size = 1024
+    master_square = source_img.resize((master_size, master_size), Image.Resampling.LANCZOS)
+    master_round = master_square
 
     # 2. Android mipmaps (Legacy + Adaptive)
     android_res = os.path.join(base_dir, "android", "app", "src", "main", "res")

@@ -40,7 +40,7 @@ class StreamProviderRegistry {
       return current;
     }
     // Default order
-    return ['megavid', 'demo', 'direct_url', 'jellyfin'];
+    return ['anifam', 'megavid', 'demo', 'direct_url', 'jellyfin'];
   }
 
   Future<void> updatePriorityOrder(List<String> order) async {
@@ -50,8 +50,8 @@ class StreamProviderRegistry {
   bool isProviderEnabled(String id) {
     final val = _prefs.getBool('$_kEnabledPrefix$id');
     if (val != null) return val;
-    // Default: 'megavid' enabled out of the box. Demo is disabled by default.
-    return id == 'megavid';
+    // Default: 'anifam' and 'megavid' enabled out of the box.
+    return id == 'anifam' || id == 'megavid';
   }
 
   Future<void> setProviderEnabled(String id, bool enabled) async {
@@ -68,8 +68,10 @@ class StreamProviderRegistry {
         if (p != null) result.add(p);
       }
     }
-    // Fallback: if no providers are enabled, ensure megavid is available
-    if (result.isEmpty && _registered.containsKey('megavid')) {
+    // Fallback: if no providers are enabled, ensure anifam/megavid is available
+    if (result.isEmpty && _registered.containsKey('anifam')) {
+      result.add(_registered['anifam']!);
+    } else if (result.isEmpty && _registered.containsKey('megavid')) {
       result.add(_registered['megavid']!);
     } else if (result.isEmpty && _registered.isNotEmpty) {
       result.add(_registered.values.first);

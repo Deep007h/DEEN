@@ -16,8 +16,10 @@ import 'package:anime_stream/features/metadata/domain/models/anime_titles.dart';
 import 'package:anime_stream/features/metadata/domain/models/anime_detail.dart';
 import 'package:anime_stream/features/stream/presentation/providers/stream_providers.dart';
 import 'package:anime_stream/features/library/domain/models/followed_anime.dart';
+import 'package:anime_stream/features/stream/domain/models/source_match.dart';
 import '../../../../core/presentation/widgets/hero_shuttle_builder.dart';
 import '../../../../core/presentation/widgets/start_io_banner.dart';
+import '../../../../core/presentation/widgets/pressable_scale.dart';
 
 /// Detail screen matching reference Screen 2.
 /// Features blurred backdrop fade, sharp hero poster, rating and rank badges,
@@ -28,6 +30,7 @@ class DetailScreen extends ConsumerStatefulWidget {
   final String? heroTag;
   final String? previewPoster;
   final String? previewTitle;
+  final bool isKShow;
 
   const DetailScreen({
     super.key,
@@ -35,6 +38,7 @@ class DetailScreen extends ConsumerStatefulWidget {
     this.heroTag,
     this.previewPoster,
     this.previewTitle,
+    this.isKShow = false,
   });
 
   @override
@@ -63,7 +67,12 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
     ]);
-    context.push('/player?animeId=$currentId&ep=$epNum&provider=$selectedProviderId').then((_) {
+
+    final isKDrama = widget.isKShow || (_lastLoadedDetail?.platform == 'K-Drama');
+    final kshowParam = isKDrama ? '&isKShow=true' : '';
+    final prov = isKDrama ? 'megavid' : (selectedProviderId ?? 'megavid');
+
+    context.push('/player?animeId=$currentId&ep=$epNum&provider=$prov$kshowParam').then((_) {
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.portraitUp,
       ]);
@@ -75,6 +84,19 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
   void initState() {
     super.initState();
     _selectedSeasonId = int.tryParse(widget.animeId) ?? 0;
+    if (widget.isKShow && _selectedSeasonId != 0) {
+      ref.read(metadataRepositoryProvider).recordKShowMatch(
+        SourceMatch(
+          id: widget.animeId,
+          title: widget.previewTitle ?? 'K-Drama',
+          providerId: 'megavid',
+          customData: {
+            'sourceType': 'kisskh',
+            if (widget.previewPoster != null) 'thumb': widget.previewPoster,
+          },
+        ),
+      );
+    }
   }
 
   @override
@@ -87,7 +109,9 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
         : (screenWidth >= 700 ? 8 : (screenWidth >= 480 ? 6 : 5));
     final currentId = _selectedSeasonId != 0 ? _selectedSeasonId : (int.tryParse(widget.animeId) ?? 0);
 
-    final detailAsync = ref.watch(animeDetailProvider(currentId));
+    final detailAsync = widget.isKShow
+        ? ref.watch(kshowDetailProvider(currentId))
+        : ref.watch(animeDetailProvider(currentId));
     if (detailAsync.hasValue && detailAsync.value?.id == currentId) {
       _lastLoadedDetail = detailAsync.value;
     } else if (_lastLoadedDetail != null && _lastLoadedDetail!.id != currentId) {
@@ -100,10 +124,11 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
     final lastWatchedEpAsync = ref.watch(lastWatchedEpisodeProvider(currentId));
 
     final registry = ref.watch(streamProviderRegistryProvider).valueOrNull;
-    final defaultProviderId = registry?.getOrderedEnabledProviders().firstOrNull?.id ?? 'megavid';
+    final enabledProviders = registry?.getOrderedEnabledProviders() ?? [];
+    final defaultProviderId = enabledProviders.isNotEmpty ? enabledProviders.first.id : 'megavid';
     final selectedProviderId = registry?.getAnimeSelectedProviderId(currentId) ?? defaultProviderId;
-    final activeProvider = registry?.getProvider(selectedProviderId) ?? registry?.getProvider(defaultProviderId);
-    final providerLabel = activeProvider?.displayName.split(' ').first ?? 'MegaVid';
+    final activeIndex = enabledProviders.indexWhere((p) => p.id == selectedProviderId);
+    final serverNumber = activeIndex >= 0 ? 'Server ${activeIndex + 1}' : 'Server 1';
 
     return PopScope(
       canPop: _seasonHistory.isEmpty,
@@ -124,32 +149,35 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
             // 1. Scrollable Content Layer
             Builder(
               builder: (context) {
+                final displayTitle = detail?.titles.preferredTitle(titlePref) ?? widget.previewTitle;
+                final isFollowed = isFollowedAsync.valueOrNull ?? false;
+                final lastWatchedEp = lastWatchedEpAsync.valueOrNull;
+                final dubAvailableAsync = detail != null ? ref.watch(animeDubAvailabilityProvider(detail)) : null;
+                final hasDub = dubAvailableAsync?.valueOrNull ?? false;
+
+                // Pre-resolve target episode stream in background for instant 0ms playback
                 if (detail != null) {
-                  final displayTitle = detail.titles.preferredTitle(titlePref);
-                  final isFollowed = isFollowedAsync.valueOrNull ?? false;
-                  final lastWatchedEp = lastWatchedEpAsync.valueOrNull;
-                  final dubAvailableAsync = ref.watch(animeDubAvailabilityProvider(detail));
-                  final hasDub = dubAvailableAsync.valueOrNull ?? false;
+                  final targetEp = lastWatchedEp ?? 1;
+                  final prewarmKey = '${detail.id}_$targetEp';
+                  if (!_prewarmedEpisodes.contains(prewarmKey)) {
+                    _prewarmedEpisodes.add(prewarmKey);
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      ref.read(streamOrchestratorProvider.future).then((orch) {
+                        orch.prewarmEpisode(
+                          anime: detail,
+                          episodeNumber: targetEp,
+                          preferredProviderId: selectedProviderId,
+                        );
+                      });
+                    });
+                  }
+                }
 
-              // Pre-resolve target episode stream in background for instant 0ms playback
-              final targetEp = lastWatchedEp ?? 1;
-              final prewarmKey = '${detail.id}_$targetEp';
-              if (!_prewarmedEpisodes.contains(prewarmKey)) {
-                _prewarmedEpisodes.add(prewarmKey);
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  ref.read(streamOrchestratorProvider.future).then((orch) {
-                    orch.prewarmEpisode(
-                      anime: detail,
-                      episodeNumber: targetEp,
-                      preferredProviderId: selectedProviderId,
-                    );
-                  });
-                });
-              }
-
-              final effectiveBackdrop = (detail.bannerUrl != null && detail.bannerUrl!.trim().isNotEmpty)
-                  ? detail.bannerUrl!
-                  : (detail.posterUrl != null && detail.posterUrl!.trim().isNotEmpty ? detail.posterUrl! : null);
+                final effectiveBackdrop = (detail?.bannerUrl != null && detail!.bannerUrl!.trim().isNotEmpty)
+                    ? detail.bannerUrl!
+                    : (detail?.posterUrl != null && detail!.posterUrl!.trim().isNotEmpty
+                        ? detail.posterUrl!
+                        : (widget.previewPoster != null && widget.previewPoster!.trim().isNotEmpty ? widget.previewPoster! : null));
 
               return RefreshIndicator(
                 color: AppColors.accent,
@@ -157,8 +185,13 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                 displacement: 32,
                 edgeOffset: topPadding + 8,
                 onRefresh: () async {
-                  ref.invalidate(animeDetailProvider(currentId));
-                  await ref.read(animeDetailProvider(currentId).future);
+                  if (widget.isKShow) {
+                    ref.invalidate(kshowDetailProvider(currentId));
+                    await ref.read(kshowDetailProvider(currentId).future);
+                  } else {
+                    ref.invalidate(animeDetailProvider(currentId));
+                    await ref.read(animeDetailProvider(currentId).future);
+                  }
                 },
                 child: CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(
@@ -180,13 +213,14 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                                 child: RepaintBoundary(
                                   child: ClipRect(
                                     child: ImageFiltered(
-                                      imageFilter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                                      imageFilter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
                                       child: Transform.scale(
-                                        scale: 1.25,
+                                        scale: 1.15,
                                         child: CachedNetworkImage(
                                           imageUrl: effectiveBackdrop,
                                           fit: BoxFit.cover,
-                                          memCacheWidth: 720,
+                                          memCacheWidth: 160,
+                                          memCacheHeight: 240,
                                           errorWidget: (_, __, ___) => const SizedBox.shrink(),
                                         ),
                                       ),
@@ -263,11 +297,10 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                                     child: Hero(
                                       tag: (_selectedSeasonId != 0 && _selectedSeasonId != (int.tryParse(widget.animeId) ?? 0))
                                           ? 'poster_$_selectedSeasonId'
-                                          : (widget.heroTag ?? 'poster_${detail.id}'),
-                                      createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
+                                          : (widget.heroTag ?? 'poster_${detail?.id ?? widget.animeId}'),
+                                      createRectTween: smoothHeroRectTween,
                                       flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
-                                      child: detail.posterUrl != null &&
-                                              detail.posterUrl!.isNotEmpty
+                                      child: (detail?.posterUrl != null && detail!.posterUrl!.isNotEmpty)
                                           ? CachedNetworkImage(
                                               imageUrl: detail.posterUrl!,
                                               fit: BoxFit.cover,
@@ -287,7 +320,23 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                                                 ),
                                               ),
                                             )
-                                          : Container(color: AppColors.surface),
+                                          : (widget.previewPoster != null && widget.previewPoster!.isNotEmpty)
+                                              ? CachedNetworkImage(
+                                                  imageUrl: widget.previewPoster!,
+                                                  fit: BoxFit.cover,
+                                                  memCacheWidth: 360,
+                                                  memCacheHeight: 540,
+                                                  maxWidthDiskCache: 500,
+                                                  maxHeightDiskCache: 750,
+                                                  placeholder: (_, __) => Container(
+                                                    color: AppColors.surface,
+                                                  ),
+                                                  errorWidget: (_, __, ___) =>
+                                                      Container(
+                                                    color: AppColors.surface,
+                                                  ),
+                                                )
+                                              : Container(color: AppColors.surface),
                                     ),
                                   ),
                                 ),
@@ -296,35 +345,36 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
 
                                 // Right Titles & Meta Column
                                 Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      // Alternate / Original subtitle
-                                      if (detail.titles.original != displayTitle)
-                                        Padding(
-                                          padding: const EdgeInsets.only(bottom: 2),
-                                          child: Text(
-                                            detail.titles.original,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: AppText.meta.copyWith(
-                                              color: AppColors.textMuted,
-                                              fontSize: 11.5,
-                                            ),
-                                          ),
-                                        ),
+                                  child: detail != null
+                                      ? Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            // Alternate / Original subtitle
+                                            if (detail.titles.original != displayTitle)
+                                              Padding(
+                                                padding: const EdgeInsets.only(bottom: 2),
+                                                child: Text(
+                                                  detail.titles.original,
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: AppText.meta.copyWith(
+                                                    color: AppColors.textMuted,
+                                                    fontSize: 11.5,
+                                                  ),
+                                                ),
+                                              ),
 
-                                      // Main Big Title
-                                      Text(
-                                        displayTitle,
-                                        maxLines: 3,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: AppText.pageTitle.copyWith(
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.w700,
-                                          height: 1.25,
-                                        ),
-                                      ),
+                                            // Main Big Title
+                                            Text(
+                                              displayTitle ?? '',
+                                              maxLines: 3,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: AppText.pageTitle.copyWith(
+                                                fontSize: 20,
+                                                fontWeight: FontWeight.w700,
+                                                height: 1.25,
+                                              ),
+                                            ),
 
                                       const SizedBox(height: AppSpacing.sm),
 
@@ -453,103 +503,157 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                                         ],
                                       ),
                                     ],
+                                  )
+                                : Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      if (displayTitle != null && displayTitle.isNotEmpty) ...[
+                                        Text(
+                                          displayTitle,
+                                          maxLines: 3,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: AppText.pageTitle.copyWith(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.w700,
+                                            height: 1.25,
+                                          ),
+                                        ),
+                                      ] else ...[
+                                        const ShimmerBox(width: 90, height: 12, borderRadius: BorderRadius.all(Radius.circular(4))),
+                                        const SizedBox(height: 8),
+                                        const ShimmerBox(width: 180, height: 22, borderRadius: BorderRadius.all(Radius.circular(6))),
+                                      ],
+                                      const SizedBox(height: 12),
+                                      const ShimmerBox(width: 120, height: 14, borderRadius: BorderRadius.all(Radius.circular(4))),
+                                      const SizedBox(height: 8),
+                                      const ShimmerBox(width: 140, height: 14, borderRadius: BorderRadius.all(Radius.circular(4))),
+                                    ],
                                   ),
-                                ),
+                              ),
                               ],
                             ),
 
                             const SizedBox(height: AppSpacing.lg),
 
                             // Action Row: Big Red Play Button + Outlined Follow Button
-                            Row(
-                              children: [
-                                // Big Vivid Electric Lime "Play" Button
-                                Expanded(
-                                  flex: 6,
-                                  child: FilledButton.icon(
-                                    onPressed: () {
-                                      final epToPlay = lastWatchedEp ?? 1;
-                                      _playEpisode(currentId, epToPlay, selectedProviderId);
-                                    },
-                                    icon: const Icon(
-                                      Icons.play_arrow_rounded,
-                                      size: 24,
-                                    ),
-                                    label: Text(
-                                      lastWatchedEp != null
-                                          ? 'PLAY EP $lastWatchedEp'
-                                          : l10n.playAction.toUpperCase(),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontFamily: 'monospace',
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w900,
-                                        letterSpacing: 0.5,
+                            if (detail != null)
+                              Row(
+                                children: [
+                                  // Big Vivid Electric Lime "Play" Button
+                                  Expanded(
+                                    flex: 6,
+                                    child: PressableScale(
+                                      targetScale: 0.96,
+                                      child: FilledButton.icon(
+                                        onPressed: () {
+                                          final epToPlay = lastWatchedEp ?? 1;
+                                          _playEpisode(currentId, epToPlay, selectedProviderId);
+                                        },
+                                        icon: const Icon(
+                                          Icons.play_arrow_rounded,
+                                          size: 24,
+                                        ),
+                                        label: Text(
+                                          lastWatchedEp != null
+                                              ? 'PLAY EP $lastWatchedEp'
+                                              : l10n.playAction.toUpperCase(),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontFamily: 'monospace',
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w900,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                        style: FilledButton.styleFrom(
+                                          minimumSize: const Size.fromHeight(48),
+                                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                                        ),
                                       ),
                                     ),
-                                    style: FilledButton.styleFrom(
-                                      minimumSize: const Size.fromHeight(48),
-                                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                                  ),
+
+                                  const SizedBox(width: AppSpacing.sm),
+
+                                  // "Follow" Star Button with Bouncy Spring Animation
+                                  Expanded(
+                                    flex: 5,
+                                    child: _SpringStarButton(
+                                      isFollowed: isFollowed,
+                                      label: isFollowed ? l10n.followedAction : l10n.followAction,
+                                      onToggle: () async {
+                                        final followedMeta = FollowedAnime(
+                                          id: currentId,
+                                          title: detail.titles.preferredTitle(titlePref),
+                                          nameCn: detail.titles.localized,
+                                          posterUrl: detail.posterUrl,
+                                          score: detail.score ?? 0.0,
+                                          totalEpisodes: detail.eps ?? detail.episodes.length,
+                                          followedAt: DateTime.now(),
+                                        );
+                                        await ref
+                                            .read(followRepositoryProvider)
+                                            .toggleFollow(currentId, metadata: followedMeta);
+                                        ref.invalidate(isFollowingProvider(currentId));
+                                      },
                                     ),
                                   ),
-                                ),
-
-                                const SizedBox(width: AppSpacing.sm),
-
-                                // "Follow" Star Button with Bouncy Spring Animation
-                                Expanded(
-                                  flex: 5,
-                                  child: _SpringStarButton(
-                                    isFollowed: isFollowed,
-                                    label: isFollowed ? l10n.followedAction : l10n.followAction,
-                                    onToggle: () async {
-                                      final followedMeta = FollowedAnime(
-                                        id: currentId,
-                                        title: detail.titles.preferredTitle(titlePref),
-                                        nameCn: detail.titles.localized,
-                                        posterUrl: detail.posterUrl,
-                                        score: detail.score ?? 0.0,
-                                        totalEpisodes: detail.eps ?? detail.episodes.length,
-                                        followedAt: DateTime.now(),
-                                      );
-                                      await ref
-                                          .read(followRepositoryProvider)
-                                          .toggleFollow(currentId, metadata: followedMeta);
-                                      ref.invalidate(isFollowingProvider(currentId));
-                                    },
+                                ],
+                              )
+                            else
+                              const Row(
+                                children: [
+                                  Expanded(
+                                    flex: 6,
+                                    child: ShimmerBox(width: double.infinity, height: 48, borderRadius: AppRadius.pillBorder),
                                   ),
-                                ),
-                              ],
-                            ),
+                                  SizedBox(width: AppSpacing.sm),
+                                  Expanded(
+                                    flex: 5,
+                                    child: ShimmerBox(width: double.infinity, height: 48, borderRadius: AppRadius.pillBorder),
+                                  ),
+                                ],
+                              ),
 
                             const SizedBox(height: AppSpacing.md),
 
                             // Small Outlined Info Chips Row (Watch status, Source selector, Episodes)
-                            SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(
+                            if (detail != null)
+                              SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: Row(
+                                  children: [
+                                    _InfoPill(
+                                      label: lastWatchedEp != null
+                                          ? 'Watched: Ep $lastWatchedEp'
+                                          : 'Unwatched',
+                                      icon: Icons.history_rounded,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    _InfoPill(
+                                      label: '$serverNumber ▼',
+                                      icon: Icons.dns_rounded,
+                                      onTap: () => _showSourceSelectorSheet(context, currentId, registry),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    _InfoPill(
+                                      label: '${detail.episodes.length} Episodes',
+                                      icon: Icons.video_library_rounded,
+                                    ),
+                                  ],
+                                ),
+                              )
+                            else
+                              const Row(
                                 children: [
-                                  _InfoPill(
-                                    label: lastWatchedEp != null
-                                        ? 'Watched: Ep $lastWatchedEp'
-                                        : 'Unwatched',
-                                    icon: Icons.history_rounded,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  _InfoPill(
-                                    label: 'Source: $providerLabel ▼',
-                                    icon: Icons.cloud_queue_rounded,
-                                    onTap: () => _showSourceSelectorSheet(context, currentId, registry),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  _InfoPill(
-                                    label: '${detail.episodes.length} Episodes',
-                                    icon: Icons.video_library_rounded,
-                                  ),
+                                  ShimmerBox(width: 90, height: 26, borderRadius: AppRadius.pillBorder),
+                                  SizedBox(width: 8),
+                                  ShimmerBox(width: 80, height: 26, borderRadius: AppRadius.pillBorder),
+                                  SizedBox(width: 8),
+                                  ShimmerBox(width: 85, height: 26, borderRadius: AppRadius.pillBorder),
                                 ],
                               ),
-                            ),
                           ],
                         ),
                       ),
@@ -558,7 +662,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                 ),
 
                 // Tags Section: Rounded Panel with wrapped chips and "Show more" toggle
-                if (detail.tags.isNotEmpty)
+                if (detail != null && detail.tags.isNotEmpty)
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
@@ -590,46 +694,50 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                                 ),
                             ],
                           ),
-                          const SizedBox(height: AppSpacing.sm),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(AppSpacing.md),
-                            decoration: BoxDecoration(
-                              color: AppColors.surface,
-                              borderRadius: AppRadius.cardBorder,
-                              border: Border.all(
-                                color: AppColors.border,
-                                width: 0.8,
+                          AnimatedSize(
+                            duration: AppMotion.medium1,
+                            curve: AppMotion.hyperOsDecelerate,
+                            alignment: Alignment.topCenter,
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(AppSpacing.md),
+                              decoration: BoxDecoration(
+                                color: AppColors.surface,
+                                borderRadius: AppRadius.cardBorder,
+                                border: Border.all(
+                                  color: AppColors.border,
+                                  width: 0.8,
+                                ),
                               ),
-                            ),
-                            child: Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: (_isTagsExpanded
-                                      ? detail.tags
-                                      : detail.tags.take(6))
-                                  .map((tag) {
-                                return ActionChip(
-                                  label: Text('${tag.name} ${tag.count}'),
-                                  labelStyle: AppText.meta.copyWith(
-                                    color: AppColors.textPrimary,
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  backgroundColor: AppColors.surfaceElevated,
-                                  side: const BorderSide(
-                                    color: Color(0x334E604E),
-                                    width: 0.8,
-                                  ),
-                                  shape: const StadiumBorder(),
-                                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  onPressed: () {
-                                    ref.read(selectedTagsProvider.notifier).addTag(tag.name);
-                                    context.push('/search');
-                                  },
-                                );
-                              }).toList(),
+                              child: Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: (_isTagsExpanded
+                                        ? detail.tags
+                                        : detail.tags.take(6))
+                                    .map((tag) {
+                                  return ActionChip(
+                                    label: Text(tag.count > 0 && detail.platform != 'K-Drama' ? '${tag.name} ${tag.count}' : tag.name),
+                                    labelStyle: AppText.meta.copyWith(
+                                      color: AppColors.textPrimary,
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    backgroundColor: AppColors.surfaceElevated,
+                                    side: const BorderSide(
+                                      color: Color(0x334E604E),
+                                      width: 0.8,
+                                    ),
+                                    shape: const StadiumBorder(),
+                                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    onPressed: () {
+                                      ref.read(selectedTagsProvider.notifier).addTag(tag.name);
+                                      context.push('/search');
+                                    },
+                                  );
+                                }).toList(),
+                              ),
                             ),
                           ),
                         ],
@@ -638,7 +746,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                   ),
 
                 // Synopsis Section with "Read more" toggle
-                if (detail.summary != null && detail.summary!.isNotEmpty)
+                if (detail != null && detail.summary != null && detail.summary!.isNotEmpty)
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
@@ -648,55 +756,81 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Synopsis', style: AppText.sectionTitle.copyWith(fontSize: 16)),
-                          const SizedBox(height: AppSpacing.xs),
-                          AnimatedCrossFade(
-                            firstChild: Text(
-                              detail.summary!,
-                              maxLines: 3,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppText.bodySecondary.copyWith(
-                                height: 1.45,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                            secondChild: Text(
-                              detail.summary!,
-                              style: AppText.bodySecondary.copyWith(
-                                height: 1.45,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                            crossFadeState: _isSynopsisExpanded
-                                ? CrossFadeState.showSecond
-                                : CrossFadeState.showFirst,
-                            duration: AppMotion.medium2,
-                            firstCurve: Curves.easeOutCubic,
-                            secondCurve: Curves.easeOutCubic,
-                            sizeCurve: Curves.easeOutCubic,
-                          ),
-                          if (detail.summary!.length > 120) ...[
-                            const SizedBox(height: 4),
-                            GestureDetector(
-                              onTap: () {
-                                setState(() => _isSynopsisExpanded = !_isSynopsisExpanded);
-                              },
-                              child: Text(
-                                _isSynopsisExpanded ? 'Show less' : 'Read more',
-                                style: AppText.meta.copyWith(
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 3.5,
+                                height: 16,
+                                decoration: BoxDecoration(
                                   color: AppColors.accent,
-                                  fontWeight: FontWeight.w600,
+                                  borderRadius: BorderRadius.circular(2),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AppColors.accent.withValues(alpha: 0.5),
+                                      blurRadius: 6,
+                                    ),
+                                  ],
                                 ),
                               ),
+                              const SizedBox(width: 8),
+                              Text('Synopsis', style: AppText.sectionTitle.copyWith(fontSize: 16)),
+                            ],
+                          ),
+                          const SizedBox(height: AppSpacing.xs),
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () {
+                              setState(() => _isSynopsisExpanded = !_isSynopsisExpanded);
+                            },
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                AnimatedCrossFade(
+                                  firstChild: Text(
+                                    detail.summary!,
+                                    maxLines: 3,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppText.bodySecondary.copyWith(
+                                      height: 1.45,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                  secondChild: Text(
+                                    detail.summary!,
+                                    style: AppText.bodySecondary.copyWith(
+                                      height: 1.45,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                  crossFadeState: _isSynopsisExpanded
+                                      ? CrossFadeState.showSecond
+                                      : CrossFadeState.showFirst,
+                                  duration: AppMotion.medium2,
+                                  firstCurve: Curves.easeOutCubic,
+                                  secondCurve: Curves.easeOutCubic,
+                                  sizeCurve: Curves.easeOutCubic,
+                                ),
+                                if (detail.summary!.length > 120) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _isSynopsisExpanded ? 'Show less' : 'Read more',
+                                    style: AppText.meta.copyWith(
+                                      color: AppColors.accent,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
-                          ],
+                          ),
                         ],
                       ),
                     ),
                   ),
 
                 // Seasons Selector: Horizontal Chips
-                if (detail.seasons.isNotEmpty)
+                if (detail != null && detail.seasons.isNotEmpty)
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
@@ -765,12 +899,14 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                     ),
                   ),
                 // Start.io Sponsor Banner
-                const SliverToBoxAdapter(
-                  child: StartIoBannerWidget(),
-                ),
+                if (detail != null)
+                  const SliverToBoxAdapter(
+                    child: StartIoBannerWidget(),
+                  ),
 
                 // Episodes Header with List / Grid View Switcher
-                SliverToBoxAdapter(
+                if (detail != null)
+                  SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(
                       AppSpacing.pageMargin,
@@ -781,9 +917,29 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          l10n.episodesTitle,
-                          style: AppText.sectionTitle.copyWith(fontSize: 16),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 3.5,
+                              height: 16,
+                              decoration: BoxDecoration(
+                                color: AppColors.accent,
+                                borderRadius: BorderRadius.circular(2),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.accent.withValues(alpha: 0.5),
+                                    blurRadius: 6,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              l10n.episodesTitle,
+                              style: AppText.sectionTitle.copyWith(fontSize: 16),
+                            ),
+                          ],
                         ),
                         // M3 Segmented Button for View Switcher (Grid / List)
                         SegmentedButton<bool>(
@@ -817,14 +973,14 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                 ),
 
                 // Episode List or Grid
-                if (detail.episodes.isEmpty)
+                if (detail != null && detail.episodes.isEmpty)
                   const SliverToBoxAdapter(
                     child: Padding(
                       padding: EdgeInsets.all(AppSpacing.pageMargin),
                       child: Text('No episodes listed for this subject', style: AppText.meta),
                     ),
                   )
-                else if (_isGridView)
+                else if (detail != null && _isGridView)
                   SliverPadding(
                     padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
                     sliver: SliverGrid(
@@ -843,42 +999,38 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
 
                           return Tooltip(
                             message: 'Episode $epNum${ep.title.isNotEmpty ? ': ${ep.title}' : ''}',
-                            child: Material(
-                              color: isCurrent
-                                  ? AppColors.accent
-                                  : isWatched
-                                      ? AppColors.accentSoft
-                                      : const Color(0xFF141914),
-                              borderRadius: BorderRadius.circular(12),
-                              clipBehavior: Clip.antiAlias,
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(12),
-                                onTap: () => _playEpisode(currentId, epNum, selectedProviderId),
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: isCurrent
-                                          ? AppColors.accent
-                                          : isWatched
-                                              ? AppColors.accent.withValues(alpha: 0.5)
-                                              : const Color(0xFF263526),
-                                      width: isCurrent ? 1.5 : 1.0,
-                                    ),
+                            child: PressableScale(
+                              targetScale: 0.92,
+                              onTap: () => _playEpisode(currentId, epNum, selectedProviderId),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: isCurrent
+                                      ? AppColors.accent
+                                      : isWatched
+                                          ? AppColors.accentSoft
+                                          : const Color(0xFF141914),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: isCurrent
+                                        ? AppColors.accent
+                                        : isWatched
+                                            ? AppColors.accent.withValues(alpha: 0.5)
+                                            : const Color(0xFF263526),
+                                    width: isCurrent ? 1.5 : 1.0,
                                   ),
-                                  alignment: Alignment.center,
-                                  child: Text(
-                                    '$epNum',
-                                    style: TextStyle(
-                                      fontFamily: 'monospace',
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w800,
-                                      color: isCurrent
-                                          ? const Color(0xFF0B0E0B)
-                                          : isWatched
-                                              ? AppColors.accent
-                                              : Colors.white,
-                                    ),
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  '$epNum',
+                                  style: TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w800,
+                                    color: isCurrent
+                                        ? const Color(0xFF0B0E0B)
+                                        : isWatched
+                                            ? AppColors.accent
+                                            : Colors.white,
                                   ),
                                 ),
                               ),
@@ -889,7 +1041,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                       ),
                     ),
                   )
-                else
+                else if (detail != null)
                   SliverPadding(
                     padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
                     sliver: SliverList(
@@ -901,23 +1053,21 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
 
                           return Container(
                             margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-                            child: Material(
-                              color: AppColors.surface,
-                              borderRadius: BorderRadius.circular(12),
-                              clipBehavior: Clip.antiAlias,
-                              child: InkWell(
-                                onTap: () => _playEpisode(currentId, epNum, selectedProviderId),
-                                child: Container(
-                                  padding: const EdgeInsets.all(AppSpacing.md),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: isWatched
-                                          ? AppColors.accent.withValues(alpha: 0.3)
-                                          : AppColors.border,
-                                      width: 0.8,
-                                    ),
+                            child: PressableScale(
+                              targetScale: 0.965,
+                              onTap: () => _playEpisode(currentId, epNum, selectedProviderId),
+                              child: Container(
+                                padding: const EdgeInsets.all(AppSpacing.md),
+                                decoration: BoxDecoration(
+                                  color: AppColors.surface,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: isWatched
+                                        ? AppColors.accent.withValues(alpha: 0.3)
+                                        : AppColors.border,
+                                    width: 0.8,
                                   ),
+                                ),
                                   child: Row(
                                     children: [
                                       // Episode Number Badge
@@ -1006,68 +1156,92 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                                   ),
                                 ),
                               ),
-                            ),
-                          );
+                            );
                         },
                         childCount: detail.episodes.length,
                       ),
                     ),
+                  )
+                else if (detailAsync.isLoading) ...[
+                  const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin, vertical: AppSpacing.md),
+                      child: ShimmerBox(width: double.infinity, height: 80, borderRadius: AppRadius.cardBorder),
+                    ),
                   ),
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
+                    sliver: SliverGrid(
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: epCrossAxisCount,
+                        childAspectRatio: 1.15,
+                        crossAxisSpacing: 8,
+                        mainAxisSpacing: 8,
+                      ),
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) => ShimmerBox(
+                          width: double.infinity,
+                          height: double.infinity,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        childCount: epCrossAxisCount * 2,
+                      ),
+                    ),
+                  ),
+                ] else ...[
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppSpacing.xl),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.error_outline_rounded, size: 48, color: AppColors.accent),
+                            const SizedBox(height: AppSpacing.md),
+                            Text(l10n.errorLoading, style: AppText.sectionTitle),
+                            const SizedBox(height: AppSpacing.xs),
+                            Text(detailAsync.error?.toString() ?? '', textAlign: TextAlign.center, style: AppText.meta),
+                            const SizedBox(height: AppSpacing.lg),
+                            ElevatedButton.icon(
+                              onPressed: () => widget.isKShow
+                                  ? ref.refresh(kshowDetailProvider(currentId))
+                                  : ref.refresh(animeDetailProvider(currentId)),
+                              icon: const Icon(Icons.refresh_rounded),
+                              label: Text(l10n.retry),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
 
                 const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xxxl)),
               ],
             ),
           );
-        } else if (detailAsync.isLoading) {
-          return _DetailLoadingSkeleton(
-            heroTag: widget.heroTag ?? 'poster_${widget.animeId}',
-            previewPoster: widget.previewPoster,
-            previewTitle: widget.previewTitle,
-          );
-        } else {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.xl),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.error_outline_rounded, size: 48, color: AppColors.accent),
-                  const SizedBox(height: AppSpacing.md),
-                  Text(l10n.errorLoading, style: AppText.sectionTitle),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(detailAsync.error?.toString() ?? '', textAlign: TextAlign.center, style: AppText.meta),
-                  const SizedBox(height: AppSpacing.lg),
-                  ElevatedButton.icon(
-                    onPressed: () => ref.refresh(animeDetailProvider(currentId)),
-                    icon: const Icon(Icons.refresh_rounded),
-                    label: Text(l10n.retry),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-      },
-    ),
-
-    // 2. Persistent Floating Glass Back Button (pinned on top of all content)
-    Positioned(
-      top: topPadding + AppSpacing.xs,
-      left: AppSpacing.pageMargin,
-      child: _FloatingBackButton(
-        onPressed: () {
-          if (_seasonHistory.isNotEmpty) {
-            setState(() {
-              _selectedSeasonId = _seasonHistory.removeLast();
-            });
-          } else if (context.canPop()) {
-            context.pop();
-          }
         },
       ),
-    ),
-  ],
-),
+
+      // 2. Persistent Floating Glass Back Button (pinned on top of all content)
+      Positioned(
+        top: topPadding + AppSpacing.xs,
+        left: AppSpacing.pageMargin,
+        child: _FloatingBackButton(
+          onPressed: () {
+            if (_seasonHistory.isNotEmpty) {
+              setState(() {
+                _selectedSeasonId = _seasonHistory.removeLast();
+              });
+            } else if (context.canPop()) {
+              context.pop();
+            }
+          },
+        ),
+      ),
+    ],
+  ),
 ),
 );
   }
@@ -1096,7 +1270,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                    'Select Stream Source',
+                    'Select Server',
                     style: AppText.sectionTitle,
                   ),
                   TextButton(
@@ -1106,7 +1280,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                       }
                       context.push('/settings/sources');
                     },
-                    child: const Text('Manage Sources', style: TextStyle(color: AppColors.accent)),
+                    child: const Text('Manage Servers', style: TextStyle(color: AppColors.accent)),
                   ),
                 ],
               ),
@@ -1116,7 +1290,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                   padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
                   child: Center(
                     child: Text(
-                      'All stream sources are disabled.',
+                      'All stream servers are disabled.',
                       style: AppText.meta,
                     ),
                   ),
@@ -1132,13 +1306,21 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                       return ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: Icon(
-                          isSelected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+                          isSelected ? Icons.check_circle_rounded : Icons.dns_rounded,
                           color: isSelected ? AppColors.accent : AppColors.textSecondary,
                         ),
                         title: Text(
-                          p.displayName,
+                          'Server ${index + 1}',
                           style: AppText.body.copyWith(
                             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                            color: isSelected ? AppColors.accent : AppColors.textPrimary,
+                          ),
+                        ),
+                        subtitle: Text(
+                          isSelected ? 'Active Server · Connected' : 'High Speed Stream Server',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.45),
+                            fontSize: 12,
                           ),
                         ),
                         onTap: () async {
@@ -1200,16 +1382,15 @@ class _InfoPill extends StatelessWidget {
     );
 
     if (onTap != null) {
-      return InkWell(
+      return PressableScale(
+        targetScale: 0.94,
         onTap: onTap,
-        borderRadius: AppRadius.pillBorder,
         child: pill,
       );
     }
     return pill;
   }
 }
-
 
 class _FloatingBackButton extends StatelessWidget {
   final VoidCallback onPressed;
@@ -1220,40 +1401,37 @@ class _FloatingBackButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return ConstrainedBox(
       constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-      child: ClipOval(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: onPressed,
-              borderRadius: BorderRadius.circular(22),
-              child: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.50),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.20),
-                    width: 0.9,
-                  ),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x7A000000),
-                      blurRadius: 12,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
+      child: PressableScale(
+        targetScale: 0.90,
+        onTap: onPressed,
+        child: ClipOval(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.50),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.20),
+                  width: 0.9,
                 ),
-                child: const Center(
-                  child: Tooltip(
-                    message: 'Back',
-                    child: Icon(
-                      Icons.arrow_back_rounded,
-                      color: AppColors.textPrimary,
-                      size: 19,
-                    ),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x7A000000),
+                    blurRadius: 12,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: const Center(
+                child: Tooltip(
+                  message: 'Back',
+                  child: Icon(
+                    Icons.arrow_back_rounded,
+                    color: AppColors.textPrimary,
+                    size: 19,
                   ),
                 ),
               ),
@@ -1265,196 +1443,6 @@ class _FloatingBackButton extends StatelessWidget {
   }
 }
 
-class _DetailLoadingSkeleton extends StatelessWidget {
-  final String? heroTag;
-  final String? previewPoster;
-  final String? previewTitle;
-
-  const _DetailLoadingSkeleton({
-    this.heroTag,
-    this.previewPoster,
-    this.previewTitle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final topPadding = MediaQuery.paddingOf(context).top;
-
-    return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(parent: ClampingScrollPhysics()),
-      child: Stack(
-        children: [
-          if (previewPoster != null && previewPoster!.isNotEmpty)
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              height: 380,
-              child: IgnorePointer(
-                child: RepaintBoundary(
-                  child: ClipRect(
-                    child: ImageFiltered(
-                      imageFilter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-                      child: Transform.scale(
-                        scale: 1.25,
-                        child: CachedNetworkImage(
-                          imageUrl: previewPoster!,
-                          fit: BoxFit.cover,
-                          memCacheWidth: 720,
-                          errorWidget: (_, __, ___) => const SizedBox.shrink(),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 380,
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.black.withValues(alpha: 0.35),
-                      Colors.black.withValues(alpha: 0.75),
-                      AppColors.background,
-                    ],
-                    stops: const [0.0, 0.65, 1.0],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Padding(
-            padding: EdgeInsets.only(
-              top: topPadding + AppSpacing.xs,
-              left: AppSpacing.pageMargin,
-              right: AppSpacing.pageMargin,
-              bottom: AppSpacing.xxxl,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Spacer matching the persistent floating back button
-                const SizedBox(height: 48),
-                const SizedBox(height: AppSpacing.md),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (heroTag != null && previewPoster != null && previewPoster!.isNotEmpty)
-                      Container(
-                        width: 115,
-                        height: 165,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.15),
-                            width: 1,
-                          ),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color(0x7A000000),
-                              blurRadius: 16,
-                              offset: Offset(0, 8),
-                            ),
-                          ],
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(13),
-                          child: Hero(
-                            tag: heroTag!,
-                            createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
-                            flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
-                            child: CachedNetworkImage(
-                              imageUrl: previewPoster!,
-                              fit: BoxFit.cover,
-                              memCacheWidth: 360,
-                              memCacheHeight: 540,
-                            ),
-                          ),
-                        ),
-                      )
-                    else
-                      ShimmerBox(width: 115, height: 165, borderRadius: BorderRadius.circular(14)),
-                    const SizedBox(width: AppSpacing.md),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (previewTitle != null)
-                            Text(
-                              previewTitle!,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppText.sectionTitle.copyWith(fontSize: 18),
-                            )
-                          else ...[
-                            ShimmerBox(width: 90, height: 12, borderRadius: BorderRadius.circular(4)),
-                            const SizedBox(height: 8),
-                            ShimmerBox(width: 180, height: 22, borderRadius: BorderRadius.circular(6)),
-                          ],
-                          const SizedBox(height: 12),
-                          ShimmerBox(width: 120, height: 14, borderRadius: BorderRadius.circular(4)),
-                          const SizedBox(height: 8),
-                          ShimmerBox(width: 140, height: 14, borderRadius: BorderRadius.circular(4)),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.xl),
-                const Row(
-                  children: [
-                    Expanded(
-                      flex: 6,
-                      child: ShimmerBox(width: double.infinity, height: 48, borderRadius: AppRadius.pillBorder),
-                    ),
-                    SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      flex: 5,
-                      child: ShimmerBox(width: double.infinity, height: 48, borderRadius: AppRadius.pillBorder),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.xl),
-                const ShimmerBox(width: double.infinity, height: 80, borderRadius: AppRadius.cardBorder),
-                const SizedBox(height: AppSpacing.xl),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final isLandscape = MediaQuery.orientationOf(context) == Orientation.landscape;
-                    final epCount = isLandscape ? 8 : 5;
-                    return GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: epCount * 2,
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: epCount,
-                        childAspectRatio: 1.15,
-                        crossAxisSpacing: 8,
-                        mainAxisSpacing: 8,
-                      ),
-                      itemBuilder: (context, index) => ShimmerBox(
-                        width: double.infinity,
-                        height: double.infinity,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _SpringStarButton extends StatefulWidget {
   final bool isFollowed;

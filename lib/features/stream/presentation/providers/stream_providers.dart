@@ -7,6 +7,7 @@ import '../../domain/models/source_match.dart';
 import '../../domain/models/stream_provider.dart';
 import '../../domain/models/subtitle_track.dart';
 import '../../domain/orchestration/stream_orchestrator.dart';
+import '../../data/providers/anifam_provider.dart';
 import '../../data/providers/demo_provider.dart';
 import '../../data/providers/direct_url_provider.dart';
 import '../../data/providers/jellyfin_provider.dart';
@@ -40,6 +41,9 @@ final sharedPreferencesAsyncProvider = FutureProvider<SharedPreferences>((ref) a
   }
 });
 
+/// Direct instance provider for AniFamProvider.
+final anifamProvider = Provider<AniFamProvider>((ref) => AniFamProvider());
+
 /// Direct instance provider for MegaVidProvider.
 final megaVidProvider = Provider<MegaVidProvider>((ref) => MegaVidProvider());
 
@@ -47,11 +51,13 @@ final megaVidProvider = Provider<MegaVidProvider>((ref) => MegaVidProvider());
 final streamProviderRegistryProvider = FutureProvider<StreamProviderRegistry>((ref) async {
   final prefs = await ref.watch(sharedPreferencesAsyncProvider.future);
   final registry = StreamProviderRegistry(prefs, const []);
+  final anifam = ref.watch(anifamProvider);
   final megavid = ref.watch(megaVidProvider);
   const demo = DemoProvider();
   final direct = DirectUrlProvider(registry);
   final jellyfin = JellyfinProvider(registry);
 
+  registry.register(anifam);
   registry.register(megavid);
   registry.register(demo);
   registry.register(direct);
@@ -107,11 +113,13 @@ class StreamResolutionParams {
   final int animeId;
   final int episodeNumber;
   final String? preferredProviderId;
+  final bool isKShow;
 
   const StreamResolutionParams({
     required this.animeId,
     required this.episodeNumber,
     this.preferredProviderId,
+    this.isKShow = false,
   });
 
   @override
@@ -121,11 +129,15 @@ class StreamResolutionParams {
           runtimeType == other.runtimeType &&
           animeId == other.animeId &&
           episodeNumber == other.episodeNumber &&
-          preferredProviderId == other.preferredProviderId;
+          preferredProviderId == other.preferredProviderId &&
+          isKShow == other.isKShow;
 
   @override
   int get hashCode =>
-      animeId.hashCode ^ episodeNumber.hashCode ^ preferredProviderId.hashCode;
+      animeId.hashCode ^
+      episodeNumber.hashCode ^
+      preferredProviderId.hashCode ^
+      isKShow.hashCode;
 }
 
 /// State notifier for managing active stream playback variant and choices.
@@ -137,21 +149,25 @@ class ActiveStreamStateNotifier
     final metadataRepo = ref.watch(metadataRepositoryProvider);
 
     AnimeDetail anime;
-    try {
-      anime = await metadataRepo.getAnimeDetail(arg.animeId);
-    } catch (e) {
-      if (e is DioException && (e.type == DioExceptionType.cancel || CancelToken.isCancel(e))) {
-        // If preceding screen navigation cancelled an in-flight request, re-fetch cleanly
+    if (arg.isKShow) {
+      anime = await metadataRepo.getKShowDetail(arg.animeId);
+    } else {
+      try {
         anime = await metadataRepo.getAnimeDetail(arg.animeId);
-      } else {
-        rethrow;
+      } catch (e) {
+        if (e is DioException && (e.type == DioExceptionType.cancel || CancelToken.isCancel(e))) {
+          // If preceding screen navigation cancelled an in-flight request, re-fetch cleanly
+          anime = await metadataRepo.getAnimeDetail(arg.animeId);
+        } else {
+          rethrow;
+        }
       }
     }
 
     return orchestrator.resolveEpisode(
       anime: anime,
       episodeNumber: arg.episodeNumber,
-      preferredProviderId: arg.preferredProviderId,
+      preferredProviderId: arg.isKShow ? 'megavid' : arg.preferredProviderId,
     );
   }
 

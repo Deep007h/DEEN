@@ -2,8 +2,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/app_motion.dart';
-import '../../theme/app_radius.dart';
-import '../../theme/app_spacing.dart';
 import 'pressable_scale.dart';
 
 /// Navigation item definition for the floating pill bar.
@@ -21,7 +19,7 @@ class FloatingNavBarItem {
 
 /// Floating pill bottom navigation bar matching Material 3 specifications:
 /// Features M3 surfaceContainer elevation, subtle border, and
-/// canonical stadium capsule active indicator around the icon with label below.
+/// dynamic rounded capsule active indicator overlay surrounding both the icon and tab label.
 class FloatingNavBar extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
@@ -36,52 +34,33 @@ class FloatingNavBar extends StatelessWidget {
 
   /// Computes dynamic bottom safe padding for scrollable views so content is not obscured by the bar.
   static double getBottomPadding(BuildContext context) {
-    return AppSpacing.floatingBarHeight +
-        AppSpacing.floatingBarMarginBottom +
-        MediaQuery.paddingOf(context).bottom +
-        16.0;
+    return 72.0 + MediaQuery.paddingOf(context).bottom;
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final navBorderRadius = BorderRadius.circular(AppRadius.floatingBar);
+    final bottomSafe = MediaQuery.paddingOf(context).bottom;
 
-    return SafeArea(
-      top: false,
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(
-          AppSpacing.floatingBarMarginHorizontal,
-          0,
-          AppSpacing.floatingBarMarginHorizontal,
-          AppSpacing.floatingBarMarginBottom,
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xF50D120D),
+        border: Border(
+          top: BorderSide(
+            color: Color(0x334E604E),
+            width: 0.9,
+          ),
         ),
-        decoration: BoxDecoration(
-          borderRadius: navBorderRadius,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.38),
-              blurRadius: 24,
-              spreadRadius: 1,
-              offset: const Offset(0, 6),
+      ),
+      child: ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20.0, sigmaY: 20.0),
+          child: Padding(
+            padding: EdgeInsets.only(
+              top: 6.0,
+              bottom: bottomSafe > 0 ? bottomSafe : 8.0,
             ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: navBorderRadius,
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 12.0, sigmaY: 12.0),
-            child: Container(
-              height: AppSpacing.floatingBarHeight,
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainer.withValues(alpha: 0.94),
-                borderRadius: navBorderRadius,
-                border: Border.all(
-                  color: colorScheme.outlineVariant.withValues(alpha: 0.5),
-                  width: 0.9,
-                ),
-              ),
+            child: SizedBox(
+              height: 56.0,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: List.generate(items.length, (index) {
@@ -120,17 +99,15 @@ class _NavBarTabButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final activeColor = colorScheme.primary;
-    final activeBgColor = colorScheme.secondaryContainer;
-    final inactiveColor = colorScheme.onSurfaceVariant;
+    const activeLime = Color(0xFFB5F237);
+    const inactiveColor = Color(0xFF8F9C8F);
 
     return Semantics(
       selected: isSelected,
       button: true,
       label: item.label,
       child: PressableScale(
-        targetScale: 0.93,
+        targetScale: 0.92,
         enableHaptics: false,
         onTap: onTap,
         child: Center(
@@ -138,45 +115,50 @@ class _NavBarTabButton extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              // Active Solid Lime Capsule or Inactive Box
               AnimatedContainer(
-                duration: AppMotion.medium1,
-                curve: Curves.easeOutCubic,
-                width: isSelected ? 56.0 : 42.0,
-                height: 30.0,
+                duration: AppMotion.short3,
+                curve: AppMotion.hyperOsSpring,
+                width: 64.0,
+                height: 31.0,
                 decoration: BoxDecoration(
-                  color: isSelected ? activeBgColor : Colors.transparent,
-                  borderRadius: BorderRadius.circular(15.0),
-                  border: isSelected
-                      ? Border.all(
-                          color: activeColor.withValues(alpha: 0.28),
-                          width: 1.0,
-                        )
-                      : null,
+                  color: isSelected ? activeLime : Colors.transparent,
+                  borderRadius: BorderRadius.circular(16.0),
                 ),
                 child: Center(
                   child: AnimatedSwitcher(
-                    duration: AppMotion.short3,
-                    transitionBuilder: (child, animation) =>
-                        ScaleTransition(scale: animation, child: child),
+                    duration: AppMotion.short2,
+                    transitionBuilder: (child, anim) => ScaleTransition(
+                      scale: Tween<double>(begin: 0.85, end: 1.0).animate(
+                        CurvedAnimation(parent: anim, curve: AppMotion.hyperOsSpring),
+                      ),
+                      child: child,
+                    ),
                     child: Icon(
                       isSelected ? item.activeIcon : item.icon,
                       key: ValueKey(isSelected),
                       size: 21,
-                      color: isSelected ? activeColor : inactiveColor,
+                      color: isSelected ? const Color(0xFF0C100C) : inactiveColor,
                     ),
                   ),
                 ),
               ),
               const SizedBox(height: 3),
-              Text(
-                item.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              AnimatedDefaultTextStyle(
+                duration: AppMotion.short3,
+                curve: AppMotion.hyperOsSpring,
                 style: TextStyle(
-                  color: isSelected ? activeColor : inactiveColor,
+                  color: isSelected ? activeLime : inactiveColor,
                   fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                  fontSize: 11,
-                  letterSpacing: 0.1,
+                  fontSize: 10.5,
+                  letterSpacing: -0.1,
+                  fontFamily: 'Inter',
+                ),
+                child: Text(
+                  item.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
                 ),
               ),
             ],

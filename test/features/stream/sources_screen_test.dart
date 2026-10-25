@@ -29,14 +29,15 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify header and description
-    expect(find.text('Stream Providers'), findsOneWidget);
+    expect(find.text('Stream Servers'), findsOneWidget);
     expect(find.textContaining('Hold & drag to reorder priority'), findsOneWidget);
 
-    // Verify 4 providers
-    expect(find.text('MegaVid (AniList / KissKH)'), findsOneWidget);
-    expect(find.text('Demo (Public Test Streams)'), findsOneWidget);
-    expect(find.text('Direct URL (Self-Hosted)'), findsOneWidget);
-    expect(find.text('Jellyfin Server'), findsOneWidget);
+    // Verify 5 servers
+    expect(find.text('Server 1'), findsOneWidget);
+    expect(find.text('Server 2'), findsOneWidget);
+    expect(find.text('Server 3'), findsOneWidget);
+    expect(find.text('Server 4'), findsOneWidget);
+    expect(find.text('Server 5'), findsOneWidget);
 
     // Test connectivity of provider
     await tester.tap(find.text('Test Source').first);

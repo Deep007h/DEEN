@@ -7,9 +7,9 @@ final updaterRepositoryProvider = Provider<UpdaterRepository>((ref) {
   return GithubUpdaterRepository();
 });
 
-/// Current application semantic version (designated as v1 / 1.0.0).
+/// Current application semantic version (designated as v2 / 2.0.0).
 final currentAppVersionProvider = Provider<String>((ref) {
-  return '1.0.0';
+  return '2.0.0';
 });
 
 /// Tracks whether a cold-start update check has already executed in this session.

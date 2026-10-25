@@ -38,32 +38,42 @@ abstract class MetadataRepository {
 
   /// Fetches featured banner anime for the Home hero carousel.
   Future<List<FeaturedAnimeItem>> getFeaturedAnime({
+    int page = 1,
     int limit = 6,
+    bool forceRefresh = false,
     CancelToken? cancelToken,
   }) async => [];
 
   /// Fetches trending anime sorted by real-time AniList trending index.
   Future<List<AnimeSummary>> getTrendingAnime({
+    int page = 1,
     int limit = 10,
+    bool forceRefresh = false,
     CancelToken? cancelToken,
   }) async => [];
 
   /// Fetches top rated anime of all time.
   Future<List<AnimeSummary>> getTopRatedAnime({
+    int page = 1,
     int limit = 10,
+    bool forceRefresh = false,
     CancelToken? cancelToken,
   }) async => [];
 
   /// Fetches recently released / actively airing anime.
   Future<List<AnimeSummary>> getRecentlyUpdatedAnime({
+    int page = 1,
     int limit = 10,
+    bool forceRefresh = false,
     CancelToken? cancelToken,
   }) async => [];
 
   /// Fetches anime for a specific category / genre.
   Future<List<AnimeSummary>> getAnimeByGenre(
     String genre, {
+    int page = 1,
     int limit = 10,
+    bool forceRefresh = false,
     CancelToken? cancelToken,
   }) async => [];
 
@@ -82,5 +92,13 @@ abstract class MetadataRepository {
     String genre, {
     CancelToken? cancelToken,
   }) async => null;
+
+  /// Records a discovered K-Show / K-Drama match or origin so subsequent detail fetches use KissKH/MegaVid.
+  void recordKShowMatch(dynamic match) {}
+
+  /// Fetches K-Show / K-Drama detail by KissKH ID.
+  Future<AnimeDetail> getKShowDetail(int id, {CancelToken? cancelToken}) async {
+    return getAnimeDetail(id, cancelToken: cancelToken);
+  }
 }
 

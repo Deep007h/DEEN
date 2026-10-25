@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import '../../../metadata/domain/models/anime_detail.dart';
 import '../../data/hls/hls_parser.dart';
@@ -7,6 +8,7 @@ import '../../data/repositories/diagnostics_repository.dart';
 import '../../data/repositories/stream_preferences_repository.dart';
 import '../../data/repositories/stream_provider_registry.dart';
 import '../../data/repositories/title_match_repository.dart';
+import '../../data/providers/anifam_provider.dart';
 import '../../data/providers/megavid_provider.dart';
 import '../../data/providers/demo_provider.dart';
 import '../models/audio_language.dart';
@@ -16,6 +18,7 @@ import '../models/source_match.dart';
 import '../models/stream_provider.dart';
 import '../models/stream_variant.dart';
 import '../models/subtitle_track.dart';
+import 'fastest_server_engine.dart';
 
 /// Exception thrown when no stream provider can resolve a playable stream.
 class StreamResolutionException implements Exception {
@@ -40,6 +43,7 @@ class StreamResolutionResult {
   final SubtitleTrack selectedSubtitle;
   final QualityOption selectedQuality;
   final List<SourceMatch> candidateMatches;
+  final List<ServerLatencyResult> latencyResults;
 
   const StreamResolutionResult({
     required this.match,
@@ -51,6 +55,7 @@ class StreamResolutionResult {
     required this.selectedSubtitle,
     required this.selectedQuality,
     this.candidateMatches = const [],
+    this.latencyResults = const [],
   });
 
   StreamResolutionResult copyWith({
@@ -63,6 +68,7 @@ class StreamResolutionResult {
     SubtitleTrack? selectedSubtitle,
     QualityOption? selectedQuality,
     List<SourceMatch>? candidateMatches,
+    List<ServerLatencyResult>? latencyResults,
   }) =>
       StreamResolutionResult(
         match: match ?? this.match,
@@ -74,6 +80,7 @@ class StreamResolutionResult {
         selectedSubtitle: selectedSubtitle ?? this.selectedSubtitle,
         selectedQuality: selectedQuality ?? this.selectedQuality,
         candidateMatches: candidateMatches ?? this.candidateMatches,
+        latencyResults: latencyResults ?? this.latencyResults,
       );
 }
 
@@ -118,7 +125,7 @@ class StreamOrchestrator {
   }) async {
     final effectiveProviderId = preferredProviderId ??
         registry.getOrderedEnabledProviders().firstOrNull?.id ??
-        'megavid';
+        'anifam';
     final effectiveAudio = prefsRepo.getEffectiveAudioLanguage(anime.id);
     final title = anime.titles.preferredTitle();
     final cacheKey = '${anime.id}_${episodeNumber}_${effectiveProviderId}_$effectiveAudio';
@@ -133,37 +140,65 @@ class StreamOrchestrator {
       {'preferredProvider': effectiveProviderId},
     );
 
+    final isKDrama = anime.platform == 'K-Drama' ||
+        anime.tags.any((t) => t.name.toLowerCase() == 'k-drama') ||
+        anime.tags.any((t) => t.name.toLowerCase() == 'drama');
+
     // 1. Build ordered list of providers to attempt
-    final enabledProviders = registry.getOrderedEnabledProviders();
     final candidateProviders = <StreamProvider>[];
 
-    if (preferredProviderId != null) {
-      final preferred = registry.getProvider(preferredProviderId);
-      if (preferred != null) candidateProviders.add(preferred);
-    }
-
-    for (final p in enabledProviders) {
-      if (!candidateProviders.any((x) => x.id == p.id)) {
-        candidateProviders.add(p);
+    if (isKDrama) {
+      final megavid = registry.getProvider('megavid');
+      if (megavid != null) {
+        candidateProviders.add(megavid);
       }
-    }
+    } else {
+      final enabledProviders = registry.getOrderedEnabledProviders();
 
-    if (candidateProviders.isEmpty) {
-      final primary = registry.getProvider('megavid') ?? registry.allProviders.firstOrNull;
-      if (primary != null) candidateProviders.add(primary);
+      if (preferredProviderId != null) {
+        final preferred = registry.getProvider(preferredProviderId);
+        if (preferred != null) candidateProviders.add(preferred);
+      }
+
+      for (final p in enabledProviders) {
+        if (!candidateProviders.any((x) => x.id == p.id)) {
+          candidateProviders.add(p);
+        }
+      }
+
+      if (candidateProviders.isEmpty) {
+        final primary = registry.getProvider('anifam') ?? registry.getProvider('megavid') ?? registry.allProviders.firstOrNull;
+        if (primary != null) candidateProviders.add(primary);
+      }
     }
 
     final attempted = <String>[];
 
     // 2. Iterate through providers with fallback
     for (final provider in candidateProviders) {
-      attempted.add(provider.displayName);
+      attempted.add('Server ${attempted.length + 1}');
       try {
         diagnostics.info('Attempting provider: ${provider.displayName} (${provider.id})');
 
         // Check for manual match override first
         SourceMatch? match = matchRepo.getSavedMatch(anime.id, provider.id);
         List<SourceMatch> allCandidates = [];
+
+        if (isKDrama && match == null) {
+          match = SourceMatch(
+            id: anime.id.toString(),
+            title: anime.titles.preferredTitle(),
+            providerId: 'megavid',
+            episodeCount: anime.eps,
+            confidenceScore: 1.0,
+            customData: {
+              'sourceType': 'kisskh',
+              if (anime.posterUrl != null) 'thumb': anime.posterUrl,
+            },
+          );
+          allCandidates = [match];
+          await matchRepo.saveMatch(anime.id, provider.id, match);
+        }
 
         if (match == null) {
           diagnostics.info('Searching title on ${provider.displayName}...');
@@ -213,12 +248,37 @@ class StreamOrchestrator {
           }
         }
 
+        if (targetEpisode == null && isKDrama) {
+          final detailEp = anime.episodes.firstWhereOrNull(
+            (e) => e.number.toInt() == episodeNumber || e.sort == episodeNumber,
+          );
+          if (detailEp != null && detailEp.id != 0) {
+            targetEpisode = SourceEpisode(
+              id: detailEp.id.toString(),
+              number: episodeNumber,
+              title: detailEp.title,
+              matchId: match.id,
+              providerId: provider.id,
+              customData: {'kisskhEpId': detailEp.id.toString()},
+            );
+          }
+        }
+
         final epId = targetEpisode?.id ?? '${match.id}_ep_$episodeNumber';
         final epTitle = targetEpisode?.title ?? 'Episode $episodeNumber';
         final epData = {
           if (targetEpisode != null) ...targetEpisode.customData,
           'preferredAudio': effectiveAudio,
         };
+
+        if (isKDrama && (epData['kisskhEpId'] == null || epData['kisskhEpId'].toString().isEmpty)) {
+          final detailEp = anime.episodes.firstWhereOrNull(
+            (e) => e.number.toInt() == episodeNumber || e.sort == episodeNumber,
+          );
+          if (detailEp != null && detailEp.id != 0) {
+            epData['kisskhEpId'] = detailEp.id.toString();
+          }
+        }
 
         final resolvedTargetEpisode = SourceEpisode(
           id: epId,
@@ -238,9 +298,12 @@ class StreamOrchestrator {
           continue;
         }
 
-        // Validate variants: reject truncated or broken /vid/ streams
+        // Validate variants: reject truncated or broken /vid/ streams for anime, but allow valid KissKH streams
         final candidates = variants.where((v) {
-          if (v.url.contains('/vid/')) {
+          final isKisskhVariant = isKDrama ||
+              v.audio.code == AudioLanguage.koreanOriginal.code ||
+              (v.headers['Referer']?.contains('kisskh') ?? false);
+          if (!isKisskhVariant && v.url.contains('/vid/')) {
             diagnostics.warn('Banned /vid/ proxy URL rejected: ${v.url}');
             return false;
           }
@@ -298,19 +361,34 @@ class StreamOrchestrator {
           {'url': resolvedVariants.first.url},
         );
 
+        // Detect fastest server when multiple variants/servers are available
+        List<StreamVariant> rankedVariants = resolvedVariants;
+        List<ServerLatencyResult> latencyResults = const [];
+        if (resolvedVariants.length > 1 && !Platform.environment.containsKey('FLUTTER_TEST')) {
+          try {
+            final engine = FastestServerEngine();
+            latencyResults = await engine.probeAll(resolvedVariants);
+            rankedVariants = await engine.rankBySpeed(resolvedVariants);
+            final fastest = latencyResults.firstWhereOrNull((l) => l.isHealthy);
+            if (fastest != null) {
+              diagnostics.info('Fastest server detected: ${fastest.serverName} (${fastest.latencyMs}ms)');
+            }
+          } catch (_) {}
+        }
+
         // Apply Audio preference (prioritizing English Dub if requested)
         final prefersDub = effectiveAudio == 'en' || effectiveAudio == AudioLanguage.englishDub.code;
-        StreamVariant selectedVariant = resolvedVariants.firstWhere(
+        StreamVariant selectedVariant = rankedVariants.firstWhere(
           (v) => prefersDub
               ? (v.audio.code == 'en' || v.audio.code == AudioLanguage.englishDub.code || v.audio.isDub)
               : (v.audio.code == effectiveAudio),
-          orElse: () => resolvedVariants.firstWhere(
+          orElse: () => rankedVariants.firstWhere(
             (v) => prefersDub
                 ? (v.audio.isDub || v.audio.code == 'en')
                 : v.audio.isOriginal,
-            orElse: () => resolvedVariants.firstWhere(
+            orElse: () => rankedVariants.firstWhere(
               (v) => v.audio.isOriginal,
-              orElse: () => resolvedVariants.first,
+              orElse: () => rankedVariants.first,
             ),
           ),
         );
@@ -341,12 +419,13 @@ class StreamOrchestrator {
           match: match,
           episode: resolvedTargetEpisode,
           activeProvider: provider,
-          variants: resolvedVariants,
+          variants: rankedVariants,
           selectedVariant: selectedVariant,
           selectedAudio: selectedVariant.audio,
           selectedSubtitle: selectedSubtitle,
           selectedQuality: selectedQuality,
           candidateMatches: allCandidates,
+          latencyResults: latencyResults,
         );
         _cacheResolution(cacheKey, result);
         return result;
@@ -406,7 +485,15 @@ class StreamOrchestrator {
     // 3. Query active provider
     final enabled = registry.getOrderedEnabledProviders();
     for (final provider in enabled) {
-      if (provider is MegaVidProvider) {
+      if (provider is AniFamProvider) {
+        try {
+          final matches = await provider.findTitle(anime);
+          if (matches.isNotEmpty) {
+            final dubCount = (matches.first.customData['dub'] as num?)?.toInt() ?? 0;
+            if (dubCount > 0) return true;
+          }
+        } catch (_) {}
+      } else if (provider is MegaVidProvider) {
         try {
           final matches = await provider.findTitle(anime);
           if (matches.isNotEmpty) {

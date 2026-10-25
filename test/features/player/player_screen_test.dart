@@ -19,6 +19,7 @@ import 'package:anime_stream/features/player/data/services/device_controls_servi
 import 'package:anime_stream/features/player/presentation/providers/player_engine_provider.dart';
 import 'package:anime_stream/features/player/presentation/screens/player_screen.dart';
 import 'package:anime_stream/features/player/presentation/widgets/next_episode_card.dart';
+import 'package:anime_stream/features/player/presentation/widgets/player_description_sheet.dart';
 import 'package:anime_stream/features/player/presentation/widgets/player_hud_overlays.dart';
 import 'package:anime_stream/features/player/presentation/widgets/player_more_options_sheet.dart';
 import 'package:anime_stream/features/player/presentation/widgets/player_settings_sheet.dart';
@@ -396,6 +397,25 @@ void main() {
 
       expect(find.byType(PlayerMoreOptionsSheet), findsOneWidget);
     });
+
+    testWidgets('opens YouTube-style description side panel when anime title tapped', (tester) async {
+      tester.view.physicalSize = const Size(1800, 900);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(buildPlayerScreen());
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      await tester.tap(find.text("Frieren: Beyond Journey's End"));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.byType(PlayerDescriptionSheet), findsOneWidget);
+      expect(find.text('Anime Synopsis & Info'), findsOneWidget);
+    });
   });
 
   group('PlayerScreen - Resume & Next Episode', () {
@@ -458,6 +478,87 @@ void main() {
       expect(find.byType(NextEpisodeCountdownCard), findsOneWidget);
       expect(find.text('Play Now'), findsOneWidget);
       expect(find.text('Cancel'), findsOneWidget);
+    });
+
+    testWidgets('floating lock button locks screen and unlock button restores controls', (tester) async {
+      tester.view.physicalSize = const Size(1800, 900);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(buildPlayerScreen());
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // Lock buttons are visible when controls are visible (top bar and floating lock)
+      expect(find.byIcon(Icons.lock_outline_rounded), findsWidgets);
+
+      // Tap lock button
+      await tester.tap(find.byIcon(Icons.lock_outline_rounded).first);
+      await tester.pump(const Duration(milliseconds: 200));
+
+      // Screen is now locked, controls are hidden, unlock button with "Tap to Unlock" is visible
+      expect(find.text('Tap to Unlock'), findsOneWidget);
+
+      // Tap unlock button
+      await tester.tap(find.text('Tap to Unlock'));
+      await tester.pump(const Duration(milliseconds: 200));
+
+      // Screen is unlocked, controls are restored
+      expect(find.byType(PlayerTopBar), findsOneWidget);
+    });
+
+    testWidgets('long press triggers 1.5x speed and displays 1.5X Speed overlay', (tester) async {
+      tester.view.physicalSize = const Size(1800, 900);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(buildPlayerScreen());
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final gesture = await tester.startGesture(const Offset(300, 300));
+      await tester.pump(const Duration(milliseconds: 600));
+
+      expect(find.byType(HoldSpeedPill), findsOneWidget);
+      expect(find.text('1.5X Speed'), findsOneWidget);
+      expect(mockEngine.playbackRate, 1.5);
+
+      await gesture.up();
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(find.byType(HoldSpeedPill), findsNothing);
+      expect(mockEngine.playbackRate, 1.0);
+    });
+
+    testWidgets('migrates legacy 2.0 speed from SharedPreferences to 1.5x', (tester) async {
+      const legacyJson = '{"longPressSpeed": 2.0}';
+      SharedPreferences.setMockInitialValues({'app_settings_v1': legacyJson});
+
+      tester.view.physicalSize = const Size(1800, 900);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(buildPlayerScreen());
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final gesture = await tester.startGesture(const Offset(300, 300));
+      await tester.pump(const Duration(milliseconds: 600));
+
+      expect(find.byType(HoldSpeedPill), findsOneWidget);
+      expect(find.text('1.5X Speed'), findsOneWidget);
+      expect(mockEngine.playbackRate, 1.5);
+
+      await gesture.up();
+      await tester.pump(const Duration(milliseconds: 200));
     });
   });
 }

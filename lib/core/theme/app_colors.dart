@@ -24,11 +24,11 @@ abstract final class AppColors {
   static const Color outlineVariant = Color(0xFF2B382B);         // Subtle dividers & cards
 
   // Accent Colors — Electric Lime & Neon Studio
-  static const Color accent = Color(0xFFC6F16D); // Electric lime primary accent
-  static const Color accentHover = Color(0xFFD4F870);
-  static const Color accentPressed = Color(0xFFAEE64B);
-  static const Color accentSoft = Color(0x29C6F16D); // 16% alpha lime
-  static const Color accentBorder = Color(0x66C6F16D); // 40% alpha lime border
+  static const Color accent = Color(0xFFB5F237); // Vibrant electric lime primary accent
+  static const Color accentHover = Color(0xFFC4F556);
+  static const Color accentPressed = Color(0xFFA5E626);
+  static const Color accentSoft = Color(0x29B5F237); // 16% alpha lime
+  static const Color accentBorder = Color(0x66B5F237); // 40% alpha lime border
 
   // Material 3 Tertiary Palette
   static const Color tertiary = Color(0xFF7CD5C8);
@@ -45,9 +45,50 @@ abstract final class AppColors {
   // Floating Nav Bar Tokens
   static const Color navBarBackground = Color(0xE60B0E0B); // Frosted obsidian surface (90% alpha)
   static const Color navBarBorder = Color(0x55263526); // Studio green-carbon 1px border
-  static const Color navBarActivePill = Color(0xFFC6F16D); // Electric lime active tab capsule
-  static const Color navBarActiveBorder = Color(0xFFD4F870);
+  static const Color navBarActivePill = Color(0xFFB5F237); // Electric lime active tab capsule
+  static const Color navBarActiveBorder = Color(0xFFC4F556);
   static const Color navBarActiveIcon = Color(0xFF0B0E0B); // Pitch black icon inside lime capsule
+
+  // PRO Badge Tokens
+  static const Color proBadgeBg = Color(0xFF1B2E15);
+  static const Color proBadgeBorder = Color(0xFFB5F237);
+  static const Color proBadgeText = Color(0xFFB5F237);
+
+  // Online Indicator
+  static const Color onlineDot = Color(0xFF22C55E);
+
+  // Themed Genre Card Tokens
+  static const Color genreActionBg = Color(0xFF2A1518);
+  static const Color genreActionBorder = Color(0xFF5A252B);
+  static const Color genreActionColor = Color(0xFFE57373);
+
+  static const Color genreAdventureBg = Color(0xFF261D10);
+  static const Color genreAdventureBorder = Color(0xFF59401C);
+  static const Color genreAdventureColor = Color(0xFFFFD54F);
+
+  static const Color genreFantasyBg = Color(0xFF221730);
+  static const Color genreFantasyBorder = Color(0xFF4C2F6A);
+  static const Color genreFantasyColor = Color(0xFFBA68C8);
+
+  static const Color genreRomanceBg = Color(0xFF2B141F);
+  static const Color genreRomanceBorder = Color(0xFF5C263F);
+  static const Color genreRomanceColor = Color(0xFFF06292);
+
+  static const Color genreComedyBg = Color(0xFF2B1E12);
+  static const Color genreComedyBorder = Color(0xFF5D3E1F);
+  static const Color genreComedyColor = Color(0xFFFFB74D);
+
+  static const Color genreThrillerBg = Color(0xFF13222B);
+  static const Color genreThrillerBorder = Color(0xFF22485E);
+  static const Color genreThrillerColor = Color(0xFF4DD0E1);
+
+  static const Color genreSciFiBg = Color(0xFF101B2B);
+  static const Color genreSciFiBorder = Color(0xFF1B3455);
+  static const Color genreSciFiColor = Color(0xFF64B5F6);
+
+  static const Color genreKDramaBg = Color(0xFF182810);
+  static const Color genreKDramaBorder = Color(0xFF32521B);
+  static const Color genreKDramaColor = Color(0xFFB5F237);
 
   // Typography Colors (WCAG AAA/AA Compliant)
   static const Color textPrimary = Color(0xFFF1F5F1); // Crisp off-white
@@ -69,4 +110,5 @@ abstract final class AppColors {
   static const Color ratingStar = Color(0xFFFFB800); // Warm gold
   static const Color ratingBadge = Color(0xCC0E130E); // Dark translucent pill
   static const Color liveBadge = Color(0xFF22C55E); // Live green badge
+  static const Color rankBadgeBg = Color(0x990D120D); // Rank number container
 }

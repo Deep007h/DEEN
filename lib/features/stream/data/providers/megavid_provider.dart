@@ -24,8 +24,8 @@ class MegaVidProvider implements StreamProvider {
             Dio(
               BaseOptions(
                 baseUrl: defaultBaseUrl,
-                connectTimeout: const Duration(seconds: 5),
-                receiveTimeout: const Duration(seconds: 8),
+                connectTimeout: const Duration(seconds: 4),
+                receiveTimeout: const Duration(seconds: 6),
                 headers: {
                   'Referer': '$defaultBaseUrl/',
                   'User-Agent': EmbedStreamResolver.defaultUserAgent,
@@ -101,6 +101,27 @@ class MegaVidProvider implements StreamProvider {
     final cached = _matchMemoryCache[anime.id];
     if (cached != null && cached.isNotEmpty) {
       return cached;
+    }
+
+    final isKDrama = anime.platform == 'K-Drama' ||
+        anime.tags.any((t) => t.name.toLowerCase() == 'k-drama') ||
+        anime.tags.any((t) => t.name.toLowerCase() == 'drama');
+    if (isKDrama) {
+      final matches = [
+        SourceMatch(
+          id: anime.id.toString(),
+          title: anime.titles.preferredTitle(),
+          providerId: id,
+          episodeCount: anime.eps,
+          confidenceScore: 1.0,
+          customData: {
+            'sourceType': 'kisskh',
+            if (anime.posterUrl != null) 'thumb': anime.posterUrl,
+          },
+        ),
+      ];
+      _matchMemoryCache[anime.id] = matches;
+      return matches;
     }
 
     final queries = <String>[];
@@ -281,9 +302,47 @@ class MegaVidProvider implements StreamProvider {
             );
           }).toList();
           if (result.isNotEmpty) {
+            result.sort((a, b) => a.number.compareTo(b.number));
             _episodeMemoryCache[match.id] = result;
+            return result;
           }
-          return result;
+        }
+      } catch (_) {}
+
+      // Fallback to kisskh.co directly
+      try {
+        final resp = await _dio.get<Map<String, dynamic>>(
+          'https://kisskh.co/api/DramaList/Drama/${match.id}',
+          options: Options(
+            headers: {'Referer': 'https://kisskh.co/'},
+          ),
+        );
+        final data = resp.data;
+        if (data != null && data['episodes'] is List) {
+          final eps = data['episodes'] as List;
+          final result = <SourceEpisode>[];
+          for (final item in eps) {
+            if (item is! Map) continue;
+            final map = item.cast<String, dynamic>();
+            final epId = (map['id'] ?? '').toString();
+            final numVal = (map['number'] as num?)?.toDouble() ?? 1.0;
+            final epNum = numVal.toInt();
+            result.add(
+              SourceEpisode(
+                id: epId,
+                number: epNum,
+                title: 'Episode $epNum',
+                matchId: match.id,
+                providerId: id,
+                customData: {'kisskhEpId': epId},
+              ),
+            );
+          }
+          if (result.isNotEmpty) {
+            result.sort((a, b) => a.number.compareTo(b.number));
+            _episodeMemoryCache[match.id] = result;
+            return result;
+          }
         }
       } catch (_) {}
     }
@@ -585,6 +644,7 @@ class MegaVidProvider implements StreamProvider {
 
       final code = _langCodeFromLabel(label);
       final isDefault = t['default'] == true || code == 'en';
+      final isSrt = file.toLowerCase().endsWith('.srt');
 
       list.add(
         SubtitleTrack(
@@ -592,7 +652,7 @@ class MegaVidProvider implements StreamProvider {
           languageCode: code,
           label: label,
           url: file,
-          format: SubtitleFormat.vtt,
+          format: isSrt ? SubtitleFormat.srt : SubtitleFormat.vtt,
           isDefault: isDefault,
         ),
       );

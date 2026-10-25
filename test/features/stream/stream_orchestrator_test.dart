@@ -2,6 +2,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:anime_stream/features/metadata/domain/models/anime_detail.dart';
 import 'package:anime_stream/features/metadata/domain/models/anime_titles.dart';
+import 'package:anime_stream/features/metadata/domain/models/episode.dart';
+import 'package:anime_stream/features/stream/domain/models/audio_language.dart';
+import 'package:anime_stream/features/stream/domain/models/quality_option.dart';
 import 'package:anime_stream/features/stream/domain/models/source_episode.dart';
 import 'package:anime_stream/features/stream/domain/models/source_match.dart';
 import 'package:anime_stream/features/stream/domain/models/stream_provider.dart';
@@ -135,5 +138,107 @@ void main() {
         throwsA(isA<StreamResolutionException>()),
       );
     });
+
+    test('Routes K-Drama exclusively to megavid provider without Demo fallback', () async {
+      const kdramaAnime = AnimeDetail(
+        id: 8714,
+        titles: AnimeTitles(
+          original: 'Queen of Tears',
+          english: 'Queen of Tears',
+        ),
+        platform: 'K-Drama',
+        eps: 16,
+      );
+
+      // Since registry in setUp only has 'failing' and 'demo', megavid is not present,
+      // so candidateProviders for K-Drama has 0 providers, and it must throw StreamResolutionException
+      // without ever attempting Demo (Frieren).
+      expect(
+        () => orchestrator.resolveEpisode(anime: kdramaAnime, episodeNumber: 1),
+        throwsA(isA<StreamResolutionException>()),
+      );
+
+      final logs = diagnostics.currentSessionLogs;
+      expect(logs.any((l) => l.message.contains('Demo')), isFalse);
+    });
+
+    test('Resolves K-Drama KissKH /vid/ stream successfully for Teach You a Lesson', () async {
+      final kdramaRegistry = StreamProviderRegistry(prefs, [
+        _MockMegaVidKdramaProvider(),
+      ]);
+      await kdramaRegistry.setProviderEnabled('megavid', true);
+
+      final kdramaOrchestrator = StreamOrchestrator(
+        registry: kdramaRegistry,
+        matchRepo: matchRepo,
+        prefsRepo: prefsRepo,
+        diagnostics: diagnostics,
+      );
+
+      const dramaDetail = AnimeDetail(
+        id: 12864,
+        titles: AnimeTitles(
+          original: 'Teach You a Lesson (2026)',
+          english: 'Teach You a Lesson (2026)',
+        ),
+        platform: 'K-Drama',
+        eps: 10,
+        episodes: [
+          Episode(id: 214619, number: 1, sort: 1, title: 'Episode 1'),
+        ],
+      );
+
+      final result = await kdramaOrchestrator.resolveEpisode(
+        anime: dramaDetail,
+        episodeNumber: 1,
+        preferredProviderId: 'megavid',
+      );
+
+      expect(result.selectedVariant.url, contains('/vid/'));
+      expect(result.selectedVariant.url, contains('Ep1.v713_index.m3u8'));
+      expect(result.selectedAudio.code, 'ko');
+    });
   });
+}
+
+class _MockMegaVidKdramaProvider implements StreamProvider {
+  @override
+  String get id => 'megavid';
+  @override
+  String get displayName => 'MegaVid (KissKH)';
+
+  @override
+  Future<List<SourceMatch>> findTitle(AnimeDetail anime) async => [
+        SourceMatch(
+          id: anime.id.toString(),
+          title: anime.titles.preferredTitle(),
+          providerId: 'megavid',
+          episodeCount: anime.eps,
+          customData: const {'sourceType': 'kisskh'},
+        ),
+      ];
+
+  @override
+  Future<List<SourceEpisode>> episodes(SourceMatch match) async => [
+        SourceEpisode(
+          id: '214619',
+          number: 1,
+          title: 'Episode 1',
+          matchId: match.id,
+          providerId: id,
+          customData: const {'kisskhEpId': '214619'},
+        ),
+      ];
+
+  @override
+  Future<List<StreamVariant>> resolve(SourceEpisode episode) async => const [
+        StreamVariant(
+          url: 'https://megavid.buzz/vid/cFdbzGmw.../Ep1.v713_index.m3u8',
+          headers: {'Referer': 'https://megavid.buzz/kisskh/214619'},
+          audio: AudioLanguage.koreanOriginal,
+          qualities: [
+            QualityOption(label: 'Auto', height: 1080, isAuto: true),
+          ],
+        ),
+      ];
 }

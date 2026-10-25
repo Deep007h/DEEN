@@ -433,6 +433,7 @@ query ($page: Int, $sort: [MediaSort], $status: MediaStatus, $genre: String, $ta
 
   /// Fetches featured banner anime with high-res art and synopsis for the Home hero carousel.
   Future<List<FeaturedAnimeItem>> getFeaturedAnime({
+    int page = 1,
     int limit = 6,
     CancelToken? cancelToken,
   }) async {
@@ -442,6 +443,7 @@ query ($page: Int, $sort: [MediaSort], $status: MediaStatus, $genre: String, $ta
         data: {
           'query': _pageCatalogQuery,
           'variables': {
+            'page': page,
             'sort': ['TRENDING_DESC', 'POPULARITY_DESC'],
             'perPage': limit,
           },
@@ -500,11 +502,13 @@ query ($page: Int, $sort: [MediaSort], $status: MediaStatus, $genre: String, $ta
 
   /// Fetches trending anime sorted by real-time AniList trending index.
   Future<List<AnimeSummary>> getTrendingAnime({
+    int page = 1,
     int limit = 10,
     CancelToken? cancelToken,
   }) async {
     return _fetchCatalogList(
       sort: ['TRENDING_DESC', 'POPULARITY_DESC'],
+      page: page,
       limit: limit,
       cancelToken: cancelToken,
     );
@@ -512,11 +516,13 @@ query ($page: Int, $sort: [MediaSort], $status: MediaStatus, $genre: String, $ta
 
   /// Fetches highest-rated anime of all time.
   Future<List<AnimeSummary>> getTopRatedAnime({
+    int page = 1,
     int limit = 10,
     CancelToken? cancelToken,
   }) async {
     return _fetchCatalogList(
       sort: ['SCORE_DESC'],
+      page: page,
       limit: limit,
       cancelToken: cancelToken,
     );
@@ -524,12 +530,14 @@ query ($page: Int, $sort: [MediaSort], $status: MediaStatus, $genre: String, $ta
 
   /// Fetches recently released / actively airing anime.
   Future<List<AnimeSummary>> getRecentlyUpdatedAnime({
+    int page = 1,
     int limit = 10,
     CancelToken? cancelToken,
   }) async {
     return _fetchCatalogList(
       sort: ['POPULARITY_DESC'],
       status: 'RELEASING',
+      page: page,
       limit: limit,
       cancelToken: cancelToken,
     );
@@ -538,12 +546,14 @@ query ($page: Int, $sort: [MediaSort], $status: MediaStatus, $genre: String, $ta
   /// Fetches anime for a specific genre (Action, Adventure, Fantasy, Romance, etc.).
   Future<List<AnimeSummary>> getAnimeByGenre(
     String genre, {
+    int page = 1,
     int limit = 10,
     CancelToken? cancelToken,
   }) async {
     return _fetchCatalogList(
       sort: ['POPULARITY_DESC'],
       genre: genre,
+      page: page,
       limit: limit,
       cancelToken: cancelToken,
     );

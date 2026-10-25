@@ -15,15 +15,43 @@ class MetadataRepositoryImpl implements MetadataRepository {
   final BangumiRemoteDataSource bangumiDataSource;
   final AniListRemoteDataSource anilistDataSource;
   final MetadataCache cache;
+  final Dio _kshowDio;
   final Map<int, String> _idSourceMap = {};
+  final Map<int, dynamic> _kshowMatches = {};
 
   MetadataRepositoryImpl({
     BangumiRemoteDataSource? bangumi,
     AniListRemoteDataSource? anilist,
     MetadataCache? cache,
+    Dio? kshowDio,
   })  : bangumiDataSource = bangumi ?? BangumiRemoteDataSource(),
         anilistDataSource = anilist ?? AniListRemoteDataSource(),
-        cache = cache ?? MetadataCache();
+        cache = cache ?? MetadataCache(),
+        _kshowDio = kshowDio ??
+            Dio(
+              BaseOptions(
+                connectTimeout: const Duration(seconds: 6),
+                receiveTimeout: const Duration(seconds: 8),
+                headers: {
+                  'User-Agent':
+                      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                  'Accept': 'application/json, text/plain, */*',
+                },
+              ),
+            );
+
+  @override
+  void recordKShowMatch(dynamic match) {
+    if (match == null) return;
+    try {
+      final idStr = (match.id ?? '').toString();
+      final id = int.tryParse(idStr);
+      if (id != null) {
+        _kshowMatches[id] = match;
+        _recordSourceOrigin(id, 'kisskh');
+      }
+    } catch (_) {}
+  }
 
   void _recordSourceOrigin(int id, String origin) {
     _idSourceMap[id] = origin;
@@ -132,6 +160,11 @@ class MetadataRepositoryImpl implements MetadataRepository {
     if (cached != null) return cached;
 
     final sourceOrigin = _getSourceOrigin(id);
+
+    // If this ID is known to be from KissKH / MegaVid K-Show, route directly
+    if (sourceOrigin == 'kisskh' || _kshowMatches.containsKey(id)) {
+      return getKShowDetail(id, cancelToken: cancelToken);
+    }
 
     // If this ID is known to be from Bangumi, prioritize Bangumi to avoid AniList ID space collisions
     if (sourceOrigin == 'bangumi') {
@@ -320,8 +353,180 @@ class MetadataRepositoryImpl implements MetadataRepository {
         }
       } catch (_) {}
 
+      // Fallback: check if this is a K-Show drama from KissKH / MegaVid
+      try {
+        final kshow = await getKShowDetail(id, cancelToken: cancelToken);
+        if (kshow.episodes.isNotEmpty) return kshow;
+      } catch (_) {}
+
       rethrow;
     }
+  }
+
+  @override
+  Future<AnimeDetail> getKShowDetail(
+    int id, {
+    CancelToken? cancelToken,
+  }) async {
+    final cacheKey = 'kshow_detail_$id';
+    final cached = cache.get<AnimeDetail>(cacheKey);
+    if (cached != null) return cached;
+
+    final preMatch = _kshowMatches[id];
+    String title = preMatch?.title?.toString() ?? 'K-Drama #$id';
+    String? posterUrl = preMatch?.customData?['thumb']?.toString();
+    String? summary;
+    String? country;
+    String? status = 'Completed';
+    String? releaseDate;
+    final List<Episode> episodeList = [];
+
+    // 1. Try KissKH API first (full details: description, status, country, episodes)
+    try {
+      final resp = await _kshowDio.get<dynamic>(
+        'https://kisskh.co/api/DramaList/Drama/$id',
+        cancelToken: cancelToken,
+        options: Options(
+          followRedirects: true,
+          headers: {
+            'Referer': 'https://kisskh.co/',
+          },
+        ),
+      );
+
+      final data = resp.data is Map ? (resp.data as Map).cast<String, dynamic>() : null;
+      if (data != null) {
+        if (data['title'] != null && data['title'].toString().trim().isNotEmpty) {
+          title = data['title'].toString().trim();
+        }
+        if (data['thumbnail'] != null && data['thumbnail'].toString().trim().isNotEmpty) {
+          posterUrl = data['thumbnail'].toString().trim();
+        }
+        if (data['description'] != null && data['description'].toString().trim().isNotEmpty) {
+          summary = data['description'].toString().trim();
+        }
+        if (data['country'] != null) country = data['country'].toString();
+        if (data['status'] != null) status = data['status'].toString();
+        if (data['releaseDate'] != null) {
+          final rawDate = data['releaseDate'].toString();
+          releaseDate = rawDate.contains('T') ? rawDate.split('T').first : rawDate;
+        }
+        if (data['type'] != null) {
+          final t = data['type'].toString();
+          country = country != null ? '$country • ${t == 'TVSeries' ? 'TV Series' : t}' : t;
+        }
+
+        if (data['episodes'] is List) {
+          final rawEps = data['episodes'] as List;
+          for (final item in rawEps) {
+            if (item is! Map) continue;
+            final epId = (item['id'] as num?)?.toInt() ?? 0;
+            final numVal = (item['number'] as num?)?.toDouble() ?? 1.0;
+            final epNum = numVal;
+            final epInt = epNum.toInt();
+            final epTitle = epNum == epInt ? 'Episode $epInt' : 'Episode $epNum';
+            episodeList.add(
+              Episode(
+                id: epId != 0 ? epId : (id * 1000 + epInt),
+                number: epNum,
+                sort: epInt,
+                title: epTitle,
+              ),
+            );
+          }
+        }
+      }
+    } catch (_) {}
+
+    // 2. If episodes still empty, try megavid.buzz/api/kshow-eps?id=$id
+    if (episodeList.isEmpty) {
+      try {
+        final resp = await _kshowDio.get<dynamic>(
+          'https://megavid.buzz/api/kshow-eps',
+          queryParameters: {'id': id},
+          cancelToken: cancelToken,
+          options: Options(
+            headers: {'Referer': 'https://megavid.buzz/'},
+          ),
+        );
+        final data = resp.data is Map ? (resp.data as Map).cast<String, dynamic>() : null;
+        if (data != null) {
+          if (data['title'] != null && data['title'].toString().trim().isNotEmpty) {
+            title = data['title'].toString().trim();
+          }
+          if (data['episodes'] is List) {
+            final rawEps = data['episodes'] as List;
+            for (final item in rawEps) {
+              if (item is! Map) continue;
+              final epId = (item['id'] as num?)?.toInt() ?? 0;
+              final numVal = (item['number'] as num?)?.toDouble() ?? 1.0;
+              final epNum = numVal;
+              final epInt = epNum.toInt();
+              final epTitle = epNum == epInt ? 'Episode $epInt' : 'Episode $epNum';
+              episodeList.add(
+                Episode(
+                  id: epId != 0 ? epId : (id * 1000 + epInt),
+                  number: epNum,
+                  sort: epInt,
+                  title: epTitle,
+                ),
+              );
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    // Sort episodes ascending (Episode 1, 2, 3...)
+    episodeList.sort((a, b) => a.number.compareTo(b.number));
+
+    // Fallback if episodes list is still empty
+    final totalEps = episodeList.isNotEmpty ? episodeList.length : ((preMatch?.episodeCount as int?) ?? 16);
+    if (episodeList.isEmpty) {
+      for (int i = 1; i <= totalEps; i++) {
+        episodeList.add(
+          Episode(
+            id: id * 1000 + i,
+            number: i.toDouble(),
+            sort: i,
+            title: 'Episode $i',
+          ),
+        );
+      }
+    }
+
+    final detail = AnimeDetail(
+      id: id,
+      titles: AnimeTitles(
+        original: title,
+        english: title,
+        localized: title,
+      ),
+      posterUrl: posterUrl,
+      bannerUrl: posterUrl,
+      summary: summary ?? 'Korean Drama series available on KissKH / MegaVid.',
+      score: 8.4,
+      ratingCount: 148,
+      eps: episodeList.length,
+      airDate: releaseDate,
+      platform: 'K-Drama',
+      tags: [
+        const AnimeTag(name: 'K-Drama', count: 0),
+        AnimeTag(name: country ?? 'South Korea', count: 0),
+        if (status != null && status.isNotEmpty) AnimeTag(name: status, count: 0),
+      ],
+      episodes: episodeList,
+      seasons: [
+        Season(
+          id: id,
+          name: title,
+          isCurrent: true,
+        ),
+      ],
+    );
+
+    cache.set(cacheKey, detail, MetadataCache.detailTtl);
+    return detail;
   }
 
   @override
@@ -392,17 +597,30 @@ class MetadataRepositoryImpl implements MetadataRepository {
     }
   }
 
+  List<T> _rotateCurated<T>(List<T> list, int page, int limit) {
+    if (list.isEmpty) return [];
+    if (list.length <= limit) return list;
+    final offset = ((page - 1) * limit) % list.length;
+    final rotated = [...list.sublist(offset), ...list.sublist(0, offset)];
+    return rotated.take(limit).toList();
+  }
+
   @override
   Future<List<FeaturedAnimeItem>> getFeaturedAnime({
+    int page = 1,
     int limit = 6,
+    bool forceRefresh = false,
     CancelToken? cancelToken,
   }) async {
-    const cacheKey = 'home_featured';
-    final cached = cache.get<List<FeaturedAnimeItem>>(cacheKey);
-    if (cached != null && cached.isNotEmpty) return cached;
+    final cacheKey = 'home_featured_p$page';
+    if (!forceRefresh) {
+      final cached = cache.get<List<FeaturedAnimeItem>>(cacheKey);
+      if (cached != null && cached.isNotEmpty) return cached;
+    }
 
     try {
       final items = await anilistDataSource.getFeaturedAnime(
+        page: page,
         limit: limit,
         cancelToken: cancelToken,
       );
@@ -414,20 +632,25 @@ class MetadataRepositoryImpl implements MetadataRepository {
 
     final stale = cache.getStale<List<FeaturedAnimeItem>>(cacheKey);
     if (stale != null && stale.isNotEmpty) return stale;
-    return _curatedFeatured.take(limit).toList();
+    return _rotateCurated(_curatedFeatured, page, limit);
   }
 
   @override
   Future<List<AnimeSummary>> getTrendingAnime({
+    int page = 1,
     int limit = 10,
+    bool forceRefresh = false,
     CancelToken? cancelToken,
   }) async {
-    const cacheKey = 'home_trending';
-    final cached = cache.get<List<AnimeSummary>>(cacheKey);
-    if (cached != null && cached.isNotEmpty) return cached;
+    final cacheKey = 'home_trending_p$page';
+    if (!forceRefresh) {
+      final cached = cache.get<List<AnimeSummary>>(cacheKey);
+      if (cached != null && cached.isNotEmpty) return cached;
+    }
 
     try {
       final items = await anilistDataSource.getTrendingAnime(
+        page: page,
         limit: limit,
         cancelToken: cancelToken,
       );
@@ -439,20 +662,25 @@ class MetadataRepositoryImpl implements MetadataRepository {
 
     final stale = cache.getStale<List<AnimeSummary>>(cacheKey);
     if (stale != null && stale.isNotEmpty) return stale;
-    return _curatedTrending.take(limit).toList();
+    return _rotateCurated(_curatedTrending, page, limit);
   }
 
   @override
   Future<List<AnimeSummary>> getTopRatedAnime({
+    int page = 1,
     int limit = 10,
+    bool forceRefresh = false,
     CancelToken? cancelToken,
   }) async {
-    const cacheKey = 'home_top_rated';
-    final cached = cache.get<List<AnimeSummary>>(cacheKey);
-    if (cached != null && cached.isNotEmpty) return cached;
+    final cacheKey = 'home_top_rated_p$page';
+    if (!forceRefresh) {
+      final cached = cache.get<List<AnimeSummary>>(cacheKey);
+      if (cached != null && cached.isNotEmpty) return cached;
+    }
 
     try {
       final items = await anilistDataSource.getTopRatedAnime(
+        page: page,
         limit: limit,
         cancelToken: cancelToken,
       );
@@ -464,20 +692,25 @@ class MetadataRepositoryImpl implements MetadataRepository {
 
     final stale = cache.getStale<List<AnimeSummary>>(cacheKey);
     if (stale != null && stale.isNotEmpty) return stale;
-    return _curatedTrending.reversed.take(limit).toList();
+    return _rotateCurated(_curatedTrending.reversed.toList(), page, limit);
   }
 
   @override
   Future<List<AnimeSummary>> getRecentlyUpdatedAnime({
+    int page = 1,
     int limit = 10,
+    bool forceRefresh = false,
     CancelToken? cancelToken,
   }) async {
-    const cacheKey = 'home_recently_updated';
-    final cached = cache.get<List<AnimeSummary>>(cacheKey);
-    if (cached != null && cached.isNotEmpty) return cached;
+    final cacheKey = 'home_recently_updated_p$page';
+    if (!forceRefresh) {
+      final cached = cache.get<List<AnimeSummary>>(cacheKey);
+      if (cached != null && cached.isNotEmpty) return cached;
+    }
 
     try {
       final items = await anilistDataSource.getRecentlyUpdatedAnime(
+        page: page,
         limit: limit,
         cancelToken: cancelToken,
       );
@@ -489,34 +722,94 @@ class MetadataRepositoryImpl implements MetadataRepository {
 
     final stale = cache.getStale<List<AnimeSummary>>(cacheKey);
     if (stale != null && stale.isNotEmpty) return stale;
-    return _curatedTrending.take(limit).toList();
+    return _rotateCurated(_curatedTrending, page, limit);
   }
 
   @override
   Future<List<AnimeSummary>> getAnimeByGenre(
     String genre, {
+    int page = 1,
     int limit = 10,
+    bool forceRefresh = false,
     CancelToken? cancelToken,
   }) async {
-    final cacheKey = 'genre_$genre';
-    final cached = cache.get<List<AnimeSummary>>(cacheKey);
-    if (cached != null && cached.isNotEmpty) return cached;
+    final isKDrama = genre.toLowerCase() == 'k-drama' || genre.toLowerCase() == 'kdrama';
+    final cacheKey = 'genre_${genre}_p$page';
+    if (!forceRefresh) {
+      final cached = cache.get<List<AnimeSummary>>(cacheKey);
+      if (cached != null && cached.isNotEmpty) return cached;
+    }
 
-    try {
-      final items = await anilistDataSource.getAnimeByGenre(
-        genre,
-        limit: limit,
-        cancelToken: cancelToken,
-      );
-      if (items.isNotEmpty) {
-        cache.set(cacheKey, items, MetadataCache.searchTtl);
-        return items;
-      }
-    } catch (_) {}
+    if (isKDrama) {
+      try {
+        final res = await _kshowDio.get(
+          'https://kisskh.co/api/DramaList/List',
+          queryParameters: {
+            'page': page,
+            'type': 0,
+            'sub': 0,
+            'country': 2,
+            'status': 0,
+            'order': 1,
+            'pageSize': limit,
+          },
+          options: Options(headers: {'Referer': 'https://kisskh.co/'}),
+          cancelToken: cancelToken,
+        );
+        final data = res.data;
+        List itemsList = [];
+        if (data is Map && data['data'] is List) {
+          itemsList = data['data'];
+        } else if (data is List) {
+          itemsList = data;
+        }
+        final kdramas = <AnimeSummary>[];
+        for (final item in itemsList) {
+          final id = item['id'];
+          if (id == null) continue;
+          final intId = id is int ? id : int.tryParse(id.toString()) ?? 0;
+          if (intId == 0) continue;
+          final title = (item['title'] ?? item['name'] ?? '').toString();
+          final thumbnail = (item['thumbnail'] ?? '').toString();
+          final epCount = item['episodesCount'] ?? item['totalEpisodes'] ?? 0;
+
+          // Record as KShow match so details and playback work immediately
+          recordKShowMatch(item);
+
+          kdramas.add(
+            AnimeSummary(
+              id: intId,
+              titles: AnimeTitles(original: title, english: title, localized: title),
+              posterUrl: thumbnail,
+              score: 8.5,
+              eps: epCount is int ? epCount : int.tryParse(epCount.toString()) ?? 0,
+              platform: 'K-Drama',
+            ),
+          );
+        }
+        if (kdramas.isNotEmpty) {
+          cache.set(cacheKey, kdramas, MetadataCache.searchTtl);
+          return kdramas;
+        }
+      } catch (_) {}
+    } else {
+      try {
+        final items = await anilistDataSource.getAnimeByGenre(
+          genre,
+          page: page,
+          limit: limit,
+          cancelToken: cancelToken,
+        );
+        if (items.isNotEmpty) {
+          cache.set(cacheKey, items, MetadataCache.searchTtl);
+          return items;
+        }
+      } catch (_) {}
+    }
 
     final stale = cache.getStale<List<AnimeSummary>>(cacheKey);
     if (stale != null && stale.isNotEmpty) return stale;
-    return _curatedTrending.take(limit).toList();
+    return _rotateCurated(_curatedTrending, page, limit);
   }
 
   @override

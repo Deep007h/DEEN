@@ -128,8 +128,8 @@ void main() {
     await tester.tap(find.text("Frieren: Beyond Journey's End"));
     await tester.pumpAndSettle();
 
-    // 4. Verify Detail Screen has "Source: Demo ▼" chip
-    expect(find.text('Source: Demo ▼'), findsOneWidget);
+    // 4. Verify Detail Screen has Server 1 chip
+    expect(find.textContaining('Server 1'), findsOneWidget);
 
     // 5. Scroll down to episode list and switch to list view
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
@@ -144,9 +144,9 @@ void main() {
     await tester.pumpAndSettle();
 
     // 6. Verify Player Screen content
-    // Verify matched catalog title and provider source in top bar
+    // Verify matched catalog title and episode subtitle in top bar
     expect(find.text("Frieren: Beyond Journey's End"), findsWidgets);
-    expect(find.textContaining('Demo (Public Test Streams)'), findsWidgets);
+    expect(find.textContaining('Episode 01'), findsWidgets);
 
     // Verify center controls (Replay-10, Play/Pause, Forward-10)
     expect(find.byIcon(Icons.replay_10_rounded), findsOneWidget);

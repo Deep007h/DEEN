@@ -105,6 +105,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         cancelToken: cancelToken,
       );
       if (mounted && !cancelToken.isCancelled && cancelToken == _kshowCancelToken) {
+        for (final m in results) {
+          ref.read(metadataRepositoryProvider).recordKShowMatch(m);
+        }
         setState(() {
           _kshowResults = results;
           _isKShowLoading = false;
@@ -569,7 +572,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       return _KShowPosterCard(
                         match: match,
                         onTap: () {
-                          context.push('/player?animeId=${match.id}&ep=1&provider=megavid');
+                          ref.read(metadataRepositoryProvider).recordKShowMatch(match);
+                          final thumb = match.customData['thumb'] as String?;
+                          context.push(
+                            '/anime/${match.id}?isKShow=true',
+                            extra: {
+                              'posterUrl': thumb,
+                              'title': match.title,
+                              'isKShow': true,
+                              'match': match,
+                            },
+                          );
                         },
                       );
                     },
@@ -750,7 +763,7 @@ class _PosterGridCard extends StatelessWidget {
                 children: [
                   Hero(
                     tag: 'poster_${anime.id}',
-                    createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
+                    createRectTween: smoothHeroRectTween,
                     flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
                     child: anime.posterUrl != null && anime.posterUrl!.isNotEmpty
                         ? CachedNetworkImage(

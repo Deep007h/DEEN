@@ -615,6 +615,21 @@ class _SectionHeader extends StatelessWidget {
           Expanded(
             child: Row(
               children: [
+                Container(
+                  width: 3.5,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    color: AppColors.accent,
+                    borderRadius: BorderRadius.circular(2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.accent.withValues(alpha: 0.5),
+                        blurRadius: 6,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
                 Flexible(
                   child: Text(
                     title,
@@ -724,7 +739,7 @@ class _ExploreHeroSpotlight extends StatelessWidget {
                 // Backdrop banner image
                 Hero(
                   tag: heroTag,
-                  createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
+                  createRectTween: smoothHeroRectTween,
                   flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
                   child: CachedNetworkImage(
                     imageUrl: hero.bannerUrl ?? hero.posterUrl ?? '',
@@ -932,7 +947,7 @@ class _ExplorePosterCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(13),
                         child: Hero(
                           tag: heroTag,
-                          createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
+                          createRectTween: smoothHeroRectTween,
                           flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
                           child: CachedNetworkImage(
                             imageUrl: item.posterUrl ?? '',
@@ -1072,7 +1087,7 @@ class _CatalogGridCard extends StatelessWidget {
                     children: [
                       Hero(
                         tag: heroTag,
-                        createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
+                        createRectTween: smoothHeroRectTween,
                         flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
                         child: CachedNetworkImage(
                           imageUrl: item.posterUrl ?? '',
@@ -1212,7 +1227,7 @@ class _CatalogListCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 child: Hero(
                   tag: heroTag,
-                  createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
+                  createRectTween: smoothHeroRectTween,
                   flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
                   child: CachedNetworkImage(
                     imageUrl: item.posterUrl ?? '',
@@ -1326,7 +1341,7 @@ class _CatalogWideCard extends StatelessWidget {
               children: [
                 Hero(
                   tag: heroTag,
-                  createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
+                  createRectTween: smoothHeroRectTween,
                   flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
                   child: CachedNetworkImage(
                     imageUrl: item.posterUrl ?? '',

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -15,12 +16,12 @@ import '../../../../core/theme/app_text.dart';
 import '../../../stream/domain/models/audio_language.dart';
 import '../../../stream/domain/models/subtitle_track.dart';
 import '../../../stream/domain/orchestration/stream_orchestrator.dart';
-import '../../../stream/domain/resolvers/embed_stream_resolver.dart';
 import '../../../stream/presentation/providers/stream_providers.dart';
 import '../../../metadata/presentation/providers/metadata_providers.dart';
 import '../../../settings/data/repositories/app_settings_repository.dart';
 import '../../data/repositories/playback_history_repository.dart';
 import '../../data/services/device_controls_service.dart';
+import '../../../downloads/presentation/providers/download_providers.dart';
 import '../../domain/engine/video_playback_engine.dart';
 import '../../domain/gestures/player_gesture_math.dart';
 import '../providers/player_engine_provider.dart';
@@ -28,6 +29,7 @@ import '../widgets/episode_selector_sheet.dart';
 import '../widgets/next_episode_card.dart';
 import '../widgets/player_bottom_bar.dart';
 import '../widgets/player_center_controls.dart';
+import '../widgets/player_description_sheet.dart';
 import '../widgets/player_hud_overlays.dart';
 import '../widgets/player_more_options_sheet.dart';
 import '../widgets/player_settings_sheet.dart';
@@ -48,12 +50,15 @@ class PlayerScreen extends ConsumerStatefulWidget {
   final String? preferredProviderId;
   final bool? defaultToEmbed;
 
+  final bool isKShow;
+
   const PlayerScreen({
     super.key,
     this.animeId = 400602,
     this.episodeNumber = 1,
     this.preferredProviderId,
     this.defaultToEmbed,
+    this.isKShow = false,
   });
 
   @override
@@ -132,6 +137,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   bool _showSettingsSheet = false;
   bool _showEpisodeSheet = false;
   bool _showMoreSheet = false;
+  bool _showDescriptionSheet = false;
 
   // Screen lock system
   bool _isLocked = false;
@@ -163,6 +169,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         animeId: widget.animeId,
         episodeNumber: widget.episodeNumber,
         preferredProviderId: widget.preferredProviderId,
+        isKShow: widget.isKShow,
       );
 
   @override
@@ -271,6 +278,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       _showSettingsSheet = true;
       _showEpisodeSheet = false;
       _showMoreSheet = false;
+      _showDescriptionSheet = false;
       _controlsVisible = true;
     });
     _sidePanelController.forward(from: 0.0);
@@ -281,6 +289,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       _showEpisodeSheet = true;
       _showSettingsSheet = false;
       _showMoreSheet = false;
+      _showDescriptionSheet = false;
       _controlsVisible = true;
     });
     _sidePanelController.forward(from: 0.0);
@@ -291,6 +300,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       _showMoreSheet = true;
       _showSettingsSheet = false;
       _showEpisodeSheet = false;
+      _showDescriptionSheet = false;
+      _controlsVisible = true;
+    });
+    _sidePanelController.forward(from: 0.0);
+  }
+
+  void _openDescription() {
+    setState(() {
+      _showDescriptionSheet = true;
+      _showSettingsSheet = false;
+      _showEpisodeSheet = false;
+      _showMoreSheet = false;
       _controlsVisible = true;
     });
     _sidePanelController.forward(from: 0.0);
@@ -301,6 +322,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       _showSettingsSheet = false;
       _showEpisodeSheet = false;
       _showMoreSheet = false;
+      _showDescriptionSheet = false;
     });
     _sidePanelController.reset();
   }
@@ -326,6 +348,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       _closeSidePanel();
     } else {
       _openMore();
+    }
+  }
+
+  void _toggleDescription() {
+    if (_showDescriptionSheet && _sidePanelController.value > 0.0) {
+      _closeSidePanel();
+    } else {
+      _openDescription();
     }
   }
 
@@ -722,7 +752,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
     if (mounted) {
       try {
-        final animeDetail = ref.read(animeDetailProvider(widget.animeId)).value;
+        final animeDetail = (widget.isKShow
+            ? ref.read(kshowDetailProvider(widget.animeId)).value
+            : null) ?? ref.read(animeDetailProvider(widget.animeId)).value;
         if (animeDetail != null) {
           _cachedAnimeTitle = animeDetail.titles.preferredTitle();
           _cachedPosterUrl = animeDetail.posterUrl;
@@ -838,7 +870,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _saveCurrentProgress();
     final nextEp = widget.episodeNumber + 1;
     final prov = widget.preferredProviderId != null ? '&provider=${widget.preferredProviderId}' : '';
-    if (mounted) context.go('/player?animeId=${widget.animeId}&ep=$nextEp$prov');
+    final kshowParam = widget.isKShow ? '&isKShow=true' : '';
+    if (mounted) context.go('/player?animeId=${widget.animeId}&ep=$nextEp$prov$kshowParam');
   }
 
   void _playPreviousEpisode() {
@@ -846,7 +879,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _saveCurrentProgress();
     final prevEp = widget.episodeNumber - 1;
     final prov = widget.preferredProviderId != null ? '&provider=${widget.preferredProviderId}' : '';
-    context.go('/player?animeId=${widget.animeId}&ep=$prevEp$prov');
+    final kshowParam = widget.isKShow ? '&isKShow=true' : '';
+    context.go('/player?animeId=${widget.animeId}&ep=$prevEp$prov$kshowParam');
   }
 
   // Auto-hide controls
@@ -882,16 +916,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   void _showLockedPrompt() {
+    HapticFeedback.selectionClick();
     setState(() {
       _showUnlockButton = true;
     });
     _unlockButtonTimer?.cancel();
-    _unlockButtonTimer = Timer(const Duration(seconds: 3), () {
+    _unlockButtonTimer = Timer(const Duration(seconds: 4), () {
       if (mounted) setState(() => _showUnlockButton = false);
     });
   }
 
   void _lockPlayer() {
+    HapticFeedback.heavyImpact();
     _sidePanelController.reverse();
     setState(() {
       _isLocked = true;
@@ -899,12 +935,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       _showSettingsSheet = false;
       _showEpisodeSheet = false;
       _showMoreSheet = false;
+      _showDescriptionSheet = false;
     });
     _controlsHideTimer?.cancel();
     _showLockedPrompt();
   }
 
   void _unlockPlayer() {
+    HapticFeedback.mediumImpact();
     setState(() {
       _isLocked = false;
       _showUnlockButton = false;
@@ -973,7 +1011,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _singleTapTimer?.cancel();
     _singleTapTimer = Timer(const Duration(milliseconds: 300), () {
       if (mounted && !_isHolding2x && !_isScrubbing && !_showVerticalHud && !_consecutiveTapHandled) {
-        _toggleControls();
+        if (_showSettingsSheet || _showEpisodeSheet || _showMoreSheet || _showDescriptionSheet) {
+          _closeSidePanel();
+        } else {
+          _toggleControls();
+        }
       }
     });
   }
@@ -1005,8 +1047,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     if (!settings.gesturesEnabled) return;
 
     _singleTapTimer?.cancel();
+    HapticFeedback.lightImpact();
     _rateBeforeHold = _playbackRate;
-    _engine?.setRate(settings.longPressSpeed);
+    final holdRate = (!settings.longPressMigrated && settings.longPressSpeed == 2.0)
+        ? 1.5
+        : (settings.longPressSpeed > 0 ? settings.longPressSpeed : 1.5);
+    _engine?.setRate(holdRate);
     setState(() {
       _isHolding2x = true;
       _controlsVisible = false;
@@ -1019,6 +1065,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   void _handleLongPressEnd() {
     if (!_isHolding2x) return;
+    HapticFeedback.lightImpact();
     _engine?.setRate(_rateBeforeHold);
     setState(() {
       _isHolding2x = false;
@@ -1188,7 +1235,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
           error: (err, _) => _buildErrorScreen(err),
           data: (result) {
             final matchTitle = result.match.title;
-            final epSubtitle = 'Episode ${widget.episodeNumber.toString().padLeft(2, '0')} • ${result.activeProvider.displayName}';
+            final epSubtitle = 'Episode ${widget.episodeNumber.toString().padLeft(2, '0')}';
 
             // 1. Default to Web Embed technique for playback (User's preferred technique)
             if (_useEmbedPlayer) {
@@ -1228,6 +1275,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
           final isLandscape = screenSize.width > screenSize.height;
           final sidePanelWidth = math.min(screenSize.width * 0.46, 430.0).clamp(340.0, 450.0);
+          final titlePreference = ref.watch(appSettingsProvider).titlePreference;
+          final animeDetail = (widget.isKShow
+              ? ref.watch(kshowDetailProvider(widget.animeId)).value
+              : null) ?? ref.watch(animeDetailProvider(widget.animeId)).value;
 
           Widget buildSidePanel() => AnimatedSwitcher(
                 duration: const Duration(milliseconds: 200),
@@ -1295,54 +1346,88 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                             onSelectEpisode: (ep) {
                               _closeSidePanel();
                               _saveCurrentProgress();
-                              if (mounted) context.pushReplacement('/player?animeId=${widget.animeId}&ep=$ep');
+                              final prov = widget.preferredProviderId != null ? '&provider=${widget.preferredProviderId}' : '';
+                              final kshowParam = widget.isKShow ? '&isKShow=true' : '';
+                              if (mounted) context.pushReplacement('/player?animeId=${widget.animeId}&ep=$ep$prov$kshowParam');
                             },
                             onClose: _closeSidePanel,
                           )
                         : _showMoreSheet
-                            ? PlayerMoreOptionsSheet(
-                                key: const ValueKey('more_sheet'),
-                                onLockPlayer: _lockPlayer,
-                                onPictureInPicture: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Picture in Picture activated'),
-                                      duration: Duration(seconds: 2),
+                            ? Builder(
+                                builder: (context) {
+                                  final downloadService = ref.watch(downloadServiceProvider);
+                                  final isDownloaded = downloadService.isDownloaded(widget.animeId, widget.episodeNumber);
+                                  final isDownloading = downloadService.isDownloading(widget.animeId, widget.episodeNumber);
+
+                                  return PlayerMoreOptionsSheet(
+                                    key: const ValueKey('more_sheet'),
+                                    onLockPlayer: _lockPlayer,
+                                    onPictureInPicture: () {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Picture in Picture activated'),
+                                          duration: Duration(seconds: 2),
+                                        ),
+                                      );
+                                    },
+                                    onSwitchToEmbed: () {
+                                      _closeSidePanel();
+                                      setState(() => _useEmbedPlayer = true);
+                                      _engine?.pause();
+                                    },
+                                    onCopyEmbedUrl: () {
+                                      final matchId = result.match.id.isNotEmpty ? result.match.id : widget.animeId.toString();
+                                      final isDub = result.selectedAudio.code == AudioLanguage.englishDub.code;
+                                      final lang = isDub ? 'dub' : 'sub';
+                                      final kisskhEpId = result.episode.customData['kisskhEpId'];
+                                      final embedUrl = kisskhEpId != null
+                                          ? 'https://megavid.buzz/kisskh/$kisskhEpId'
+                                          : 'https://megavid.buzz/ani/$matchId/${widget.episodeNumber}/$lang';
+                                      Clipboard.setData(ClipboardData(text: embedUrl));
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Copied embed URL: $embedUrl'),
+                                          duration: const Duration(seconds: 2),
+                                          backgroundColor: AppColors.surfaceElevated,
+                                        ),
+                                      );
+                                    },
+                                    onSelectServer: () {
+                                      _closeSidePanel();
+                                      _showServerSelectionSheet(context, result);
+                                    },
+                                    onDiagnostics: () {
+                                      _closeSidePanel();
+                                      _showDiagnosticsSheet(context);
+                                    },
+                                    onOpenDescription: _openDescription,
+                                    onDownloadEpisode: () => _downloadEpisode(
+                                      result,
+                                      animeDetail?.titles.preferredTitle(titlePreference) ?? matchTitle,
+                                      animeDetail?.posterUrl,
                                     ),
+                                    isDownloaded: isDownloaded,
+                                    isDownloading: isDownloading,
+                                    onClose: _closeSidePanel,
                                   );
                                 },
-                                onSwitchToEmbed: () {
-                                  _closeSidePanel();
-                                  setState(() => _useEmbedPlayer = true);
-                                  _engine?.pause();
-                                },
-                                onCopyEmbedUrl: () {
-                                  final matchId = result.match.id.isNotEmpty ? result.match.id : widget.animeId.toString();
-                                  final isDub = result.selectedAudio.code == AudioLanguage.englishDub.code;
-                                  final lang = isDub ? 'dub' : 'sub';
-                                  final kisskhEpId = result.episode.customData['kisskhEpId'];
-                                  final embedUrl = kisskhEpId != null
-                                      ? 'https://megavid.buzz/kisskh/$kisskhEpId'
-                                      : 'https://megavid.buzz/ani/$matchId/${widget.episodeNumber}/$lang';
-                                  Clipboard.setData(ClipboardData(text: embedUrl));
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Copied embed URL: $embedUrl'),
-                                      duration: const Duration(seconds: 2),
-                                      backgroundColor: AppColors.surfaceElevated,
-                                    ),
-                                  );
-                                },
-                                onSelectServer: () {
-                                  _closeSidePanel();
-                                  _showServerSelectionSheet(context, result);
-                                },
-                                onDiagnostics: () {
-                                  _closeSidePanel();
-                                  _showDiagnosticsSheet(context);
-                                },
-                                onClose: _closeSidePanel,
                               )
+                            : _showDescriptionSheet
+                                ? PlayerDescriptionSheet(
+                                    key: const ValueKey('description_sheet'),
+                                    title: animeDetail?.titles.preferredTitle(titlePreference) ?? matchTitle,
+                                    originalTitle: animeDetail?.titles.original,
+                                    summary: animeDetail?.summary,
+                                    score: animeDetail?.score,
+                                    year: animeDetail?.airDate != null ? DateTime.tryParse(animeDetail!.airDate!)?.year : null,
+                                    episodes: animeDetail?.eps ?? result.match.episodeCount,
+                                    format: animeDetail?.platform,
+                                    status: animeDetail != null && animeDetail.eps != null && animeDetail.eps! > 0
+                                        ? '${animeDetail.eps} Eps'
+                                        : 'Airing',
+                                    tags: (animeDetail?.tags ?? []).map((t) => t.name).take(10).toList(),
+                                    onClose: _closeSidePanel,
+                                  )
                             : const SizedBox.shrink(),
               );
 
@@ -1351,9 +1436,26 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
               final videoFrameWidth = constraints.maxWidth;
               final videoFrameHeight = constraints.maxHeight;
 
-                    return Stack(
-                      fit: StackFit.expand,
-                      children: [
+              // Calculate non-content pillarbox margin (black side bars)
+              final screenAspect = videoFrameWidth / (videoFrameHeight > 0 ? videoFrameHeight : 1.0);
+              double targetAspect = 16.0 / 9.0;
+              if (_aspectRatioMode == VideoAspectRatioMode.fourThree) {
+                targetAspect = 4.0 / 3.0;
+              } else if (_aspectRatioMode == VideoAspectRatioMode.fill) {
+                targetAspect = screenAspect; // No pillarbox in fill mode
+              }
+
+              final double pillarboxWidth;
+              if (screenAspect > targetAspect) {
+                final contentWidth = videoFrameHeight * targetAspect;
+                pillarboxWidth = (videoFrameWidth - contentWidth) / 2.0;
+              } else {
+                pillarboxWidth = 0.0;
+              }
+
+              return Stack(
+                fit: StackFit.expand,
+                children: [
                         // 1. Interactive Video Surface with Multi-Gesture Handler
                         GestureDetector(
                           behavior: HitTestBehavior.opaque,
@@ -1474,7 +1576,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
               // 2. Center Hold Speed Pill ("1.5X Speed ▶▶") - Sole overlay visible while holding
               if (_isHolding2x)
                 IgnorePointer(
-                  child: HoldSpeedPill(speed: ref.watch(appSettingsProvider).longPressSpeed),
+                  child: HoldSpeedPill(
+                    speed: (!ref.watch(appSettingsProvider).longPressMigrated &&
+                            ref.watch(appSettingsProvider).longPressSpeed == 2.0)
+                        ? 1.5
+                        : ref.watch(appSettingsProvider).longPressSpeed,
+                  ),
                 ),
 
               // 3. Double-tap seek badges (<< -20s or +30s >>)
@@ -1572,20 +1679,27 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                 },
               ),
 
-              // 8b. Minimal Corner Letterbox Banner Ad during playback
-              Positioned(
-                top: math.max(MediaQuery.paddingOf(context).top, 8.0),
-                right: math.max(MediaQuery.paddingOf(context).right, 12.0),
-                child: PlayerCornerBannerAd(
-                  isVisible: !_controlsVisible &&
-                      !_isLocked &&
-                      !_isHolding2x &&
-                      !_isScrubbing &&
-                      !_showSettingsSheet &&
-                      !_showEpisodeSheet &&
-                      !_showMoreSheet,
+              // 8b. Minimal Vertical Banner Ad in non-content pillarbox during playback
+              if (pillarboxWidth >= 40.0)
+                Positioned(
+                  top: math.max(0.0, (videoFrameHeight - math.min(videoFrameHeight - 16.0, 336.0)) / 2.0),
+                  right: math.max(
+                    MediaQuery.paddingOf(context).right + 4.0,
+                    (pillarboxWidth - math.min(50.0, pillarboxWidth - 8.0)) / 2.0,
+                  ),
+                  child: PlayerCornerBannerAd(
+                    isVisible: !_controlsVisible &&
+                        !_isLocked &&
+                        !_isHolding2x &&
+                        !_isScrubbing &&
+                        !_showSettingsSheet &&
+                        !_showEpisodeSheet &&
+                        !_showMoreSheet &&
+                        !_showDescriptionSheet,
+                    availableWidth: pillarboxWidth,
+                    availableHeight: videoFrameHeight,
+                  ),
                 ),
-              ),
 
               // 9. Auto-hiding Controls Overlay
               AnimatedOpacity(
@@ -1611,6 +1725,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                               ? '${result.selectedQuality.height}P'
                               : (result.selectedQuality.isAuto ? '1080P' : result.selectedQuality.label.toUpperCase()),
                           onLock: _lockPlayer,
+                          onOpenDescription: _toggleDescription,
                           onToggleAudio: () {
                             final currentAudio = result.selectedAudio;
                             final targetAudio = currentAudio.code == AudioLanguage.englishDub.code
@@ -1659,11 +1774,55 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                         ),
                       ),
 
+                      // Left Floating Lock Button (Immediate one-tap locking on preview screen)
+                      Positioned(
+                        left: math.max(MediaQuery.paddingOf(context).left + 16.0, 24.0),
+                        top: 0,
+                        bottom: 0,
+                        child: Center(
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () {
+                                HapticFeedback.mediumImpact();
+                                _lockPlayer();
+                              },
+                              borderRadius: BorderRadius.circular(22),
+                              child: Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xDD121812),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.18),
+                                    width: 1.0,
+                                  ),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Color(0x66000000),
+                                      blurRadius: 10,
+                                      offset: Offset(0, 3),
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(
+                                  Icons.lock_outline_rounded,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
 
                       // Center Controls (Prev Ep, Replay-10, Play/Pause circle, Forward-10, Next Ep)
                       Builder(
                         builder: (context) {
-                          final animeDetail = ref.watch(animeDetailProvider(widget.animeId)).value;
+                          final animeDetail = (widget.isKShow
+                              ? ref.watch(kshowDetailProvider(widget.animeId)).value
+                              : null) ?? ref.watch(animeDetailProvider(widget.animeId)).value;
                           final totalEps = animeDetail?.eps;
                           final hasNextEp = totalEps == null || widget.episodeNumber < totalEps;
                           final hasPrevEp = widget.episodeNumber > 1;
@@ -1796,50 +1955,77 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
               if (_resumeToastMessage != null && !_isHolding2x && !_isLocked)
                 _buildResumeToast(),
 
-              // 11. Floating Unlock Button (visible when tapped while locked)
-              if (_isLocked && _showUnlockButton && !_isHolding2x)
+              // 11. Floating Unlock Button (ALWAYS visible while locked, NEVER disappears)
+              if (_isLocked && !_isHolding2x)
                 Positioned(
-                  left: math.max(MediaQuery.paddingOf(context).left + 24, 64),
+                  left: math.max(MediaQuery.paddingOf(context).left + 16.0, 24.0),
                   top: 0,
                   bottom: 0,
                   child: Center(
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: _unlockPlayer,
-                        borderRadius: BorderRadius.circular(16),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.85),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.20),
-                              width: 1.0,
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeOutCubic,
+                      opacity: _showUnlockButton ? 1.0 : 0.45,
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            _unlockPlayer();
+                          },
+                          borderRadius: BorderRadius.circular(22),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 250),
+                            curve: Curves.easeOutCubic,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: _showUnlockButton ? 16 : 12,
+                              vertical: 10,
                             ),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0x66000000),
-                                blurRadius: 12,
-                                offset: Offset(0, 3),
+                            decoration: BoxDecoration(
+                              color: _showUnlockButton
+                                  ? const Color(0xFA101610)
+                                  : const Color(0xB3101610),
+                              borderRadius: BorderRadius.circular(22),
+                              border: Border.all(
+                                color: _showUnlockButton
+                                    ? AppColors.accent
+                                    : Colors.white.withValues(alpha: 0.25),
+                                width: _showUnlockButton ? 1.4 : 1.0,
                               ),
-                            ],
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.lock_open_rounded, color: Colors.white, size: 18),
-                              SizedBox(width: 8),
-                              Text(
-                                'Tap to Unlock',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 13,
-                                  letterSpacing: 0.3,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: _showUnlockButton
+                                      ? AppColors.accent.withValues(alpha: 0.35)
+                                      : const Color(0x66000000),
+                                  blurRadius: _showUnlockButton ? 16 : 8,
+                                  offset: const Offset(0, 3),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  _showUnlockButton
+                                      ? Icons.lock_open_rounded
+                                      : Icons.lock_rounded,
+                                  color: _showUnlockButton ? AppColors.accent : Colors.white,
+                                  size: 19,
+                                ),
+                                if (_showUnlockButton) ...[
+                                  const SizedBox(width: 8),
+                                  const Text(
+                                    'Tap to Unlock',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 12.5,
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -1865,7 +2051,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
               final isClosing = _sidePanelController.status == AnimationStatus.reverse;
               final animProgress = _sidePanelAnimation.value;
               final showPanel =
-                  (_showSettingsSheet || _showEpisodeSheet || _showMoreSheet) &&
+                  (_showSettingsSheet || _showEpisodeSheet || _showMoreSheet || _showDescriptionSheet) &&
                       !_isLocked;
 
               final panelCard = SizedBox(
@@ -1889,21 +2075,31 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                   ? sidePanelWidth
                   : math.min(screenSize.width * 0.88, 430.0);
 
+              final videoRightInset = (showPanel && isLandscape)
+                  ? (sidePanelWidth * animProgress)
+                  : 0.0;
+
               return Stack(
                 fit: StackFit.expand,
                 children: [
-                  Positioned.fill(
+                  Positioned(
+                    top: 0,
+                    bottom: 0,
+                    left: 0,
+                    right: videoRightInset,
                     child: videoStack,
                   ),
                   if (showPanel) ...[
-                    Positioned.fill(
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        child: Container(
-                          color: Colors.black.withValues(alpha: 0.45 * animProgress),
+                    if (!isLandscape)
+                      Positioned.fill(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: _closeSidePanel,
+                          child: Container(
+                            color: Colors.black.withValues(alpha: 0.45 * animProgress),
+                          ),
                         ),
                       ),
-                    ),
                     Positioned(
                       top: 0,
                       bottom: 0,
@@ -2182,12 +2378,24 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
               children: [
                 OutlinedButton.icon(
                   onPressed: () {
-                    final embedUrl = 'https://megavid.buzz/ani/${widget.animeId}/${widget.episodeNumber}/sub';
+                    String embedUrl;
+                    if (widget.isKShow) {
+                      final animeDetail = (widget.isKShow
+                          ? ref.read(kshowDetailProvider(widget.animeId)).value
+                          : null) ?? ref.read(animeDetailProvider(widget.animeId)).value;
+                      final epMatch = animeDetail?.episodes.firstWhereOrNull(
+                        (e) => e.number.toInt() == widget.episodeNumber || e.sort == widget.episodeNumber,
+                      );
+                      final kisskhEpId = epMatch?.id != null && epMatch!.id != 0 ? epMatch.id : widget.animeId;
+                      embedUrl = 'https://megavid.buzz/kisskh/$kisskhEpId';
+                    } else {
+                      embedUrl = 'https://megavid.buzz/ani/${widget.animeId}/${widget.episodeNumber}/sub';
+                    }
                     Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) => WebEmbedPlayerView(
                           embedUrl: embedUrl,
-                          title: 'Anime #${widget.animeId}',
+                          title: widget.isKShow ? 'K-Drama #${widget.animeId}' : 'Anime #${widget.animeId}',
                           episodeSubtitle: 'Episode ${widget.episodeNumber} • Web Embed',
                           onBack: () => Navigator.of(context).pop(),
                           onSwitchToNative: () => Navigator.of(context).pop(),
@@ -2256,19 +2464,64 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _resetControlsHideTimer();
   }
 
+  void _downloadEpisode(StreamResolutionResult result, String animeTitle, String? posterUrl) {
+    final downloadService = ref.read(downloadServiceProvider);
+    if (downloadService.isDownloaded(widget.animeId, widget.episodeNumber)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Episode is already saved in Downloads tab'),
+          duration: Duration(seconds: 2),
+          backgroundColor: AppColors.surfaceElevated,
+        ),
+      );
+      return;
+    }
+
+    downloadService.startDownload(
+      animeId: widget.animeId,
+      episodeNumber: widget.episodeNumber,
+      title: result.episode.title ?? 'Episode ${widget.episodeNumber}',
+      animeTitle: animeTitle,
+      posterUrl: posterUrl,
+      streamUrl: result.selectedVariant.url,
+      headers: result.selectedVariant.headers,
+    );
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.downloading_rounded, color: AppColors.accent, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Downloading $animeTitle - Ep ${widget.episodeNumber}',
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+        duration: const Duration(seconds: 3),
+        backgroundColor: const Color(0xFF141914),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: const BorderSide(color: Color(0xFF283628)),
+        ),
+      ),
+    );
+  }
+
   void _showServerSelectionSheet(BuildContext context, StreamResolutionResult result) {
-    final servers = [
-      {'id': 'zuna', 'name': 'Zuna (Fast • Soft Sub • Recommended)', 'tip': 'High quality'},
-      {'id': 'sora', 'name': 'Sora (Fast • High Quality)', 'tip': 'Soft sub'},
-      {'id': 'loli', 'name': 'Loli (Multi-server • HLS)', 'tip': 'Sub and dub'},
-      {'id': 'nero', 'name': 'Nero (Fastest)', 'tip': 'Direct'},
-    ];
+    final variants = result.variants;
+    final latencies = {for (final l in result.latencyResults) l.variant.url: l};
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFA141416),
+      backgroundColor: const Color(0xFF0F140F),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        side: BorderSide(color: Color(0xFF242E24), width: 1.2),
       ),
       builder: (ctx) => SafeArea(
         child: Padding(
@@ -2288,45 +2541,117 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                   ),
                 ),
               ),
-              const Text(
-                'Select Stream Server',
-                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Select Server',
+                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.accent.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.speed_rounded, size: 14, color: AppColors.accent),
+                        SizedBox(width: 4),
+                        Text(
+                          'Auto-Fastest',
+                          style: TextStyle(color: AppColors.accent, fontSize: 11, fontWeight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
               Text(
-                'Switch servers if you encounter buffering or stall at specific timestamps.',
+                'Fastest responsive server is auto-selected. Tap any server to switch manually.',
                 style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 13),
               ),
-              const SizedBox(height: 12),
-              ...servers.map((s) {
-                return ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.cloud_queue_rounded, color: AppColors.accent),
-                  title: Text(s['name']!, style: const TextStyle(color: Colors.white, fontSize: 14)),
-                  onTap: () async {
-                    Navigator.of(ctx).pop();
-                    final resolver = EmbedStreamResolver();
-                    final matchId = result.match.id.isNotEmpty ? result.match.id : widget.animeId.toString();
-                    final isDub = result.selectedAudio.code == AudioLanguage.englishDub.code;
-                    final lang = isDub ? 'dub' : 'sub';
-                    final embedUrl = 'https://megavid.buzz/ani/$matchId/${widget.episodeNumber}/$lang';
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Switching to server ${s['id']}...'), duration: const Duration(seconds: 1)),
+              const SizedBox(height: 14),
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: variants.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1, color: Color(0xFF1E281E)),
+                  itemBuilder: (ctx, index) {
+                    final v = variants[index];
+                    final lat = latencies[v.url];
+                    final isCurrent = (_currentlyLoadedUrl == v.url) || (_currentlyLoadedUrl == null && index == 0);
+                    final serverName = 'Server ${index + 1}';
+                    final badge = lat?.badgeText ?? (isCurrent ? '⚡ Active' : 'Online');
+
+                    return ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                      leading: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: isCurrent ? AppColors.accent.withValues(alpha: 0.18) : const Color(0xFF182218),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          isCurrent ? Icons.check_circle_rounded : Icons.dns_rounded,
+                          color: isCurrent ? AppColors.accent : Colors.white70,
+                          size: 20,
+                        ),
+                      ),
+                      title: Text(
+                        serverName,
+                        style: TextStyle(
+                          color: isCurrent ? AppColors.accent : Colors.white,
+                          fontSize: 14,
+                          fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
+                        ),
+                      ),
+                      subtitle: Text(
+                        isCurrent ? 'Active Stream · Auto-optimized' : 'High Speed Stream',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 11.5),
+                      ),
+                      trailing: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1A261A),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFF283828)),
+                        ),
+                        child: Text(
+                          badge,
+                          style: const TextStyle(color: AppColors.accent, fontSize: 11, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      onTap: () async {
+                        Navigator.of(ctx).pop();
+                        if (isCurrent) return;
+
+                        final currentPos = _position;
+                        _currentlyLoadedUrl = v.url;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Switched to $serverName'),
+                            duration: const Duration(seconds: 2),
+                            backgroundColor: AppColors.surfaceElevated,
+                          ),
+                        );
+                        await _engine?.open(
+                          v.url,
+                          headers: v.headers,
+                          startPosition: currentPos,
+                        );
+                        _engine?.play();
+                      },
                     );
-                    final resolved = await resolver.resolveEmbedUrl(embedUrl, serverOverride: s['id']!);
-                    if (resolved != null && mounted) {
-                      final currentPos = _position;
-                      _currentlyLoadedUrl = resolved.streamUrl;
-                      await _engine?.open(
-                        resolved.streamUrl,
-                        headers: resolved.variant.headers,
-                        startPosition: currentPos,
-                      );
-                      _engine?.play();
-                    }
                   },
-                );
-              }),
+                ),
+              ),
             ],
           ),
         ),
