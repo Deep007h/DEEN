@@ -82,7 +82,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.sd_storage_rounded, size: 14, color: AppColors.accent),
+                        Icon(Icons.sd_storage_rounded, size: 14, color: AppColors.accent),
                         const SizedBox(width: 5),
                         Text(
                           '$usedMb MB Used',
@@ -213,7 +213,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                             width: 1.5,
                           ),
                         ),
-                        child: const Center(
+                        child: Center(
                           child: Icon(
                             Icons.download_done_rounded,
                             size: 42,
@@ -364,12 +364,12 @@ class _DownloadItemCard extends StatelessWidget {
                     Image.network(
                       item.posterUrl!,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const Center(
+                      errorBuilder: (_, __, ___) => Center(
                         child: Icon(Icons.movie_rounded, color: AppColors.accent, size: 24),
                       ),
                     )
                   else
-                    const Center(
+                    Center(
                       child: Icon(Icons.movie_rounded, color: AppColors.accent, size: 24),
                     ),
                   if (item.isCompleted)
@@ -424,7 +424,7 @@ class _DownloadItemCard extends StatelessWidget {
                       value: item.progress,
                       minHeight: 4,
                       backgroundColor: const Color(0xFF243024),
-                      valueColor: const AlwaysStoppedAnimation<Color>(AppColors.accent),
+                      valueColor: AlwaysStoppedAnimation<Color>(AppColors.accent),
                     ),
                   ),
                 ],
@@ -436,7 +436,7 @@ class _DownloadItemCard extends StatelessWidget {
           // Actions
           if (item.isCompleted)
             IconButton(
-              icon: const Icon(Icons.play_circle_fill_rounded, color: AppColors.accent, size: 28),
+              icon: Icon(Icons.play_circle_fill_rounded, color: AppColors.accent, size: 28),
               onPressed: onPlay,
               tooltip: 'Play Offline',
             ),

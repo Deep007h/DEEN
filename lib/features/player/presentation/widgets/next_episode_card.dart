@@ -51,7 +51,7 @@ class NextEpisodeCountdownCard extends StatelessWidget {
                   value: (secondsRemaining / 5.0).clamp(0.0, 1.0),
                   strokeWidth: 2.5,
                   backgroundColor: AppColors.accent.withValues(alpha: 0.15),
-                  valueColor: const AlwaysStoppedAnimation<Color>(AppColors.accent),
+                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.accent),
                 ),
                 Text(
                   '$secondsRemaining',

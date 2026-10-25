@@ -136,13 +136,13 @@ Verify the authenticity of your downloaded package:
 
 ```text
 DEEN-v2-arm64-v8a.apk:
-7b6f91744fe9340e94ebd8fd79868d32ee278ef1301736a8cd7480280df1ce38
+00661b1bbe1ae815fed03bc986519084bda26b18c5e437d141b1e451cf46b737
 
 DEEN-v2-armeabi-v7a.apk:
-5d2040b3deeff1c4d1315bf2ec21c4f82249ae80eccfc21b6e1f8c9715879021
+a8d0adf82e80496c6b721dd5dd9d12b26e995bebf4caa69fc3811340ecfb2c4a
 
 DEEN-v2-x86_64.apk:
-677249fbf50d78d659dfab8d8df03fbf365403c547bfbba0fa1f4ff788b02e6c
+391952fa5448332b7aef21559c7e07db1c81eb70b1d886e83b4b51112c021887
 ```
 
 ---

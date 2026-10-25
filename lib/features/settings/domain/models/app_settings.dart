@@ -18,7 +18,7 @@ class AppSettings {
   final bool longPressMigrated;
 
   const AppSettings({
-    this.accentColorValue = 0xFFC6F16D, // AppColors.accent
+    this.accentColorValue = 0xFFB5F237, // AppColors.defaultAccentValue
     this.titlePreference = TitlePreference.english,
     this.defaultQuality = 'Auto',
     this.defaultAudioLanguage = 'Original',
@@ -69,8 +69,11 @@ class AppSettings {
       longPressSpeed = rawLongPressSpeed ?? 1.5;
     }
 
+    final rawAccent = json['accentColorValue'] as int?;
+    final int accentColorValue = (rawAccent == null || rawAccent == 0xFFC6F16D) ? 0xFFB5F237 : rawAccent;
+
     return AppSettings(
-      accentColorValue: json['accentColorValue'] as int? ?? 0xFFC6F16D,
+      accentColorValue: accentColorValue,
       titlePreference: pref,
       defaultQuality: json['defaultQuality'] as String? ?? 'Auto',
       defaultAudioLanguage: json['defaultAudioLanguage'] as String? ?? 'Original',

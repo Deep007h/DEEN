@@ -1,3 +1,4 @@
+import '../../../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 
 /// Landscape side panel for 3-dot overflow options.
@@ -35,10 +36,10 @@ class PlayerMoreOptionsSheet extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.fromLTRB(6, 10, 12, 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F140F),
+        color: AppColors.surfaceCard,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: const Color(0xFF242E24),
+          color: AppColors.border,
           width: 1.2,
         ),
         boxShadow: const [
@@ -81,7 +82,7 @@ class PlayerMoreOptionsSheet extends StatelessWidget {
                       width: 32,
                       height: 32,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E281E),
+                        color: AppColors.surfaceHighlight,
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
                           color: const Color(0xFF2E3D2E),
@@ -195,7 +196,7 @@ class PlayerMoreOptionsSheet extends StatelessWidget {
               color: const Color(0xFF141A14),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: const Color(0xFF242E24),
+                color: AppColors.border,
                 width: 1.0,
               ),
             ),
@@ -205,10 +206,10 @@ class PlayerMoreOptionsSheet extends StatelessWidget {
                   width: 32,
                   height: 32,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E281E),
+                    color: AppColors.surfaceHighlight,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(icon, color: const Color(0xFFC6F16D), size: 18),
+                  child: Icon(icon, color: AppColors.accent, size: 18),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -240,13 +241,13 @@ class PlayerMoreOptionsSheet extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: const Color(0x29C6F16D),
+                      color: AppColors.accentSoft,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       badge,
-                      style: const TextStyle(
-                        color: Color(0xFFC6F16D),
+                      style: TextStyle(
+                        color: AppColors.accent,
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
                       ),
@@ -256,7 +257,7 @@ class PlayerMoreOptionsSheet extends StatelessWidget {
                 ],
                 const Icon(
                   Icons.arrow_forward_ios_rounded,
-                  color: Color(0xFF5A665A),
+                  color: AppColors.textMuted,
                   size: 13,
                 ),
               ],

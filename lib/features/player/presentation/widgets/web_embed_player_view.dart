@@ -226,8 +226,8 @@ class _WebEmbedPlayerViewState extends State<WebEmbedPlayerView> {
               AnimatedSwitcher(
                 duration: AppMotion.short4,
                 child: _isLoading
-                    ? const Center(
-                        key: ValueKey('web_embed_loading'),
+                    ? Center(
+                        key: const ValueKey('web_embed_loading'),
                         child: CircularProgressIndicator(
                           strokeWidth: 3,
                           valueColor: AlwaysStoppedAnimation<Color>(AppColors.accent),
@@ -315,7 +315,7 @@ class _WebEmbedPlayerViewState extends State<WebEmbedPlayerView> {
                                     borderRadius: BorderRadius.circular(4),
                                     border: Border.all(color: AppColors.accent.withValues(alpha: 0.4)),
                                   ),
-                                  child: const Text(
+                                  child: Text(
                                     'WEB EMBED (DEFAULT)',
                                     style: TextStyle(
                                       color: AppColors.accent,
@@ -473,29 +473,29 @@ class _WebEmbedPlayerViewState extends State<WebEmbedPlayerView> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                       decoration: BoxDecoration(
-                        color: const Color(0xF0101510),
+                        color: AppColors.surfaceCard.withValues(alpha: 0.94),
                         borderRadius: BorderRadius.circular(28),
-                        border: Border.all(color: const Color(0xFFC6F16D), width: 1.5),
-                        boxShadow: const [
+                        border: Border.all(color: AppColors.accent, width: 1.5),
+                        boxShadow: [
                           BoxShadow(
-                            color: Color(0x66C6F16D),
+                            color: AppColors.accent.withValues(alpha: 0.4),
                             blurRadius: 16,
                             spreadRadius: 1,
-                            offset: Offset(0, 2),
+                            offset: const Offset(0, 2),
                           ),
-                          BoxShadow(
+                          const BoxShadow(
                             color: Color(0x99000000),
                             blurRadius: 18,
                             offset: Offset(0, 4),
                           ),
                         ],
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.lock_open_rounded, color: Color(0xFFC6F16D), size: 20),
-                          SizedBox(width: 8),
-                          Text(
+                          Icon(Icons.lock_open_rounded, color: AppColors.accent, size: 20),
+                          const SizedBox(width: 8),
+                          const Text(
                             'Tap to Unlock',
                             style: TextStyle(
                               color: Colors.white,

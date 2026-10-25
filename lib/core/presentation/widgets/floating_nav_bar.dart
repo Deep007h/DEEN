@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../theme/app_colors.dart';
 import '../../theme/app_motion.dart';
 import 'pressable_scale.dart';
 
@@ -44,47 +45,47 @@ class FloatingNavBar extends StatelessWidget {
     return RepaintBoundary(
       child: Container(
         decoration: const BoxDecoration(
-          color: Color(0xF50D120D),
-        border: Border(
-          top: BorderSide(
-            color: Color(0x334E604E),
-            width: 0.9,
+          color: AppColors.navBarBackground,
+          border: Border(
+            top: BorderSide(
+              color: AppColors.navBarBorder,
+              width: 0.9,
+            ),
           ),
         ),
-      ),
-      child: ClipRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20.0, sigmaY: 20.0),
-          child: Padding(
-            padding: EdgeInsets.only(
-              top: 6.0,
-              bottom: bottomSafe > 0 ? bottomSafe : 8.0,
-            ),
-            child: SizedBox(
-              height: 56.0,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: List.generate(items.length, (index) {
-                  final item = items[index];
-                  final isSelected = index == currentIndex;
-                  return Expanded(
-                    child: _NavBarTabButton(
-                      item: item,
-                      isSelected: isSelected,
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        onTap(index);
-                      },
-                    ),
-                  );
-                }),
+        child: ClipRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20.0, sigmaY: 20.0),
+            child: Padding(
+              padding: EdgeInsets.only(
+                top: 6.0,
+                bottom: bottomSafe > 0 ? bottomSafe : 8.0,
+              ),
+              child: SizedBox(
+                height: 56.0,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: List.generate(items.length, (index) {
+                    final item = items[index];
+                    final isSelected = index == currentIndex;
+                    return Expanded(
+                      child: _NavBarTabButton(
+                        item: item,
+                        isSelected: isSelected,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          onTap(index);
+                        },
+                      ),
+                    );
+                  }),
+                ),
               ),
             ),
           ),
         ),
       ),
-    ),
-  );
+    );
   }
 }
 
@@ -101,8 +102,8 @@ class _NavBarTabButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const activeLime = Color(0xFFB5F237);
-    const inactiveColor = Color(0xFF8F9C8F);
+    final activeColor = AppColors.navBarActivePill;
+    const inactiveColor = Color(0xFF8E8E93);
 
     return Semantics(
       selected: isSelected,
@@ -117,14 +118,14 @@ class _NavBarTabButton extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Active Solid Lime Capsule or Inactive Box
+              // Active Solid Capsule or Inactive Box
               AnimatedContainer(
                 duration: AppMotion.short3,
                 curve: AppMotion.hyperOsSpring,
                 width: 64.0,
                 height: 31.0,
                 decoration: BoxDecoration(
-                  color: isSelected ? activeLime : Colors.transparent,
+                  color: isSelected ? activeColor : Colors.transparent,
                   borderRadius: BorderRadius.circular(16.0),
                 ),
                 child: Center(
@@ -140,7 +141,7 @@ class _NavBarTabButton extends StatelessWidget {
                       isSelected ? item.activeIcon : item.icon,
                       key: ValueKey(isSelected),
                       size: 21,
-                      color: isSelected ? const Color(0xFF0C100C) : inactiveColor,
+                      color: isSelected ? AppColors.navBarActiveIcon : inactiveColor,
                     ),
                   ),
                 ),
@@ -150,7 +151,7 @@ class _NavBarTabButton extends StatelessWidget {
                 duration: AppMotion.short3,
                 curve: AppMotion.hyperOsSpring,
                 style: TextStyle(
-                  color: isSelected ? activeLime : inactiveColor,
+                  color: isSelected ? activeColor : inactiveColor,
                   fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                   fontSize: 10.5,
                   letterSpacing: -0.1,

@@ -1,3 +1,4 @@
+import '../theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -248,17 +249,17 @@ final GoRouter appRouter = GoRouter(
   ),
 ],
 errorBuilder: (context, state) => Scaffold(
-  backgroundColor: const Color(0xFF0B0E0B),
+  backgroundColor: AppColors.background,
   body: Center(
     child: Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
+          Icon(
             Icons.error_outline_rounded,
             size: 48,
-            color: Color(0xFFC6F16D),
+            color: AppColors.accent,
           ),
           const SizedBox(height: 16),
           const Text(
@@ -274,7 +275,7 @@ errorBuilder: (context, state) => Scaffold(
             state.error?.message ?? 'The requested page could not be located.',
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: Color(0xFF8E9E8E),
+              color: AppColors.textSecondary,
               fontSize: 14,
             ),
           ),
@@ -282,8 +283,8 @@ errorBuilder: (context, state) => Scaffold(
           ElevatedButton(
             onPressed: () => context.go('/home'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFC6F16D),
-              foregroundColor: const Color(0xFF0B0E0B),
+              backgroundColor: AppColors.accent,
+              foregroundColor: AppColors.accentContrast,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),

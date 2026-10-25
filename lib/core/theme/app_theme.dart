@@ -12,6 +12,9 @@ abstract final class AppTheme {
   static ThemeData get darkTheme => buildDarkTheme(AppColors.accent);
 
   static ThemeData buildDarkTheme(Color accentColor) {
+    // Synchronize AppColors design tokens with the chosen accent
+    AppColors.updateAccent(accentColor);
+
     // Generate dynamic tonal palette from seed color in dark brightness
     final baseScheme = ColorScheme.fromSeed(
       seedColor: accentColor,
@@ -23,7 +26,7 @@ abstract final class AppTheme {
       primary: accentColor,
       onPrimary: const Color(0xFF0B0E0B),
       primaryContainer: accentColor.withValues(alpha: 0.20),
-      onPrimaryContainer: const Color(0xFFE2FDB0),
+      onPrimaryContainer: baseScheme.onPrimaryContainer,
       secondary: baseScheme.secondary,
       onSecondary: baseScheme.onSecondary,
       secondaryContainer: baseScheme.secondaryContainer,
@@ -84,7 +87,7 @@ abstract final class AppTheme {
         height: 80,
         backgroundColor: colorScheme.surfaceContainer,
         elevation: 2.0,
-        indicatorColor: colorScheme.secondaryContainer,
+        indicatorColor: colorScheme.primaryContainer,
         indicatorShape: const StadiumBorder(),
         surfaceTintColor: colorScheme.surfaceTint,
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
@@ -101,7 +104,7 @@ abstract final class AppTheme {
         }),
         iconTheme: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return IconThemeData(color: colorScheme.onSecondaryContainer, size: 24);
+            return IconThemeData(color: colorScheme.primary, size: 24);
           }
           return IconThemeData(color: colorScheme.onSurfaceVariant, size: 24);
         }),
@@ -124,12 +127,12 @@ abstract final class AppTheme {
       // 4. Material 3 Chips (Filter, Assist, Input, Suggestion)
       chipTheme: ChipThemeData(
         backgroundColor: colorScheme.surfaceContainerLow,
-        selectedColor: colorScheme.secondaryContainer,
+        selectedColor: colorScheme.primaryContainer,
         disabledColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         labelStyle: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: colorScheme.onSurface),
-        secondaryLabelStyle: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: colorScheme.onSecondaryContainer),
-        checkmarkColor: colorScheme.onSecondaryContainer,
+        secondaryLabelStyle: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: colorScheme.primary),
+        checkmarkColor: colorScheme.primary,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.sm),
           side: BorderSide(color: colorScheme.outlineVariant, width: 0.8),

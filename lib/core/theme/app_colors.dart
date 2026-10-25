@@ -1,34 +1,47 @@
 import 'package:flutter/material.dart';
 
 /// Design tokens for colors across the application.
-/// Matches the obsidian-carbon foundation and electric lime studio aesthetic.
+/// Matches the obsidian-carbon foundation and dynamic studio aesthetic.
 abstract final class AppColors {
-  // Canvas / Backgrounds
-  static const Color background = Color(0xFF0B0E0B); // Obsidian carbon foundation
-  static const Color surface = Color(0xFF141914); // Studio card surface
-  static const Color surfaceElevated = Color(0xFF181E18); // Elevated modals/menus
-  static const Color surfaceHighlight = Color(0xFF222B22); // Subtle highlights
-  static const Color surfaceSecondary = Color(0xFF121612); // Secondary dark surface
-  static const Color surfaceDim = Color(0xFF0A0D0A);
-  static const Color surfaceBright = Color(0xFF242E24);
+  // Default primary accent (Electric Lime)
+  static const Color defaultAccent = Color(0xFFB5F237);
+  static const int defaultAccentValue = 0xFFB5F237;
+
+  // Active dynamic accent state
+  static Color _accent = defaultAccent;
+
+  /// Dynamic primary accent color, updated when user picks a new accent theme.
+  static Color get accent => _accent;
+  static Color get accentHover => _accent.withValues(alpha: 0.85);
+  static Color get accentPressed => _accent.withValues(alpha: 0.70);
+  static Color get accentSoft => _accent.withValues(alpha: 0.16);
+  static Color get accentBorder => _accent.withValues(alpha: 0.40);
+
+  /// Updates the active accent across all UI components.
+  static void updateAccent(Color color) {
+    _accent = color;
+  }
+
+  // Canvas / Backgrounds (Neutral obsidian OLED dark)
+  static const Color background = Color(0xFF0C0D0E); // Neutral obsidian canvas
+  static const Color surface = Color(0xFF141517); // Studio card surface
+  static const Color surfaceCard = Color(0xFF141517); // Studio card surface alias
+  static const Color surfaceElevated = Color(0xFF1A1B1E); // Elevated modals/menus
+  static const Color surfaceHighlight = Color(0xFF222328); // Subtle highlights
+  static const Color surfaceSecondary = Color(0xFF121315); // Secondary dark surface
+  static const Color surfaceDim = Color(0xFF0A0A0C);
+  static const Color surfaceBright = Color(0xFF28282C);
 
   // Material 3 Surface Containers (Elevation Hierarchy)
-  static const Color surfaceContainerLowest = Color(0xFF0C0F0C); // Level 0: Deepest canvas
-  static const Color surfaceContainerLow = Color(0xFF131813);    // Level 1: Elevated cards & list items
-  static const Color surfaceContainer = Color(0xFF181E18);       // Level 2: NavigationBar, app bars
-  static const Color surfaceContainerHigh = Color(0xFF1F261F);   // Level 3: Dialogs, bottom sheets
-  static const Color surfaceContainerHighest = Color(0xFF263026);// Level 4/5: Filled chips, search fields
+  static const Color surfaceContainerLowest = Color(0xFF090A0B); // Level 0: Deepest canvas
+  static const Color surfaceContainerLow = Color(0xFF131416);    // Level 1: Elevated cards & list items
+  static const Color surfaceContainer = Color(0xFF18191C);       // Level 2: NavigationBar, app bars
+  static const Color surfaceContainerHigh = Color(0xFF1F2024);   // Level 3: Dialogs, bottom sheets
+  static const Color surfaceContainerHighest = Color(0xFF26272C);// Level 4/5: Filled chips, search fields
 
-  // Material 3 Outlines & Borders
-  static const Color outline = Color(0xFF4A5A4A);                // Interactive element borders
-  static const Color outlineVariant = Color(0xFF2B382B);         // Subtle dividers & cards
-
-  // Accent Colors — Electric Lime & Neon Studio
-  static const Color accent = Color(0xFFB5F237); // Vibrant electric lime primary accent
-  static const Color accentHover = Color(0xFFC4F556);
-  static const Color accentPressed = Color(0xFFA5E626);
-  static const Color accentSoft = Color(0x29B5F237); // 16% alpha lime
-  static const Color accentBorder = Color(0x66B5F237); // 40% alpha lime border
+  // Material 3 Outlines & Borders (Neutral dark outlines)
+  static const Color outline = Color(0xFF484A50);                // Interactive element borders
+  static const Color outlineVariant = Color(0xFF2E3035);         // Subtle dividers & cards
 
   // Material 3 Tertiary Palette
   static const Color tertiary = Color(0xFF7CD5C8);
@@ -42,17 +55,21 @@ abstract final class AppColors {
   static const Color telemetryPurple = Color(0xFFA855F7); // Special tag purple
   static const Color telemetryAmber = Color(0xFFF59E0B); // Warning / alert amber
 
-  // Floating Nav Bar Tokens
-  static const Color navBarBackground = Color(0xE60B0E0B); // Frosted obsidian surface (90% alpha)
-  static const Color navBarBorder = Color(0x55263526); // Studio green-carbon 1px border
-  static const Color navBarActivePill = Color(0xFFB5F237); // Electric lime active tab capsule
-  static const Color navBarActiveBorder = Color(0xFFC4F556);
-  static const Color navBarActiveIcon = Color(0xFF0B0E0B); // Pitch black icon inside lime capsule
+  /// Dynamic high-contrast foreground color on top of [accent]
+  static Color get accentContrast =>
+      _accent.computeLuminance() > 0.4 ? const Color(0xFF0C0D0E) : Colors.white;
+
+  // Floating Nav Bar Tokens (Dynamic pill and border)
+  static const Color navBarBackground = Color(0xF00E0F11); // Frosted obsidian surface (94% alpha)
+  static const Color navBarBorder = Color(0x55303238); // Neutral dark 1px border
+  static Color get navBarActivePill => _accent; // Dynamic accent active tab capsule
+  static Color get navBarActiveBorder => _accent.withValues(alpha: 0.85);
+  static Color get navBarActiveIcon => accentContrast; // Contrast-adaptive icon inside active capsule
 
   // PRO Badge Tokens
-  static const Color proBadgeBg = Color(0xFF1B2E15);
-  static const Color proBadgeBorder = Color(0xFFB5F237);
-  static const Color proBadgeText = Color(0xFFB5F237);
+  static Color get proBadgeBg => _accent.withValues(alpha: 0.16);
+  static Color get proBadgeBorder => _accent;
+  static Color get proBadgeText => _accent;
 
   // Online Indicator
   static const Color onlineDot = Color(0xFF22C55E);
@@ -86,29 +103,29 @@ abstract final class AppColors {
   static const Color genreSciFiBorder = Color(0xFF1B3455);
   static const Color genreSciFiColor = Color(0xFF64B5F6);
 
-  static const Color genreKDramaBg = Color(0xFF182810);
-  static const Color genreKDramaBorder = Color(0xFF32521B);
-  static const Color genreKDramaColor = Color(0xFFB5F237);
+  static const Color genreKDramaBg = Color(0xFF181B18);
+  static const Color genreKDramaBorder = Color(0xFF2D352D);
+  static Color get genreKDramaColor => _accent;
 
   // Typography Colors (WCAG AAA/AA Compliant)
-  static const Color textPrimary = Color(0xFFF1F5F1); // Crisp off-white
-  static const Color textSecondary = Color(0xFF8E9E8E); // Studio sage-grey
-  static const Color textMuted = Color(0xFF7E8F7E); // WCAG AA 4.6:1 contrast
-  static const Color textDisabled = Color(0xFF5A665A); // WCAG AA large/decorative
-  static const Color onSurfaceVariant = Color(0xFFB5C4B5);
+  static const Color textPrimary = Color(0xFFF1F3F5); // Crisp off-white
+  static const Color textSecondary = Color(0xFF94979E); // Neutral cool-grey
+  static const Color textMuted = Color(0xFF787B82); // WCAG AA 4.6:1 contrast
+  static const Color textDisabled = Color(0xFF55585F); // WCAG AA large/decorative
+  static const Color onSurfaceVariant = Color(0xFFB8BAC2);
 
   // Scrim & Shadow
   static const Color scrim = Color(0xFF000000);
   static const Color shadow = Color(0xFF000000);
 
-  // Dividers & Borders
-  static const Color border = Color(0xFF263526); // Crisp studio 1px border
-  static const Color borderSubtle = Color(0xFF1D261D); // Subtle inner border
-  static const Color divider = Color(0xFF1D261D);
+  // Dividers & Borders (Neutral dark)
+  static const Color border = Color(0xFF28292E); // Crisp neutral 1px border
+  static const Color borderSubtle = Color(0xFF1E1F23); // Subtle inner border
+  static const Color divider = Color(0xFF1E1F23);
 
   // Badges & Ratings
   static const Color ratingStar = Color(0xFFFFB800); // Warm gold
-  static const Color ratingBadge = Color(0xCC0E130E); // Dark translucent pill
+  static const Color ratingBadge = Color(0xCC121315); // Dark translucent pill
   static const Color liveBadge = Color(0xFF22C55E); // Live green badge
-  static const Color rankBadgeBg = Color(0x990D120D); // Rank number container
+  static const Color rankBadgeBg = Color(0x99121315); // Rank number container
 }

@@ -176,7 +176,7 @@ class _EmbedStreamDialogState extends State<EmbedStreamDialog> {
                     color: AppColors.accent.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(AppRadius.md),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.link_rounded,
                     color: AppColors.accent,
                     size: 22,
@@ -235,8 +235,8 @@ class _EmbedStreamDialogState extends State<EmbedStreamDialog> {
               ),
               child: Row(
                 children: [
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: Icon(Icons.play_circle_outline_rounded, color: AppColors.accent, size: 20),
                   ),
                   Expanded(
@@ -254,7 +254,7 @@ class _EmbedStreamDialogState extends State<EmbedStreamDialog> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.paste_rounded, color: AppColors.accent, size: 18),
+                    icon: Icon(Icons.paste_rounded, color: AppColors.accent, size: 18),
                     tooltip: 'Paste from clipboard',
                     onPressed: _pasteFromClipboard,
                   ),

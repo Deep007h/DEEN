@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 
 /// Top bar overlay for the video player:
 /// - Frosted circular back button on left
@@ -107,9 +108,9 @@ class PlayerTopBar extends StatelessWidget {
                       ),
                       if (onOpenDescription != null) ...[
                         const SizedBox(width: 5),
-                        const Icon(
+                        Icon(
                           Icons.info_outline_rounded,
-                          color: Color(0xFFB5F237),
+                          color: AppColors.accent,
                           size: 15,
                         ),
                       ],
@@ -125,9 +126,9 @@ class PlayerTopBar extends StatelessWidget {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xEE141914),
+                                  color: AppColors.surfaceCard.withValues(alpha: 0.92),
                                   borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(color: const Color(0xFF263526), width: 0.8),
+                                  border: Border.all(color: AppColors.border, width: 0.8),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
@@ -153,9 +154,9 @@ class PlayerTopBar extends StatelessWidget {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xEE141914),
+                                  color: AppColors.surfaceCard.withValues(alpha: 0.92),
                                   borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(color: const Color(0xFF263526), width: 0.8),
+                                  border: Border.all(color: AppColors.border, width: 0.8),
                                 ),
                                 child: Text(
                                   qualityLabel.toUpperCase(),
@@ -163,7 +164,7 @@ class PlayerTopBar extends StatelessWidget {
                                     fontFamily: 'monospace',
                                     fontSize: 9.5,
                                     fontWeight: FontWeight.w700,
-                                    color: Color(0xFFB0BFB0),
+                                    color: AppColors.textSecondary,
                                     letterSpacing: 0.4,
                                   ),
                                 ),
@@ -181,7 +182,7 @@ class PlayerTopBar extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontFamily: 'monospace',
-                      color: Color(0xFF8E9E8E),
+                      color: AppColors.textSecondary,
                       fontSize: 11.0,
                       fontWeight: FontWeight.w500,
                     ),
@@ -205,19 +206,19 @@ class PlayerTopBar extends StatelessWidget {
                     height: 36,
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                     decoration: BoxDecoration(
-                      color: const Color(0xEE141914),
+                      color: AppColors.surfaceCard.withValues(alpha: 0.92),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: const Color(0xFF263526),
+                        color: AppColors.border,
                         width: 1.0,
                       ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.music_note_rounded,
-                          color: Color(0xFFC6F16D),
+                          color: AppColors.accent,
                           size: 15,
                         ),
                         const SizedBox(width: 5),
@@ -331,10 +332,10 @@ class _FrostedCircleButton extends StatelessWidget {
             width: buttonSize,
             height: buttonSize,
             decoration: BoxDecoration(
-              color: const Color(0xEE141914),
+              color: AppColors.surfaceCard.withValues(alpha: 0.92),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: const Color(0xFF263526),
+                color: AppColors.border,
                 width: 1.0,
               ),
               boxShadow: const [

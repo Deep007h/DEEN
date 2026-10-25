@@ -38,7 +38,7 @@ class SkipIntroButton extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
+              Icon(
                 Icons.fast_forward_rounded,
                 size: 15,
                 color: AppColors.accent,
