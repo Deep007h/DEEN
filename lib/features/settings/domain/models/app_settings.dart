@@ -15,6 +15,7 @@ class AppSettings {
   final double longPressSpeed;
   final bool gesturesEnabled;
   final String resumeBehavior; // 'always', 'prompt', 'never'
+  final bool longPressMigrated;
 
   const AppSettings({
     this.accentColorValue = 0xFFC6F16D, // AppColors.accent
@@ -27,6 +28,7 @@ class AppSettings {
     this.longPressSpeed = 1.5,
     this.gesturesEnabled = true,
     this.resumeBehavior = 'always',
+    this.longPressMigrated = true,
   });
 
   Map<String, dynamic> toJson() {
@@ -41,6 +43,7 @@ class AppSettings {
       'longPressSpeed': longPressSpeed,
       'gesturesEnabled': gesturesEnabled,
       'resumeBehavior': resumeBehavior,
+      'longPressMigrated': true,
     };
   }
 
@@ -56,6 +59,16 @@ class AppSettings {
       }
     }
 
+    final rawLongPressSpeed = (json['longPressSpeed'] as num?)?.toDouble();
+    final bool longPressMigrated = json['longPressMigrated'] as bool? ?? false;
+    final double longPressSpeed;
+    if (!longPressMigrated && (rawLongPressSpeed == null || rawLongPressSpeed == 2.0)) {
+      // Legacy versions defaulted to 2.0. Automatically migrate existing installs to 1.5.
+      longPressSpeed = 1.5;
+    } else {
+      longPressSpeed = rawLongPressSpeed ?? 1.5;
+    }
+
     return AppSettings(
       accentColorValue: json['accentColorValue'] as int? ?? 0xFFC6F16D,
       titlePreference: pref,
@@ -64,9 +77,10 @@ class AppSettings {
       defaultSubtitleLanguage: json['defaultSubtitleLanguage'] as String? ?? 'English',
       autoplayNext: json['autoplayNext'] as bool? ?? true,
       skipStepSeconds: json['skipStepSeconds'] as int? ?? 10,
-      longPressSpeed: (json['longPressSpeed'] as num?)?.toDouble() ?? 1.5,
+      longPressSpeed: longPressSpeed,
       gesturesEnabled: json['gesturesEnabled'] as bool? ?? true,
       resumeBehavior: json['resumeBehavior'] as String? ?? 'always',
+      longPressMigrated: true,
     );
   }
 
@@ -81,6 +95,7 @@ class AppSettings {
     double? longPressSpeed,
     bool? gesturesEnabled,
     String? resumeBehavior,
+    bool? longPressMigrated,
   }) {
     return AppSettings(
       accentColorValue: accentColorValue ?? this.accentColorValue,
@@ -93,6 +108,7 @@ class AppSettings {
       longPressSpeed: longPressSpeed ?? this.longPressSpeed,
       gesturesEnabled: gesturesEnabled ?? this.gesturesEnabled,
       resumeBehavior: resumeBehavior ?? this.resumeBehavior,
+      longPressMigrated: longPressMigrated ?? this.longPressMigrated,
     );
   }
 
@@ -110,7 +126,8 @@ class AppSettings {
           skipStepSeconds == other.skipStepSeconds &&
           longPressSpeed == other.longPressSpeed &&
           gesturesEnabled == other.gesturesEnabled &&
-          resumeBehavior == other.resumeBehavior;
+          resumeBehavior == other.resumeBehavior &&
+          longPressMigrated == other.longPressMigrated;
 
   @override
   int get hashCode =>
@@ -123,5 +140,6 @@ class AppSettings {
       skipStepSeconds.hashCode ^
       longPressSpeed.hashCode ^
       gesturesEnabled.hashCode ^
-      resumeBehavior.hashCode;
+      resumeBehavior.hashCode ^
+      longPressMigrated.hashCode;
 }

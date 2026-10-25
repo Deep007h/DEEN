@@ -283,3 +283,16 @@ final animeDetailProvider = FutureProvider.autoDispose.family<AnimeDetail, int>(
 
   return repo.getAnimeDetail(id, cancelToken: cancelToken);
 });
+
+/// K-Show / Asian Drama detail provider by ID with autoDispose and cancellation
+final kshowDetailProvider = FutureProvider.autoDispose.family<AnimeDetail, int>((ref, id) async {
+  final repo = ref.watch(metadataRepositoryProvider);
+  final cancelToken = CancelToken();
+
+  ref.onDispose(() {
+    cancelToken.cancel('KShow detail screen closed');
+  });
+
+  return repo.getKShowDetail(id, cancelToken: cancelToken);
+});
+

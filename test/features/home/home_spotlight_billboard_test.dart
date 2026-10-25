@@ -114,8 +114,8 @@ void main() {
       // Verify billboard title and trending badge
       expect(find.text('Overgeared'), findsWidgets);
       expect(find.text('#1 Trending'), findsOneWidget);
-      expect(find.text('Play Now'), findsOneWidget);
-      expect(find.text('My List'), findsOneWidget);
+      expect(find.text('Watch Now'), findsOneWidget);
+      expect(find.text('My List'), findsWidgets);
 
       // Verify Hero widget is configured on billboard
       final heroFinder = find.byWidgetPredicate(

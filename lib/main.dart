@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/logging/error_logger.dart';
 import 'core/router/app_router.dart';
-import 'core/services/ad_service.dart';
 import 'core/theme/app_theme.dart';
 import 'features/settings/data/repositories/app_settings_repository.dart';
 import 'l10n/app_localizations.dart';
@@ -20,13 +19,6 @@ void main() async {
     prefs = await SharedPreferences.getInstance();
   } catch (e) {
     debugPrint('Failed to load SharedPreferences on start: $e');
-  }
-
-  // Initialize Start.io AdService for live monetization so first interstitial is cached
-  try {
-    await AdService.instance.initialize(testMode: false);
-  } catch (e) {
-    debugPrint('AdService startup initialization error: $e');
   }
 
   // Set system UI styling for edge-to-edge dark theme

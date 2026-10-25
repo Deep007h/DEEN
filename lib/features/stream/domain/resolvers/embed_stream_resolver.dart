@@ -192,18 +192,18 @@ class EmbedStreamResolver {
     final rawSource = (data['source'] ?? data['Video'])?.toString();
     if (rawSource == null || rawSource.isEmpty) return null;
 
-    // Permanently ban all broken /vid/ proxy streams
-    if (rawSource.contains('/vid/')) return null;
-
-    // Append #.m3u8 path hint so libmpv / FFmpeg recognizes HLS stream format instantly
-    final streamUrl = rawSource.contains('.m3u8') ? rawSource : '$rawSource#.m3u8';
-
     // Parse audio
     final urlInfo = parseEmbedUrl(embedUrl);
     final isDub = urlInfo.audio == 'dub';
     final audio = urlInfo.isKisskh
         ? AudioLanguage.koreanOriginal
         : (isDub ? AudioLanguage.englishDub : AudioLanguage.japaneseOriginal);
+
+    // Permanently ban all broken /vid/ proxy streams for anime, but allow valid KissKH HLS streams
+    if (!urlInfo.isKisskh && rawSource.contains('/vid/')) return null;
+
+    // Append #.m3u8 path hint so libmpv / FFmpeg recognizes HLS stream format instantly
+    final streamUrl = rawSource.contains('.m3u8') ? rawSource : '$rawSource#.m3u8';
 
     // Parse all subtitle tracks
     final tracks = parseSubtitleTracks(data['tracks']);
@@ -334,6 +334,7 @@ class EmbedStreamResolver {
 
       final code = langCodeFromLabel(label);
       final isDefault = t['default'] == true || code == 'en';
+      final isSrt = file.toLowerCase().endsWith('.srt');
 
       list.add(
         SubtitleTrack(
@@ -341,7 +342,7 @@ class EmbedStreamResolver {
           languageCode: code,
           label: label,
           url: file,
-          format: SubtitleFormat.vtt,
+          format: isSrt ? SubtitleFormat.srt : SubtitleFormat.vtt,
           isDefault: isDefault,
         ),
       );

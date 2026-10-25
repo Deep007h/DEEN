@@ -731,16 +731,17 @@ class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionHeader(
-          Icons.source_rounded,
-          'Source Provider',
-          'Stream provider switcher',
+          Icons.dns_rounded,
+          'Stream Server',
+          'Switch streaming server',
         ),
-        ...widget.availableProviders.map((provider) {
+        ...List.generate(widget.availableProviders.length, (index) {
+          final provider = widget.availableProviders[index];
           final isSelected = provider.id == widget.activeProvider.id;
           return _buildSettingCard(
             isSelected: isSelected,
-            title: provider.displayName,
-            subtitle: 'ID: ${provider.id}',
+            title: 'Server ${index + 1}',
+            subtitle: isSelected ? 'Active Stream Server' : 'Fast & Reliable Server',
             onTap: () => widget.onSelectProvider(provider),
           );
         }),

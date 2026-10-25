@@ -271,6 +271,11 @@ class MediaKitPlaybackEngine implements VideoPlaybackEngine {
   }
 
   @override
+  Future<void> stop() async {
+    await _player.stop();
+  }
+
+  @override
   Future<void> togglePlay() async {
     await _player.playOrPause();
   }

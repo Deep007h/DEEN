@@ -82,6 +82,9 @@ abstract class VideoPlaybackEngine {
   /// Pauses playback.
   Future<void> pause();
 
+  /// Stops playback, clears buffers, and resets position.
+  Future<void> stop();
+
   /// Toggles between play and pause.
   Future<void> togglePlay();
 

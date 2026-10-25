@@ -110,7 +110,7 @@ void main() {
       expect(result.isAnimeX, isTrue);
     });
 
-    test('parseSourcePayload rejects banned /vid/ URLs', () {
+    test('parseSourcePayload rejects banned /vid/ URLs for anime', () {
       final brokenPayload = {
         'status': 'ok',
         'source': 'https://megavid.buzz/vid/broken/seg.m3u8',
@@ -122,6 +122,41 @@ void main() {
       );
 
       expect(result, isNull);
+    });
+
+    test('parseSourcePayload accepts valid KissKH /vid/ streams and parses .srt tracks', () {
+      final kisskhPayload = {
+        'status': 'ok',
+        'source': 'https://megavid.buzz/vid/Cv8kJl_CnJ9LnGe0RMJ9Q/Ep1_index.m3u8',
+        'tracks': [
+          {
+            'file': 'https://megavid.buzz/sub/Queen.of.Tears.2024.Ep1.en.srt',
+            'label': 'English',
+            'kind': 'captions',
+            'default': true,
+          },
+          {
+            'file': 'https://megavid.buzz/sub/Queen.of.Tears.2024.Ep1.id.srt',
+            'label': 'Indonesia',
+            'kind': 'captions',
+          },
+        ],
+      };
+
+      final result = resolver.parseSourcePayload(
+        kisskhPayload,
+        embedUrl: 'https://megavid.buzz/kisskh/147731',
+      );
+
+      expect(result, isNotNull);
+      expect(result!.streamUrl, contains('Ep1_index.m3u8'));
+      expect(result.variant.audio, AudioLanguage.koreanOriginal);
+      expect(result.subtitles.length, 3);
+      expect(result.subtitles[1].label, 'English');
+      expect(result.subtitles[1].format.name, 'srt');
+      expect(result.subtitles[2].label, 'Indonesia');
+      expect(result.subtitles[2].languageCode, 'id');
+      expect(result.subtitles[2].format.name, 'srt');
     });
   });
 

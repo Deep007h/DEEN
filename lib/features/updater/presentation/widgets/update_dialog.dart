@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
@@ -157,15 +158,8 @@ class UpdateDialog extends StatelessWidget {
               padding: const EdgeInsets.all(AppSpacing.md),
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
-                child: Text(
-                  release.releaseNotes.isNotEmpty
-                      ? release.releaseNotes
-                      : 'Improvements, bug fixes, and performance updates.',
-                  style: AppText.bodyMedium.copyWith(
-                    color: AppColors.textSecondary,
-                    height: 1.45,
-                    fontSize: 13,
-                  ),
+                child: _FormattedReleaseNotes(
+                  rawNotes: release.releaseNotes,
                 ),
               ),
             ),
@@ -176,9 +170,15 @@ class UpdateDialog extends StatelessWidget {
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () {
+                    onPressed: () async {
+                      try {
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.setString('dismissed_ota_tag', release.tagName);
+                      } catch (_) {}
                       onDismiss?.call();
-                      Navigator.of(context).pop();
+                      if (context.mounted) {
+                        Navigator.of(context).pop();
+                      }
                     },
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.textSecondary,
@@ -221,5 +221,186 @@ class UpdateDialog extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Cleanly formats markdown release notes:
+/// - Converts headings (#, ##, ###) into bold section titles without hash symbols.
+/// - Converts bullets (*, -, +) into stylized accent dot bullets.
+/// - Converts **bold** and __bold__ tokens into FontWeight.w700.
+/// - Strips backticks (`code` -> code).
+/// - Filters out horizontal dividers (---, ***) and raw SHA-256 checksum hex digests.
+class _FormattedReleaseNotes extends StatelessWidget {
+  final String rawNotes;
+
+  const _FormattedReleaseNotes({required this.rawNotes});
+
+  @override
+  Widget build(BuildContext context) {
+    final trimmed = rawNotes.trim();
+    if (trimmed.isEmpty) {
+      return Text(
+        'Improvements, bug fixes, and performance updates.',
+        style: AppText.bodyMedium.copyWith(
+          color: AppColors.textSecondary,
+          height: 1.45,
+          fontSize: 13,
+        ),
+      );
+    }
+
+    final lines = trimmed.split('\n');
+    final widgets = <Widget>[];
+
+    for (var rawLine in lines) {
+      final line = rawLine.trim();
+      if (line.isEmpty) continue;
+
+      // Filter out divider lines (---, ***, ===)
+      if (RegExp(r'^[-*_]{3,}$').hasMatch(line)) continue;
+
+      // Filter out SHA-256 / SHA-1 checksum hex digests (lines containing 32+ contiguous hex chars)
+      if (RegExp(r'\b[a-fA-F0-9]{32,64}\b').hasMatch(line) &&
+          (line.toLowerCase().contains('sha') ||
+           line.toLowerCase().contains('checksum') ||
+           line.toLowerCase().contains('.apk') ||
+           line.startsWith('`'))) {
+        continue;
+      }
+
+      // Filter out raw checksum table headers
+      if (RegExp(r'^(#+\s*)?(sha-?256|checksums|hashes)', caseSensitive: false).hasMatch(line)) {
+        continue;
+      }
+
+      // Markdown heading (#, ##, ###, etc.)
+      final headerMatch = RegExp(r'^(#{1,6})\s*(.*)$').firstMatch(line);
+      if (headerMatch != null) {
+        final headingText = headerMatch.group(2)?.trim() ?? '';
+        if (headingText.isNotEmpty) {
+          if (widgets.isNotEmpty) {
+            widgets.add(const SizedBox(height: 8));
+          }
+          widgets.add(
+            Text(
+              headingText,
+              style: AppText.bodyMedium.copyWith(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
+            ),
+          );
+          widgets.add(const SizedBox(height: 4));
+        }
+        continue;
+      }
+
+      // Bullet items (*, -, +, 1.)
+      final bulletMatch = RegExp(r'^(\*|-|\+|\d+\.)\s+(.*)$').firstMatch(line);
+      if (bulletMatch != null) {
+        final bulletText = bulletMatch.group(2)?.trim() ?? '';
+        if (bulletText.isNotEmpty) {
+          widgets.add(
+            Padding(
+              padding: const EdgeInsets.only(bottom: 5),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 6, right: 8),
+                    width: 5,
+                    height: 5,
+                    decoration: const BoxDecoration(
+                      color: AppColors.accent,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  Expanded(
+                    child: Text.rich(
+                      TextSpan(
+                        children: _parseInlineSpans(bulletText),
+                      ),
+                      style: AppText.bodyMedium.copyWith(
+                        color: AppColors.textSecondary,
+                        height: 1.4,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        continue;
+      }
+
+      // Normal paragraph line
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Text.rich(
+            TextSpan(
+              children: _parseInlineSpans(line),
+            ),
+            style: AppText.bodyMedium.copyWith(
+              color: AppColors.textSecondary,
+              height: 1.45,
+              fontSize: 13,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (widgets.isEmpty) {
+      return Text(
+        'Improvements, bug fixes, and performance updates.',
+        style: AppText.bodyMedium.copyWith(
+          color: AppColors.textSecondary,
+          height: 1.45,
+          fontSize: 13,
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: widgets,
+    );
+  }
+
+  static List<InlineSpan> _parseInlineSpans(String rawText) {
+    final cleaned = rawText.replaceAll('`', '');
+    if (!cleaned.contains('**') && !cleaned.contains('__')) {
+      return [TextSpan(text: cleaned)];
+    }
+
+    final spans = <InlineSpan>[];
+    final boldRegex = RegExp(r'(\*\*|__)(.*?)\1');
+    int lastIndex = 0;
+
+    for (final match in boldRegex.allMatches(cleaned)) {
+      if (match.start > lastIndex) {
+        spans.add(TextSpan(text: cleaned.substring(lastIndex, match.start)));
+      }
+      final boldContent = match.group(2) ?? '';
+      spans.add(TextSpan(
+        text: boldContent,
+        style: const TextStyle(
+          fontWeight: FontWeight.w700,
+          color: AppColors.textPrimary,
+        ),
+      ));
+      lastIndex = match.end;
+    }
+
+    if (lastIndex < cleaned.length) {
+      spans.add(TextSpan(text: cleaned.substring(lastIndex)));
+    }
+
+    return spans;
   }
 }

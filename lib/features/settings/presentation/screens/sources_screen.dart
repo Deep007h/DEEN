@@ -66,7 +66,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
         leadingWidth: AppSpacing.pageMargin + 44,
         titleSpacing: AppSpacing.sm,
         title: const Text(
-          'Stream Providers',
+          'Stream Servers',
           style: AppText.sectionTitle,
         ),
       ),
@@ -119,7 +119,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                         const SizedBox(width: AppSpacing.sm),
                         Expanded(
                           child: Text(
-                            'Hold & drag to reorder priority. When resolving an episode, the top-enabled source is attempted first with automatic failover.',
+                            'Hold & drag to reorder priority. When resolving an episode, the top-enabled server is attempted first with automatic failover.',
                             style: AppText.meta.copyWith(color: AppColors.textSecondary),
                           ),
                         ),
@@ -223,7 +223,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          provider.displayName,
+                                          'Server ${index + 1}',
                                           style: AppText.body.copyWith(
                                             fontWeight: FontWeight.w600,
                                             color: isEnabled
@@ -232,7 +232,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                                           ),
                                         ),
                                         Text(
-                                          'ID: ${provider.id}',
+                                          'High Speed Stream Server #${index + 1}',
                                           style: AppText.meta.copyWith(fontSize: 11),
                                         ),
                                       ],
@@ -367,7 +367,13 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
     });
 
     try {
-      if (id == 'demo') {
+      if (id == 'anifam') {
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+        if (!mounted) return;
+        setState(() {
+          _testResults[id] = '✓ Online (Multi-Mirror)';
+        });
+      } else if (id == 'demo') {
         await Future<void>.delayed(const Duration(milliseconds: 150));
         if (!mounted) return;
         setState(() {

@@ -9,6 +9,10 @@ class PlayerMoreOptionsSheet extends StatelessWidget {
   final VoidCallback onCopyEmbedUrl;
   final VoidCallback onSelectServer;
   final VoidCallback onDiagnostics;
+  final VoidCallback? onOpenDescription;
+  final VoidCallback? onDownloadEpisode;
+  final bool isDownloaded;
+  final bool isDownloading;
   final VoidCallback onClose;
 
   const PlayerMoreOptionsSheet({
@@ -19,6 +23,10 @@ class PlayerMoreOptionsSheet extends StatelessWidget {
     required this.onCopyEmbedUrl,
     required this.onSelectServer,
     required this.onDiagnostics,
+    this.onOpenDescription,
+    this.onDownloadEpisode,
+    this.isDownloaded = false,
+    this.isDownloading = false,
     required this.onClose,
   });
 
@@ -101,6 +109,27 @@ class PlayerMoreOptionsSheet extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               physics: const BouncingScrollPhysics(),
               children: [
+                if (onOpenDescription != null)
+                  _buildOptionCard(
+                    icon: Icons.info_outline_rounded,
+                    title: 'Anime Info & Synopsis',
+                    subtitle: 'View summary, genres, rating, and details',
+                    onTap: onOpenDescription!,
+                  ),
+                if (onDownloadEpisode != null)
+                  _buildOptionCard(
+                    icon: isDownloaded
+                        ? Icons.download_done_rounded
+                        : (isDownloading ? Icons.downloading_rounded : Icons.file_download_outlined),
+                    title: isDownloaded
+                        ? 'Episode Downloaded'
+                        : (isDownloading ? 'Downloading Episode...' : 'Download Episode'),
+                    subtitle: isDownloaded
+                        ? 'Saved offline in Downloads tab'
+                        : 'Save this episode for offline playback',
+                    badge: isDownloaded ? 'SAVED' : (isDownloading ? 'SAVING' : 'OFFLINE'),
+                    onTap: onDownloadEpisode!,
+                  ),
                 _buildOptionCard(
                   icon: Icons.lock_outline_rounded,
                   title: 'Lock Controls',
@@ -128,8 +157,8 @@ class PlayerMoreOptionsSheet extends StatelessWidget {
                 ),
                 _buildOptionCard(
                   icon: Icons.dns_rounded,
-                  title: 'Stream Server / Mirror',
-                  subtitle: 'Switch CDN provider (Zuna, Sora, Loli)',
+                  title: 'Stream Server',
+                  subtitle: 'Switch server (Server 1, Server 2, Server 3)',
                   onTap: onSelectServer,
                 ),
                 _buildOptionCard(

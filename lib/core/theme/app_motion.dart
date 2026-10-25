@@ -19,6 +19,18 @@ abstract final class AppMotion {
   static const Curve expressiveFastEffects = Cubic(0.31, 0.94, 0.34, 1.00);
   static const Curve expressiveDefaultEffects = Cubic(0.34, 0.80, 0.34, 1.00);
 
+  // 3b. HyperOS 4 Alive Motion Physics Curves
+  /// Elastic spring overshoot for tactile tap release, micro-interactions, and card bounces.
+  static const Curve hyperOsSpring = Cubic(0.34, 1.45, 0.64, 1.0);
+  /// Ultra-smooth natural deceleration for fluid route entries, sheets, and dialogs.
+  static const Curve hyperOsDecelerate = Cubic(0.14, 1.0, 0.28, 1.0);
+  /// Clean accelerated exit for dismissals and pop operations.
+  static const Curve hyperOsAccelerate = Cubic(0.4, 0.0, 0.8, 0.2);
+  /// Responsive snappy curve for quick toggle switches and state badges.
+  static const Curve hyperOsSnappy = Cubic(0.2, 0.9, 0.2, 1.0);
+  /// Fluid organic curve for carousel paging and hero transitions.
+  static const Curve hyperOsFluid = Cubic(0.25, 0.1, 0.25, 1.0);
+
   // 4. Material 3 Duration Tokens (Scaled by 1.3x for smoother, relaxed UI animations)
   static const Duration short1 = Duration(milliseconds: 65);
   static const Duration short2 = Duration(milliseconds: 130);

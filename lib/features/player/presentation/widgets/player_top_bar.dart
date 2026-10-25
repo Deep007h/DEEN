@@ -21,6 +21,7 @@ class PlayerTopBar extends StatelessWidget {
   final String? audioLabel;
   final VoidCallback? onToggleAudio;
   final VoidCallback? onLock;
+  final VoidCallback? onOpenDescription;
   final String streamType;
   final String qualityLabel;
 
@@ -41,6 +42,7 @@ class PlayerTopBar extends StatelessWidget {
     this.audioLabel,
     this.onToggleAudio,
     this.onLock,
+    this.onOpenDescription,
     this.streamType = 'HLS',
     this.qualityLabel = '1080P',
   });
@@ -77,9 +79,16 @@ class PlayerTopBar extends StatelessWidget {
 
             // Anime Title, Episode subtitle, and Stream Telemetry Badges
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: onOpenDescription,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                 children: [
                   Row(
                     children: [
@@ -96,6 +105,14 @@ class PlayerTopBar extends StatelessWidget {
                           ),
                         ),
                       ),
+                      if (onOpenDescription != null) ...[
+                        const SizedBox(width: 5),
+                        const Icon(
+                          Icons.info_outline_rounded,
+                          color: Color(0xFFB5F237),
+                          size: 15,
+                        ),
+                      ],
                       const SizedBox(width: 8),
 
                       Flexible(
@@ -172,6 +189,9 @@ class PlayerTopBar extends StatelessWidget {
                 ],
               ),
             ),
+          ),
+        ),
+      ),
             const SizedBox(width: 10),
 
             // [ 🎵 DUB ] Studio Audio Pill Toggle Button
@@ -232,6 +252,18 @@ class PlayerTopBar extends StatelessWidget {
               ),
             ),
             if (showDanmaku) const SizedBox(width: 12),
+
+            // Lock Screen button
+            if (onLock != null) ...[
+              _FrostedCircleButton(
+                icon: Icons.lock_outline_rounded,
+                size: 18,
+                buttonSize: 40,
+                onPressed: onLock!,
+                tooltip: 'Lock Screen',
+              ),
+              const SizedBox(width: 12),
+            ],
 
             // Cast button
             if (onCast != null) ...[

@@ -14,6 +14,7 @@ class PlayerBottomBar extends StatefulWidget {
   final ValueNotifier<Duration>? positionNotifier;
   final Duration duration;
   final Duration buffer;
+  final ValueNotifier<Duration>? bufferNotifier;
   final ValueChanged<Duration> onSeek;
   final ValueChanged<Duration> onSeekStart;
   final ValueChanged<Duration> onSeekEnd;
@@ -34,6 +35,7 @@ class PlayerBottomBar extends StatefulWidget {
     this.positionNotifier,
     required this.duration,
     required this.buffer,
+    this.bufferNotifier,
     required this.onSeek,
     required this.onSeekStart,
     required this.onSeekEnd,
@@ -75,20 +77,34 @@ class _PlayerBottomBarState extends State<PlayerBottomBar> {
     if (widget.positionNotifier != null) {
       return ValueListenableBuilder<Duration>(
         valueListenable: widget.positionNotifier!,
-        builder: (context, notifPos, _) => _buildBar(context, notifPos),
+        builder: (context, notifPos, _) {
+          if (widget.bufferNotifier != null) {
+            return ValueListenableBuilder<Duration>(
+              valueListenable: widget.bufferNotifier!,
+              builder: (context, notifBuf, _) => _buildBar(context, notifPos, notifBuf),
+            );
+          }
+          return _buildBar(context, notifPos, widget.buffer);
+        },
       );
     }
-    return _buildBar(context, widget.position);
+    if (widget.bufferNotifier != null) {
+      return ValueListenableBuilder<Duration>(
+        valueListenable: widget.bufferNotifier!,
+        builder: (context, notifBuf, _) => _buildBar(context, widget.position, notifBuf),
+      );
+    }
+    return _buildBar(context, widget.position, widget.buffer);
   }
 
-  Widget _buildBar(BuildContext context, Duration currentPos) {
+  Widget _buildBar(BuildContext context, Duration currentPos, Duration currentBuf) {
     final totalMillis = widget.duration.inMilliseconds;
     final currentMillis = _isDragging
         ? (_dragPositionFraction * totalMillis).round()
         : currentPos.inMilliseconds.clamp(0, totalMillis > 0 ? totalMillis : 0);
 
     final displayPosition = Duration(milliseconds: currentMillis);
-    final bufferMillis = widget.buffer.inMilliseconds.clamp(0, totalMillis > 0 ? totalMillis : 0);
+    final bufferMillis = currentBuf.inMilliseconds.clamp(0, totalMillis > 0 ? totalMillis : 0);
 
     final progressRatio = totalMillis > 0 ? (currentMillis / totalMillis).clamp(0.0, 1.0) : 0.0;
     final bufferRatio = totalMillis > 0 ? (bufferMillis / totalMillis).clamp(0.0, 1.0) : 0.0;

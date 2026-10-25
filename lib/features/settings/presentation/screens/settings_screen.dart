@@ -20,8 +20,6 @@ import '../../../metadata/domain/models/anime_titles.dart';
 import '../../../metadata/presentation/providers/metadata_providers.dart';
 import '../../data/repositories/app_settings_repository.dart';
 import '../../domain/models/data_backup.dart';
-import '../../../updater/presentation/providers/updater_providers.dart';
-import '../../../updater/presentation/widgets/update_dialog.dart';
 
 /// Available accent colors in the Appearance settings.
 const List<Color> _kAccentColors = [
@@ -97,9 +95,29 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                     const SizedBox(width: AppSpacing.md),
                   ],
-                  Text(
-                    l10n.settingsTitle,
-                    style: AppText.pageTitle,
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 3.5,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          color: AppColors.accent,
+                          borderRadius: BorderRadius.circular(2),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.accent.withValues(alpha: 0.5),
+                              blurRadius: 6,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        l10n.settingsTitle,
+                        style: AppText.pageTitle,
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -396,7 +414,7 @@ class SettingsScreen extends ConsumerWidget {
                               width: double.infinity,
                               child: SegmentedButton<double>(
                                 segments: const [
-                                  ButtonSegment<double>(value: 1.5, label: Text('1.5x')),
+                                  ButtonSegment<double>(value: 1.5, label: Text('1.5x (Default)')),
                                   ButtonSegment<double>(value: 2.0, label: Text('2.0x')),
                                   ButtonSegment<double>(value: 3.0, label: Text('3.0x')),
                                 ],
@@ -520,14 +538,11 @@ class SettingsScreen extends ConsumerWidget {
                         padding: const EdgeInsets.all(AppSpacing.lg),
                         child: Row(
                           children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: Image.asset(
-                                'assets/images/logo.png',
-                                width: 48,
-                                height: 48,
-                                fit: BoxFit.cover,
-                              ),
+                            Image.asset(
+                              'assets/images/logo.png',
+                              width: 50,
+                              height: 50,
+                              fit: BoxFit.contain,
                             ),
                             const SizedBox(width: AppSpacing.md),
                             Column(
@@ -558,20 +573,9 @@ class SettingsScreen extends ConsumerWidget {
                         icon: Icons.info_outline_rounded,
                         title: 'App Version',
                         trailing: Text(
-                          'v1 (1.0.0)',
+                          'v2 (2.0.0 Ad-Free)',
                           style: AppText.meta,
                         ),
-                      ),
-                      const Divider(height: 1),
-                      _SettingsTile(
-                        icon: Icons.system_update_rounded,
-                        title: 'Check for Updates',
-                        trailing: const Icon(
-                          Icons.chevron_right_rounded,
-                          size: 20,
-                          color: AppColors.textMuted,
-                        ),
-                        onTap: () => _handleManualUpdateCheck(context, ref),
                       ),
                       const Divider(height: 1),
                       _SettingsTile(
@@ -584,15 +588,27 @@ class SettingsScreen extends ConsumerWidget {
                         ),
                       ),
                       const Divider(height: 1),
+                      _SettingsTile(
+                        icon: Icons.gavel_rounded,
+                        title: 'Terms & Conditions',
+                        subtitle: 'Disclaimer, DMCA, content policies & privacy',
+                        trailing: const Icon(
+                          Icons.chevron_right_rounded,
+                          size: 20,
+                          color: AppColors.textMuted,
+                        ),
+                        onTap: () => context.push('/settings/terms'),
+                      ),
+                      const Divider(height: 1),
                       Padding(
                         padding: const EdgeInsets.all(AppSpacing.lg),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Icon(
-                              Icons.gavel_rounded,
-                              size: 18,
-                              color: AppColors.textMuted,
+                              Icons.verified_outlined,
+                              size: 16,
+                              color: AppColors.accent,
                             ),
                             const SizedBox(width: AppSpacing.md),
                             Expanded(
@@ -860,58 +876,6 @@ class SettingsScreen extends ConsumerWidget {
       },
     );
   }
-
-  Future<void> _handleManualUpdateCheck(BuildContext context, WidgetRef ref) async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        backgroundColor: AppColors.surfaceElevated,
-        duration: Duration(seconds: 1),
-        content: Row(
-          children: [
-            SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: AppColors.accent,
-              ),
-            ),
-            SizedBox(width: AppSpacing.md),
-            Text('Checking GitHub releases...'),
-          ],
-        ),
-      ),
-    );
-
-    try {
-      final repo = ref.read(updaterRepositoryProvider);
-      final currentVersion = ref.read(currentAppVersionProvider);
-      final release = await repo.checkForUpdate(currentVersion);
-
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).clearSnackBars();
-
-      if (release != null) {
-        UpdateDialog.show(context, release);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: AppColors.surfaceElevated,
-            content: Text('DEEN is up to date (v$currentVersion)'),
-          ),
-        );
-      }
-    } catch (_) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).clearSnackBars();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          backgroundColor: AppColors.surfaceElevated,
-          content: Text('Could not reach GitHub releases'),
-        ),
-      );
-    }
-  }
 }
 
 class _SectionHeader extends StatelessWidget {
@@ -922,10 +886,30 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Text(
-        title,
-        style: AppText.sectionTitle.copyWith(fontSize: 16),
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm, top: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 3.5,
+            height: 16,
+            decoration: BoxDecoration(
+              color: AppColors.accent,
+              borderRadius: BorderRadius.circular(2),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.accent.withValues(alpha: 0.5),
+                  blurRadius: 6,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: AppText.sectionTitle.copyWith(fontSize: 16),
+          ),
+        ],
       ),
     );
   }
@@ -980,12 +964,14 @@ class _IconBadge extends StatelessWidget {
 class _SettingsTile extends StatelessWidget {
   final IconData icon;
   final String title;
+  final String? subtitle;
   final Widget? trailing;
   final VoidCallback? onTap;
 
   const _SettingsTile({
     required this.icon,
     required this.title,
+    this.subtitle,
     this.trailing,
     this.onTap,
   });
@@ -1005,11 +991,26 @@ class _SettingsTile extends StatelessWidget {
             _IconBadge(icon: icon),
             const SizedBox(width: AppSpacing.md),
             Expanded(
-              child: Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppText.body.copyWith(fontWeight: FontWeight.w500),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppText.body.copyWith(fontWeight: FontWeight.w500),
+                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle!,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.meta.copyWith(color: AppColors.textMuted),
+                    ),
+                  ],
+                ],
               ),
             ),
             if (trailing != null) ...[

@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_motion.dart';
-import 'player_corner_banner_ad.dart';
 
 /// Full-screen in-app WebView player that renders the authorized megavid.buzz
 /// iframe embed technique. This is the primary/default player for 100% reliable
@@ -185,53 +184,44 @@ class _WebEmbedPlayerViewState extends State<WebEmbedPlayerView> {
       backgroundColor: Colors.black,
       body: Stack(
         fit: StackFit.expand,
-        children: [
-          // 1. Fullscreen WebView Rendering the Iframe
-          if (_controller != null)
-            IgnorePointer(
-              ignoring: widget.isLocked,
-              child: GestureDetector(
-                behavior: HitTestBehavior.translucent,
-                onTap: _toggleControls,
-                child: WebViewWidget(controller: _controller!),
-              ),
-            )
-          else
-            GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onTap: _toggleControls,
-              child: Container(
-                color: Colors.black,
-                alignment: Alignment.center,
-                child: Text(
-                  'Web Embed Player: ${widget.embedUrl}',
-                  style: const TextStyle(color: Colors.white70),
-                ),
-              ),
-            ),
-
-          // 2. Loading Spinner with smooth fade-out
-          AnimatedSwitcher(
-            duration: AppMotion.short4,
-            child: _isLoading
-                ? const Center(
-                    key: ValueKey('web_embed_loading'),
-                    child: CircularProgressIndicator(
-                      strokeWidth: 3,
-                      valueColor: AlwaysStoppedAnimation<Color>(AppColors.accent),
+            children: [
+              // 1. Fullscreen WebView Rendering the Iframe
+              if (_controller != null)
+                IgnorePointer(
+                  ignoring: widget.isLocked,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onTap: _toggleControls,
+                    child: WebViewWidget(controller: _controller!),
+                  ),
+                )
+              else
+                GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: _toggleControls,
+                  child: Container(
+                    color: Colors.black,
+                    alignment: Alignment.center,
+                    child: Text(
+                      'Web Embed Player: ${widget.embedUrl}',
+                      style: const TextStyle(color: Colors.white70),
                     ),
-                  )
-                : const SizedBox.shrink(key: ValueKey('web_embed_loaded')),
-          ),
+                  ),
+                ),
 
-          // 2b. Minimal Corner Letterbox Banner Ad during playback
-          Positioned(
-            top: math.max(MediaQuery.paddingOf(context).top, 8.0),
-            right: math.max(MediaQuery.paddingOf(context).right, 12.0),
-            child: PlayerCornerBannerAd(
-              isVisible: !_controlsVisible && !widget.isLocked && !_isLoading,
-            ),
-          ),
+              // 2. Loading Spinner with smooth fade-out
+              AnimatedSwitcher(
+                duration: AppMotion.short4,
+                child: _isLoading
+                    ? const Center(
+                        key: ValueKey('web_embed_loading'),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 3,
+                          valueColor: AlwaysStoppedAnimation<Color>(AppColors.accent),
+                        ),
+                      )
+                    : const SizedBox.shrink(key: ValueKey('web_embed_loaded')),
+              ),
 
           // 3. Floating Overlay Top Bar
           if (_controlsVisible && !widget.isLocked)

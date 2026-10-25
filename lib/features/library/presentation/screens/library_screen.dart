@@ -50,14 +50,34 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'My Library',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 28,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: -0.5,
-                        ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 3.5,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              color: AppColors.accent,
+                              borderRadius: BorderRadius.circular(2),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.accent.withValues(alpha: 0.5),
+                                  blurRadius: 6,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'My Library',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 26,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                        ],
                       ),
                       if (_selectedTab == 1 && (historyAsync.value?.isNotEmpty ?? false))
                         ConstrainedBox(
@@ -245,7 +265,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                   borderRadius: BorderRadius.circular(14),
                                   child: Hero(
                                     tag: 'poster_${item.id}',
-                                    createRectTween: (begin, end) => MaterialRectArcTween(begin: begin, end: end),
+                                    createRectTween: smoothHeroRectTween,
                                     flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
                                     child: CachedNetworkImage(
                                       imageUrl: item.posterUrl ?? '',

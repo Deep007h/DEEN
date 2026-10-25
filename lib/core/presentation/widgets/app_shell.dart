@@ -4,8 +4,6 @@ import 'package:anime_stream/l10n/app_localizations.dart';
 import 'package:go_router/go_router.dart';
 import '../../theme/app_motion.dart';
 import 'floating_nav_bar.dart';
-import '../../../features/updater/presentation/providers/updater_providers.dart';
-import '../../../features/updater/presentation/widgets/update_dialog.dart';
 
 /// App navigation shell displaying the active tab's branch and the floating pill dashboard.
 /// Dynamically animates the FloatingNavBar on scroll using Material 3 motion physics,
@@ -24,33 +22,6 @@ class AppShell extends ConsumerStatefulWidget {
 
 class _AppShellState extends ConsumerState<AppShell> {
   final ValueNotifier<bool> _isNavBarVisibleNotifier = ValueNotifier<bool>(true);
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkOtaUpdateOnColdStart();
-    });
-  }
-
-  Future<void> _checkOtaUpdateOnColdStart() async {
-    final alreadyChecked = ref.read(hasCheckedColdStartProvider);
-    if (alreadyChecked) return;
-
-    ref.read(hasCheckedColdStartProvider.notifier).state = true;
-
-    try {
-      final repo = ref.read(updaterRepositoryProvider);
-      final currentVersion = ref.read(currentAppVersionProvider);
-      final release = await repo.checkForUpdate(currentVersion);
-
-      if (release != null && mounted) {
-        UpdateDialog.show(context, release);
-      }
-    } catch (_) {
-      // Gracefully silent on any network or unexpected failure
-    }
-  }
 
   @override
   void dispose() {
@@ -80,14 +51,19 @@ class _AppShellState extends ConsumerState<AppShell> {
         label: l10n?.tabHome ?? 'Home',
       ),
       FloatingNavBarItem(
-        icon: Icons.grid_view_outlined,
-        activeIcon: Icons.grid_view_rounded,
+        icon: Icons.explore_outlined,
+        activeIcon: Icons.explore_rounded,
         label: l10n?.tabExplore ?? 'Explore',
       ),
       FloatingNavBarItem(
         icon: Icons.bookmark_outline_rounded,
         activeIcon: Icons.bookmark_rounded,
         label: l10n?.tabLibrary ?? 'Library',
+      ),
+      const FloatingNavBarItem(
+        icon: Icons.file_download_outlined,
+        activeIcon: Icons.download_rounded,
+        label: 'Downloads',
       ),
       FloatingNavBarItem(
         icon: Icons.settings_outlined,
