@@ -85,14 +85,14 @@ class PlayerMoreOptionsSheet extends StatelessWidget {
                         color: AppColors.surfaceHighlight,
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                          color: const Color(0xFF2E3D2E),
+                          color: AppColors.border,
                           width: 1.0,
                         ),
                       ),
                       child: const Center(
                         child: Icon(
                           Icons.close_rounded,
-                          color: Color(0xFFC0D0C0),
+                          color: AppColors.textSecondary,
                           size: 18,
                         ),
                       ),
@@ -102,7 +102,7 @@ class PlayerMoreOptionsSheet extends StatelessWidget {
               ],
             ),
           ),
-          const Divider(height: 1, color: Color(0xFF1C251C)),
+          const Divider(height: 1, color: AppColors.border),
 
           // Scrollable option cards matching settings styling
           Expanded(
@@ -193,7 +193,7 @@ class PlayerMoreOptionsSheet extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
             decoration: BoxDecoration(
-              color: const Color(0xFF141A14),
+              color: AppColors.surfaceCard,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
                 color: AppColors.border,

@@ -4,6 +4,7 @@ import 'package:anime_stream/l10n/app_localizations.dart';
 import 'package:go_router/go_router.dart';
 import '../../theme/app_motion.dart';
 import 'floating_nav_bar.dart';
+import '../../../features/settings/data/repositories/app_settings_repository.dart';
 
 /// App navigation shell displaying the active tab's branch and the floating pill dashboard.
 /// Dynamically animates the FloatingNavBar on scroll using Material 3 motion physics,
@@ -41,6 +42,7 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(accentColorProvider);
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
 

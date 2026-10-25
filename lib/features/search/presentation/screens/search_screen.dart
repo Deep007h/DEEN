@@ -13,6 +13,7 @@ import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_text.dart';
+import '../../../settings/data/repositories/app_settings_repository.dart';
 import '../../../../l10n/app_localizations.dart';
 import 'package:anime_stream/features/metadata/domain/models/anime_summary.dart';
 import 'package:anime_stream/features/metadata/domain/models/search_sort.dart';
@@ -141,6 +142,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(accentColorProvider);
     final l10n = AppLocalizations.of(context)!;
 
     final currentSort = ref.watch(searchSortProvider);

@@ -6,6 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_text.dart';
+import '../../data/repositories/app_settings_repository.dart';
 import '../../../stream/data/providers/jellyfin_provider.dart';
 import '../../../stream/presentation/providers/stream_providers.dart';
 
@@ -26,6 +27,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(accentColorProvider);
     final registryAsync = ref.watch(streamProviderRegistryProvider);
 
     return Scaffold(
@@ -449,7 +451,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.accent,
-                foregroundColor: const Color(0xFF0F150D),
+                foregroundColor: AppColors.accentContrast,
                 shape: const StadiumBorder(),
               ),
               onPressed: () async {
@@ -513,7 +515,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.accent,
-                foregroundColor: const Color(0xFF0F150D),
+                foregroundColor: AppColors.accentContrast,
                 shape: const StadiumBorder(),
               ),
               onPressed: () async {

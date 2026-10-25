@@ -20,6 +20,7 @@ import 'package:anime_stream/features/stream/domain/models/source_match.dart';
 import '../../../../core/presentation/widgets/hero_shuttle_builder.dart';
 import '../../../../core/presentation/widgets/start_io_banner.dart';
 import '../../../../core/presentation/widgets/pressable_scale.dart';
+import '../../../settings/data/repositories/app_settings_repository.dart';
 
 /// Detail screen matching reference Screen 2.
 /// Features blurred backdrop fade, sharp hero poster, rating and rank badges,
@@ -122,6 +123,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
     final titlePref = ref.watch(titlePreferenceProvider);
     final isFollowedAsync = ref.watch(isFollowingProvider(currentId));
     final lastWatchedEpAsync = ref.watch(lastWatchedEpisodeProvider(currentId));
+    ref.watch(accentColorProvider);
 
     final registry = ref.watch(streamProviderRegistryProvider).valueOrNull;
     final enabledProviders = registry?.getOrderedEnabledProviders() ?? [];
@@ -738,7 +740,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                                     ),
                                     backgroundColor: AppColors.surfaceElevated,
                                     side: const BorderSide(
-                                      color: Color(0x334E604E),
+                                      color: AppColors.border,
                                       width: 0.8,
                                     ),
                                     shape: const StadiumBorder(),
@@ -993,19 +995,19 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF141914),
+                          color: AppColors.surfaceCard,
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: const Color(0x384E604E), width: 1.0),
+                          border: Border.all(color: AppColors.border, width: 1.0),
                         ),
                         child: const Row(
                           children: [
-                            Icon(Icons.info_outline_rounded, color: Color(0xFF8E9E8E), size: 20),
+                            Icon(Icons.info_outline_rounded, color: AppColors.textSecondary, size: 20),
                             SizedBox(width: 10),
                             Expanded(
                               child: Text(
                                 'This title is not yet available on Server 1, 2, or 3.',
                                 style: TextStyle(
-                                  color: Color(0xFF8E9E8E),
+                                  color: AppColors.textSecondary,
                                   fontSize: 13,
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -1044,14 +1046,14 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                                       ? AppColors.accent
                                       : isWatched
                                           ? AppColors.accentSoft
-                                          : const Color(0xFF141914),
+                                          : AppColors.surfaceCard,
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
                                     color: isCurrent
                                         ? AppColors.accent
                                         : isWatched
                                             ? AppColors.accent.withValues(alpha: 0.5)
-                                            : const Color(0xFF263526),
+                                            : AppColors.border,
                                     width: isCurrent ? 1.5 : 1.0,
                                   ),
                                 ),

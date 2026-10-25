@@ -268,7 +268,7 @@ class LocalHlsServer {
   }
 
   void _cacheSegment(_HlsSession session, String url, List<int> bytes) {
-    if (!session._segmentCache.containsKey(url) && session._segmentCache.length >= 4) {
+    if (!session._segmentCache.containsKey(url) && session._segmentCache.length >= 12) {
       session._segmentCache.remove(session._segmentCache.keys.first);
     }
     session._segmentCache[url] = bytes;
@@ -300,6 +300,8 @@ class LocalHlsServer {
       request.response.statusCode = HttpStatus.ok;
       request.response.headers.contentType = _getContentType(segmentUrl);
       request.response.headers.contentLength = cached.length;
+      request.response.headers.set('Accept-Ranges', 'bytes');
+      request.response.headers.set('Cache-Control', 'public, max-age=86400');
       request.response.add(cached);
       await request.response.close();
       _triggerPrefetch(session, segmentUrl);
@@ -314,6 +316,8 @@ class LocalHlsServer {
         request.response.statusCode = HttpStatus.ok;
         request.response.headers.contentType = _getContentType(segmentUrl);
         request.response.headers.contentLength = inFlightBytes.length;
+        request.response.headers.set('Accept-Ranges', 'bytes');
+        request.response.headers.set('Cache-Control', 'public, max-age=86400');
         request.response.add(inFlightBytes);
         await request.response.close();
         _triggerPrefetch(session, segmentUrl);
@@ -345,6 +349,8 @@ class LocalHlsServer {
           if (upstreamResp.statusCode == HttpStatus.ok) {
             request.response.statusCode = HttpStatus.ok;
             request.response.headers.contentType = _getContentType(segmentUrl);
+            request.response.headers.set('Accept-Ranges', 'bytes');
+            request.response.headers.set('Cache-Control', 'public, max-age=86400');
             if (upstreamResp.contentLength > 0) {
               request.response.headers.contentLength = upstreamResp.contentLength;
             }

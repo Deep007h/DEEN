@@ -64,6 +64,11 @@ class EmbedStreamResolver {
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
   final Dio _dio;
+  final Map<String, (EmbedStreamResult, DateTime)> _resultCache = {};
+
+  void clearCache() {
+    _resultCache.clear();
+  }
 
   EmbedStreamResolver({Dio? client})
       : _dio = client ??
@@ -135,6 +140,12 @@ class EmbedStreamResolver {
     final cleanUrl = rawEmbedUrl.trim();
     if (cleanUrl.isEmpty) return null;
 
+    final cacheKey = '$cleanUrl#${serverOverride ?? ''}';
+    final cached = _resultCache[cacheKey];
+    if (cached != null && DateTime.now().difference(cached.$2).inMinutes < 10) {
+      return cached.$1;
+    }
+
     // 1. Determine canonical embed URL and target /source endpoint
     String embedUrl = cleanUrl;
     String sourceEndpoint = cleanUrl;
@@ -177,10 +188,21 @@ class EmbedStreamResolver {
       final data = resp.data is Map ? (resp.data as Map).cast<String, dynamic>() : null;
       if (data == null) return null;
 
-      return parseSourcePayload(data, embedUrl: embedUrl);
+      final res = parseSourcePayload(data, embedUrl: embedUrl);
+      if (res != null) {
+        _resultCache[cacheKey] = (res, DateTime.now());
+      }
+      return res;
     } catch (e) {
-      // Fallback: If direct /source failed, check if scraping the embed page yields the payload
-      return _scrapeEmbedPagePayload(embedUrl);
+      // Fallback: only scrape embed page for default canonical queries, never for serverOverride probes
+      if (serverOverride == null) {
+        final scraped = await _scrapeEmbedPagePayload(embedUrl);
+        if (scraped != null) {
+          _resultCache[cacheKey] = (scraped, DateTime.now());
+        }
+        return scraped;
+      }
+      return null;
     }
   }
 

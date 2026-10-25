@@ -430,10 +430,10 @@ class _WebEmbedPlayerViewState extends State<WebEmbedPlayerView> {
                         width: 44,
                         height: 44,
                         decoration: BoxDecoration(
-                          color: const Color(0xCC141914),
+                          color: AppColors.surfaceElevated.withValues(alpha: 0.8),
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: const Color(0xFF263526),
+                            color: AppColors.border,
                             width: 1.2,
                           ),
                           boxShadow: const [
