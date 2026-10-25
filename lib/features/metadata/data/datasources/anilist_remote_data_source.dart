@@ -405,9 +405,9 @@ query ($search: String, $page: Int, $perPage: Int) {
   }
 
   static const String _pageCatalogQuery = r'''
-query ($page: Int, $sort: [MediaSort], $status: MediaStatus, $genre: String, $tag: String, $perPage: Int) {
+query ($page: Int, $sort: [MediaSort], $status: MediaStatus, $genre: String, $tag: String, $format: MediaFormat, $format_in: [MediaFormat], $perPage: Int) {
   Page(page: $page, perPage: $perPage) {
-    media(type: ANIME, sort: $sort, status: $status, genre: $genre, tag: $tag) {
+    media(type: ANIME, sort: $sort, status: $status, status_not: NOT_YET_RELEASED, format: $format, format_in: $format_in, format_not: MUSIC, genre: $genre, tag: $tag) {
       id
       title {
         romaji
@@ -422,10 +422,47 @@ query ($page: Int, $sort: [MediaSort], $status: MediaStatus, $genre: String, $ta
       averageScore
       popularity
       episodes
+      status
       format
       seasonYear
       description(asHtml: false)
       genres
+      nextAiringEpisode {
+        episode
+      }
+    }
+  }
+}
+''';
+
+  static const String _recommendationsQuery = r'''
+query ($page: Int, $perPage: Int) {
+  Page(page: $page, perPage: $perPage) {
+    recommendations(sort: RATING_DESC) {
+      mediaRecommendation {
+        id
+        title {
+          romaji
+          english
+          native
+        }
+        coverImage {
+          large
+          extraLarge
+        }
+        bannerImage
+        averageScore
+        popularity
+        episodes
+        status
+        format
+        seasonYear
+        description(asHtml: false)
+        genres
+        nextAiringEpisode {
+          episode
+        }
+      }
     }
   }
 }
@@ -445,7 +482,7 @@ query ($page: Int, $sort: [MediaSort], $status: MediaStatus, $genre: String, $ta
           'variables': {
             'page': page,
             'sort': ['TRENDING_DESC', 'POPULARITY_DESC'],
-            'perPage': limit,
+            'perPage': limit * 2,
           },
         },
         cancelToken: cancelToken,
@@ -454,10 +491,22 @@ query ($page: Int, $sort: [MediaSort], $status: MediaStatus, $genre: String, $ta
       final list = response.data?['data']?['Page']?['media'] as List<dynamic>?;
       if (list == null) return [];
 
-      return list.map<FeaturedAnimeItem>((item) {
-        final map = item as Map<String, dynamic>;
-        final id = map['id'] as int? ?? 0;
-        final titlesJson = map['title'] as Map<String, dynamic>? ?? {};
+      final results = <FeaturedAnimeItem>[];
+      for (final item in list) {
+        if (item is! Map<String, dynamic>) continue;
+        final status = item['status'] as String?;
+        if (status == 'NOT_YET_RELEASED') continue;
+        final format = item['format'] as String? ?? 'TV';
+        if (format == 'MUSIC') continue;
+        final nextEp = item['nextAiringEpisode']?['episode'] as int?;
+        if (nextEp == 1 && status != 'FINISHED') continue;
+        final eps = item['episodes'] as int?;
+        if ((eps == null || eps == 0) && status != 'RELEASING') continue;
+
+        final id = item['id'] as int? ?? 0;
+        if (id == 0) continue;
+
+        final titlesJson = item['title'] as Map<String, dynamic>? ?? {};
         final romaji = titlesJson['romaji'] as String?;
         final english = titlesJson['english'] as String?;
         final native = titlesJson['native'] as String?;
@@ -472,29 +521,33 @@ query ($page: Int, $sort: [MediaSort], $status: MediaStatus, $genre: String, $ta
           localized: romaji,
         );
 
-        final cover = map['coverImage']?['extraLarge'] as String? ??
-            map['coverImage']?['large'] as String?;
-        final banner = map['bannerImage'] as String?;
-        final avgScore = (map['averageScore'] as num?)?.toDouble();
+        final cover = item['coverImage']?['extraLarge'] as String? ??
+            item['coverImage']?['large'] as String?;
+        final banner = item['bannerImage'] as String?;
+        final avgScore = (item['averageScore'] as num?)?.toDouble();
         final score = avgScore != null ? avgScore / 10.0 : null;
-        final eps = map['episodes'] as int?;
-        final format = map['format'] as String? ?? 'TV';
-        final rawDesc = map['description'] as String?;
-        final genresRaw = map['genres'] as List<dynamic>?;
+        final rawDesc = item['description'] as String?;
+        final genresRaw = item['genres'] as List<dynamic>?;
         final genres = genresRaw?.whereType<String>().toList() ?? <String>[];
 
-        return FeaturedAnimeItem(
-          id: id,
-          titles: titles,
-          posterUrl: cover,
-          bannerUrl: banner ?? cover,
-          score: score,
-          eps: eps,
-          format: format,
-          summary: _cleanDescription(rawDesc),
-          genres: genres,
+        results.add(
+          FeaturedAnimeItem(
+            id: id,
+            titles: titles,
+            posterUrl: cover,
+            bannerUrl: banner ?? cover,
+            score: score,
+            eps: eps,
+            format: format,
+            summary: _cleanDescription(rawDesc),
+            genres: genres,
+          ),
         );
-      }).toList();
+
+        if (results.length >= limit) break;
+      }
+
+      return results;
     } catch (_) {
       return [];
     }
@@ -543,6 +596,95 @@ query ($page: Int, $sort: [MediaSort], $status: MediaStatus, $genre: String, $ta
     );
   }
 
+  /// Fetches recommended anime based on AniList recommendations and popularity.
+  Future<List<AnimeSummary>> getRecommendedAnime({
+    int page = 1,
+    int limit = 10,
+    CancelToken? cancelToken,
+  }) async {
+    try {
+      final response = await apiClient.dio.post(
+        endpoint,
+        data: {
+          'query': _recommendationsQuery,
+          'variables': {
+            'page': page,
+            'perPage': limit * 2,
+          },
+        },
+        cancelToken: cancelToken,
+      );
+
+      final recs = response.data?['data']?['Page']?['recommendations'] as List<dynamic>?;
+      if (recs == null || recs.isEmpty) {
+        return await getTrendingAnime(page: page, limit: limit, cancelToken: cancelToken);
+      }
+
+      final seenIds = <int>{};
+      final results = <AnimeSummary>[];
+
+      for (final rec in recs) {
+        if (rec is! Map<String, dynamic>) continue;
+        final map = rec['mediaRecommendation'] as Map<String, dynamic>?;
+        if (map == null) continue;
+
+        final id = map['id'] as int? ?? 0;
+        if (id == 0 || seenIds.contains(id)) continue;
+
+        final status = map['status'] as String?;
+        if (status == 'NOT_YET_RELEASED') continue;
+        final format = map['format'] as String? ?? 'TV';
+        if (format == 'MUSIC') continue;
+        final nextEp = map['nextAiringEpisode']?['episode'] as int?;
+        if (nextEp == 1 && status != 'FINISHED') continue;
+        final eps = map['episodes'] as int?;
+        if ((eps == null || eps == 0) && status != 'RELEASING') continue;
+
+        seenIds.add(id);
+
+        final titlesJson = map['title'] as Map<String, dynamic>? ?? {};
+        final romaji = titlesJson['romaji'] as String?;
+        final english = titlesJson['english'] as String?;
+        final native = titlesJson['native'] as String?;
+
+        final englishTitle = (english != null && english.trim().isNotEmpty)
+            ? english.trim()
+            : (romaji != null && romaji.trim().isNotEmpty ? romaji.trim() : null);
+
+        final titles = AnimeTitles(
+          original: native ?? romaji ?? '',
+          english: englishTitle,
+          localized: romaji,
+        );
+
+        final cover = map['coverImage']?['large'] as String? ??
+            map['coverImage']?['extraLarge'] as String?;
+        final avgScore = (map['averageScore'] as num?)?.toDouble();
+        final score = avgScore != null ? avgScore / 10.0 : null;
+        final year = map['seasonYear'] as int?;
+
+        results.add(
+          AnimeSummary(
+            id: id,
+            titles: titles,
+            posterUrl: cover,
+            score: score,
+            eps: eps,
+            airDate: year != null ? '$year-01-01' : null,
+            platform: format,
+          ),
+        );
+
+        if (results.length >= limit) break;
+      }
+
+      if (results.isNotEmpty) return results;
+      return await getTrendingAnime(page: page, limit: limit, cancelToken: cancelToken);
+    } catch (_) {
+      return getTrendingAnime(page: page, limit: limit, cancelToken: cancelToken);
+    }
+  }
+
   /// Fetches anime for a specific genre (Action, Adventure, Fantasy, Romance, etc.).
   Future<List<AnimeSummary>> getAnimeByGenre(
     String genre, {
@@ -550,6 +692,31 @@ query ($page: Int, $sort: [MediaSort], $status: MediaStatus, $genre: String, $ta
     int limit = 10,
     CancelToken? cancelToken,
   }) async {
+    final lower = genre.toLowerCase().trim();
+    if (lower == 'anime') {
+      return _fetchCatalogList(
+        sort: ['POPULARITY_DESC'],
+        formatIn: ['TV', 'TV_SHORT', 'ONA'],
+        page: page,
+        limit: limit,
+        cancelToken: cancelToken,
+      );
+    } else if (lower == 'movies' || lower == 'movie') {
+      return _fetchCatalogList(
+        sort: ['POPULARITY_DESC'],
+        format: 'MOVIE',
+        page: page,
+        limit: limit,
+        cancelToken: cancelToken,
+      );
+    } else if (lower == 'recommended' || lower == 'for you') {
+      return getRecommendedAnime(
+        page: page,
+        limit: limit,
+        cancelToken: cancelToken,
+      );
+    }
+
     return _fetchCatalogList(
       sort: ['POPULARITY_DESC'],
       genre: genre,
@@ -568,6 +735,33 @@ query ($page: Int, $sort: [MediaSort], $status: MediaStatus, $genre: String, $ta
     int limit = 20,
     CancelToken? cancelToken,
   }) async {
+    final lower = genre.toLowerCase().trim();
+    if (lower == 'anime') {
+      return _fetchCatalogList(
+        sort: sort,
+        formatIn: ['TV', 'TV_SHORT', 'ONA'],
+        status: status,
+        page: page,
+        limit: limit,
+        cancelToken: cancelToken,
+      );
+    } else if (lower == 'movies' || lower == 'movie') {
+      return _fetchCatalogList(
+        sort: sort,
+        format: 'MOVIE',
+        status: status,
+        page: page,
+        limit: limit,
+        cancelToken: cancelToken,
+      );
+    } else if (lower == 'recommended' || lower == 'for you') {
+      return getRecommendedAnime(
+        page: page,
+        limit: limit,
+        cancelToken: cancelToken,
+      );
+    }
+
     return _fetchCatalogList(
       sort: sort,
       genre: genre,
@@ -663,6 +857,8 @@ query ($page: Int, $sort: [MediaSort], $status: MediaStatus, $genre: String, $ta
     String? status,
     String? genre,
     String? tag,
+    String? format,
+    List<String>? formatIn,
     int page = 1,
     int limit = 10,
     CancelToken? cancelToken,
@@ -671,10 +867,16 @@ query ($page: Int, $sort: [MediaSort], $status: MediaStatus, $genre: String, $ta
       final variables = <String, dynamic>{
         'page': page,
         'sort': sort,
-        'perPage': limit,
+        'perPage': limit * 2,
       };
       if (status != null && status.isNotEmpty) {
         variables['status'] = status;
+      }
+      if (format != null && format.isNotEmpty) {
+        variables['format'] = format;
+      }
+      if (formatIn != null && formatIn.isNotEmpty) {
+        variables['format_in'] = formatIn;
       }
       if (genre != null && genre.isNotEmpty) {
         if (genre.toLowerCase() == 'isekai') {
@@ -699,10 +901,23 @@ query ($page: Int, $sort: [MediaSort], $status: MediaStatus, $genre: String, $ta
       final list = response.data?['data']?['Page']?['media'] as List<dynamic>?;
       if (list == null) return [];
 
-      return list.map<AnimeSummary>((item) {
-        final map = item as Map<String, dynamic>;
-        final id = map['id'] as int? ?? 0;
-        final titlesJson = map['title'] as Map<String, dynamic>? ?? {};
+      final results = <AnimeSummary>[];
+      for (final item in list) {
+        if (item is! Map<String, dynamic>) continue;
+
+        final statusVal = item['status'] as String?;
+        if (statusVal == 'NOT_YET_RELEASED') continue;
+        final formatVal = item['format'] as String? ?? 'TV';
+        if (formatVal == 'MUSIC') continue;
+        final nextEp = item['nextAiringEpisode']?['episode'] as int?;
+        if (nextEp == 1 && statusVal != 'FINISHED') continue;
+        final eps = item['episodes'] as int?;
+        if ((eps == null || eps == 0) && statusVal != 'RELEASING') continue;
+
+        final id = item['id'] as int? ?? 0;
+        if (id == 0) continue;
+
+        final titlesJson = item['title'] as Map<String, dynamic>? ?? {};
         final romaji = titlesJson['romaji'] as String?;
         final english = titlesJson['english'] as String?;
         final native = titlesJson['native'] as String?;
@@ -717,24 +932,28 @@ query ($page: Int, $sort: [MediaSort], $status: MediaStatus, $genre: String, $ta
           localized: romaji,
         );
 
-        final cover = map['coverImage']?['large'] as String? ??
-            map['coverImage']?['extraLarge'] as String?;
-        final avgScore = (map['averageScore'] as num?)?.toDouble();
+        final cover = item['coverImage']?['large'] as String? ??
+            item['coverImage']?['extraLarge'] as String?;
+        final avgScore = (item['averageScore'] as num?)?.toDouble();
         final score = avgScore != null ? avgScore / 10.0 : null;
-        final eps = map['episodes'] as int?;
-        final year = map['seasonYear'] as int?;
-        final format = map['format'] as String? ?? 'TV';
+        final year = item['seasonYear'] as int?;
 
-        return AnimeSummary(
-          id: id,
-          titles: titles,
-          posterUrl: cover,
-          score: score,
-          eps: eps,
-          airDate: year != null ? '$year-01-01' : null,
-          platform: format,
+        results.add(
+          AnimeSummary(
+            id: id,
+            titles: titles,
+            posterUrl: cover,
+            score: score,
+            eps: eps,
+            airDate: year != null ? '$year-01-01' : null,
+            platform: formatVal,
+          ),
         );
-      }).toList();
+
+        if (results.length >= limit) break;
+      }
+
+      return results;
     } catch (_) {
       return [];
     }

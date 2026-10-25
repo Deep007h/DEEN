@@ -480,21 +480,6 @@ class MetadataRepositoryImpl implements MetadataRepository {
     // Sort episodes ascending (Episode 1, 2, 3...)
     episodeList.sort((a, b) => a.number.compareTo(b.number));
 
-    // Fallback if episodes list is still empty
-    final totalEps = episodeList.isNotEmpty ? episodeList.length : ((preMatch?.episodeCount as int?) ?? 16);
-    if (episodeList.isEmpty) {
-      for (int i = 1; i <= totalEps; i++) {
-        episodeList.add(
-          Episode(
-            id: id * 1000 + i,
-            number: i.toDouble(),
-            sort: i,
-            title: 'Episode $i',
-          ),
-        );
-      }
-    }
-
     final detail = AnimeDetail(
       id: id,
       titles: AnimeTitles(
@@ -726,6 +711,36 @@ class MetadataRepositoryImpl implements MetadataRepository {
   }
 
   @override
+  Future<List<AnimeSummary>> getRecommendedAnime({
+    int page = 1,
+    int limit = 10,
+    bool forceRefresh = false,
+    CancelToken? cancelToken,
+  }) async {
+    final cacheKey = 'home_recommended_p$page';
+    if (!forceRefresh) {
+      final cached = cache.get<List<AnimeSummary>>(cacheKey);
+      if (cached != null && cached.isNotEmpty) return cached;
+    }
+
+    try {
+      final items = await anilistDataSource.getRecommendedAnime(
+        page: page,
+        limit: limit,
+        cancelToken: cancelToken,
+      );
+      if (items.isNotEmpty) {
+        cache.set(cacheKey, items, MetadataCache.searchTtl);
+        return items;
+      }
+    } catch (_) {}
+
+    final stale = cache.getStale<List<AnimeSummary>>(cacheKey);
+    if (stale != null && stale.isNotEmpty) return stale;
+    return _rotateCurated(_curatedTrending, page, limit);
+  }
+
+  @override
   Future<List<AnimeSummary>> getAnimeByGenre(
     String genre, {
     int page = 1,
@@ -751,7 +766,7 @@ class MetadataRepositoryImpl implements MetadataRepository {
             'country': 2,
             'status': 0,
             'order': 1,
-            'pageSize': limit,
+            'pageSize': limit * 2,
           },
           options: Options(headers: {'Referer': 'https://kisskh.co/'}),
           cancelToken: cancelToken,
@@ -772,6 +787,10 @@ class MetadataRepositoryImpl implements MetadataRepository {
           final title = (item['title'] ?? item['name'] ?? '').toString();
           final thumbnail = (item['thumbnail'] ?? '').toString();
           final epCount = item['episodesCount'] ?? item['totalEpisodes'] ?? 0;
+          final intEpCount = epCount is int ? epCount : int.tryParse(epCount.toString()) ?? 0;
+
+          // Don't show shows that are not available on the server (0 episodes)
+          if (intEpCount <= 0) continue;
 
           // Record as KShow match so details and playback work immediately
           recordKShowMatch(item);
@@ -782,10 +801,12 @@ class MetadataRepositoryImpl implements MetadataRepository {
               titles: AnimeTitles(original: title, english: title, localized: title),
               posterUrl: thumbnail,
               score: 8.5,
-              eps: epCount is int ? epCount : int.tryParse(epCount.toString()) ?? 0,
+              eps: intEpCount,
               platform: 'K-Drama',
             ),
           );
+
+          if (kdramas.length >= limit) break;
         }
         if (kdramas.isNotEmpty) {
           cache.set(cacheKey, kdramas, MetadataCache.searchTtl);

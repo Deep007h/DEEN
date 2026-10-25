@@ -43,6 +43,7 @@ void main() {
           overrides: [
             featuredAnimeProvider.overrideWith((ref) async => featuredItems),
             trendingAnimeProvider.overrideWith((ref) async => []),
+            recommendedAnimeProvider.overrideWith((ref) async => []),
             topRatedAnimeProvider.overrideWith((ref) async => []),
             recentlyAddedAnimeProvider.overrideWith((ref) async => []),
           ],
@@ -101,6 +102,56 @@ void main() {
       expect(revealedTransform.transform.getTranslation().y, greaterThan(-10.0));
     });
 
+    testWidgets('Horizontal drag in carousels/lists does not hide the top bar', (tester) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            featuredAnimeProvider.overrideWith((ref) async => []),
+            trendingAnimeProvider.overrideWith((ref) async => []),
+            recommendedAnimeProvider.overrideWith((ref) async => []),
+            topRatedAnimeProvider.overrideWith((ref) async => []),
+            recentlyAddedAnimeProvider.overrideWith((ref) async => []),
+          ],
+          child: const MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: HomeScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Top bar starts fully visible
+      final initialTransform = tester.widget<Transform>(
+        find.ancestor(
+          of: find.text('Stream Anime Your Way'),
+          matching: find.byType(Transform),
+        ).first,
+      );
+      expect(initialTransform.transform.getTranslation().y, equals(0.0));
+
+      // Drag HORIZONTALLY in the pill bar / carousel (X = -200, Y = 0)
+      await tester.drag(find.text('Anime'), const Offset(-200, 0));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // Top bar must remain fully visible (translation Y must be exactly 0.0)
+      final postHorizontalTransform = tester.widget<Transform>(
+        find.ancestor(
+          of: find.text('Stream Anime Your Way'),
+          matching: find.byType(Transform),
+        ).first,
+      );
+      expect(postHorizontalTransform.transform.getTranslation().y, equals(0.0));
+    });
+
     testWidgets('Pull to refresh edgeOffset is below top bar height', (tester) async {
       tester.view.physicalSize = const Size(1080, 2400);
       tester.view.devicePixelRatio = 2.0;
@@ -114,6 +165,7 @@ void main() {
           overrides: [
             featuredAnimeProvider.overrideWith((ref) async => []),
             trendingAnimeProvider.overrideWith((ref) async => []),
+            recommendedAnimeProvider.overrideWith((ref) async => []),
             topRatedAnimeProvider.overrideWith((ref) async => []),
             recentlyAddedAnimeProvider.overrideWith((ref) async => []),
           ],

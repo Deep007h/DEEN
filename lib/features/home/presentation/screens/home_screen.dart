@@ -80,6 +80,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
   }
 
   bool _handleScrollNotification(ScrollNotification notification) {
+    if (notification.depth != 0 || notification.metrics.axis != Axis.vertical) {
+      return false;
+    }
     if (notification is UserScrollNotification) {
       if (notification.direction == ScrollDirection.reverse) {
         // Scrolling down -> auto-hide top bar
@@ -124,7 +127,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
         ? ref.watch(trendingAnimeProvider)
         : selectedGenre == 'Trending'
             ? ref.watch(trendingAnimeProvider)
-            : ref.watch(categoryAnimeProvider(selectedGenre));
+            : selectedGenre == 'Recommended'
+                ? ref.watch(recommendedAnimeProvider)
+                : ref.watch(categoryAnimeProvider(selectedGenre));
+    final recommendedAsync = ref.watch(recommendedAnimeProvider);
     final topRatedAsync = ref.watch(topRatedAnimeProvider);
     final recentlyAddedAsync = ref.watch(recentlyAddedAnimeProvider);
     final followedAsync = ref.watch(followedAnimeListProvider);
@@ -148,11 +154,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                 await Future.wait([
                   ref.refresh(featuredAnimeProvider.future),
                   ref.refresh(trendingAnimeProvider.future),
+                  ref.refresh(recommendedAnimeProvider.future),
                   ref.refresh(topRatedAnimeProvider.future),
                   ref.refresh(recentlyAddedAnimeProvider.future),
                   ref.refresh(followedAnimeListProvider.future),
                   ref.refresh(watchHistoryListProvider.future),
-                  if (selectedGenre != 'Home' && selectedGenre != 'All' && selectedGenre != 'Trending')
+                  if (selectedGenre != 'Home' && selectedGenre != 'All' && selectedGenre != 'Trending' && selectedGenre != 'Recommended')
                     ref.refresh(categoryAnimeProvider(selectedGenre).future),
                 ]);
               },
@@ -247,15 +254,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
 
             const SliverToBoxAdapter(child: SizedBox(height: 26)),
 
-            // 7. Recommended for You (Wide character portrait cards)
+            // 7. Recommended for You (Dynamic anime cards)
             SliverToBoxAdapter(
               child: _SectionHeader(
                 title: 'Recommended for You',
-                onSeeAll: () => context.push('/search'),
+                onSeeAll: () {
+                  ref.read(homeGenreFilterProvider.notifier).state = 'Recommended';
+                },
               ),
             ),
-            const SliverToBoxAdapter(
-              child: _RecommendedForYouList(),
+            SliverToBoxAdapter(
+              child: recommendedAsync.when(
+                data: (items) => _RecommendedForYouList(items: items),
+                loading: () => const _CardListSkeleton(itemWidth: 168, itemHeight: 104),
+                error: (_, __) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
+                  child: _SectionErrorCard(
+                    title: 'Recommended for You',
+                    onRetry: () => ref.invalidate(recommendedAnimeProvider),
+                  ),
+                ),
+              ),
             ),
 
             const SliverToBoxAdapter(child: SizedBox(height: 26)),
@@ -921,6 +940,8 @@ class _GenreFilterPillBar extends ConsumerWidget {
     'Anime',
     'Movies',
     'Trending',
+    'Recommended',
+    'K-Drama',
     'My List',
   ];
 
@@ -1799,80 +1820,51 @@ class _GenresList extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Recommended for You (Wide character portrait cards)
+// Recommended for You (Dynamic anime cards)
 // ---------------------------------------------------------------------------
-class _RecommendedCharacter {
-  final String name;
-  final String animeTitle;
-  final String imageUrl;
-
-  const _RecommendedCharacter({
-    required this.name,
-    required this.animeTitle,
-    required this.imageUrl,
-  });
-}
-
-const List<_RecommendedCharacter> _kRecommendedCharacters = [
-  _RecommendedCharacter(
-    name: 'Gojo Satoru',
-    animeTitle: 'Jujutsu Kaisen',
-    imageUrl: 'https://s4.anilist.co/file/anilistcdn/character/large/b124381-h0TNmfsanbVN.png',
-  ),
-  _RecommendedCharacter(
-    name: 'Nezuko Kamado',
-    animeTitle: 'Demon Slayer',
-    imageUrl: 'https://s4.anilist.co/file/anilistcdn/character/large/b127518-10rBxub4rmkg.png',
-  ),
-  _RecommendedCharacter(
-    name: 'Ichigo Kurosaki',
-    animeTitle: 'Bleach',
-    imageUrl: 'https://s4.anilist.co/file/anilistcdn/character/large/b5-77EslIe7HlT8.png',
-  ),
-  _RecommendedCharacter(
-    name: 'Ken Kaneki',
-    animeTitle: 'Tokyo Ghoul',
-    imageUrl: 'https://s4.anilist.co/file/anilistcdn/character/large/b87275-cguE4K7b809m.png',
-  ),
-  _RecommendedCharacter(
-    name: 'Eren Yeager',
-    animeTitle: 'Attack on Titan',
-    imageUrl: 'https://s4.anilist.co/file/anilistcdn/character/large/b40882-f5h4v5JjD9uC.png',
-  ),
-  _RecommendedCharacter(
-    name: 'Levi Ackerman',
-    animeTitle: 'Attack on Titan',
-    imageUrl: 'https://s4.anilist.co/file/anilistcdn/character/large/b45627-b5z6bA5Xm6j7.png',
-  ),
-];
-
 class _RecommendedForYouList extends StatelessWidget {
-  const _RecommendedForYouList();
+  final List<AnimeSummary> items;
+  const _RecommendedForYouList({this.items = const []});
 
   @override
   Widget build(BuildContext context) {
+    if (items.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return SizedBox(
-      height: 102,
+      height: 106,
       child: ListView.separated(
         cacheExtent: 500,
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
         scrollDirection: Axis.horizontal,
         physics: AppMotion.m3ScrollPhysics,
-        itemCount: _kRecommendedCharacters.length,
+        itemCount: items.length,
         separatorBuilder: (_, __) => const SizedBox(width: 12),
         itemBuilder: (context, index) {
-          final item = _kRecommendedCharacters[index];
+          final item = items[index];
+          final heroTag = 'recommended_${item.id}';
+          final title = item.titles.preferredTitle();
+          final isKDrama = item.platform == 'K-Drama';
 
           return RepaintBoundary(
             child: PressableScale(
               targetScale: 0.95,
               onTap: () {
                 HapticFeedback.lightImpact();
-                context.push('/search?q=${Uri.encodeComponent(item.animeTitle)}');
+                context.push(
+                  '/anime/${item.id}?heroTag=$heroTag${isKDrama ? '&isKShow=true' : ''}',
+                  extra: {
+                    'heroTag': heroTag,
+                    'previewTitle': title,
+                    'previewPoster': item.posterUrl,
+                    'isKShow': isKDrama,
+                  },
+                );
               },
               child: Container(
-                width: 156,
-                height: 96,
+                width: 168,
+                height: 104,
                 decoration: BoxDecoration(
                   color: const Color(0xFF141914),
                   borderRadius: BorderRadius.circular(16),
@@ -1890,41 +1882,104 @@ class _RecommendedForYouList extends StatelessWidget {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      CachedNetworkImage(
-                        imageUrl: item.imageUrl,
-                        memCacheWidth: 320,
-                        fit: BoxFit.cover,
-                        alignment: Alignment.topCenter,
-                        placeholder: (_, __) => Container(color: const Color(0xFF141914)),
-                        errorWidget: (_, __, ___) => Container(
-                          color: const Color(0xFF141914),
-                          child: const Icon(Icons.person_rounded, color: Color(0xFF8E9E8E)),
-                        ),
-                      ),
+                      if (item.posterUrl != null && item.posterUrl!.isNotEmpty)
+                        Hero(
+                          tag: heroTag,
+                          flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
+                          child: CachedNetworkImage(
+                            imageUrl: item.posterUrl!,
+                            memCacheWidth: 340,
+                            fit: BoxFit.cover,
+                            alignment: Alignment.center,
+                            placeholder: (_, __) => Container(color: const Color(0xFF141914)),
+                            errorWidget: (_, __, ___) => Container(
+                              color: const Color(0xFF141914),
+                              child: const Icon(Icons.movie_rounded, color: Color(0xFF8E9E8E)),
+                            ),
+                          ),
+                        )
+                      else
+                        Container(color: const Color(0xFF141914)),
                       DecoratedBox(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
                             colors: [
+                              Colors.black.withValues(alpha: 0.25),
                               Colors.transparent,
-                              Colors.black.withValues(alpha: 0.85),
+                              Colors.black.withValues(alpha: 0.88),
                             ],
-                            stops: const [0.35, 1.0],
+                            stops: const [0.0, 0.35, 1.0],
                           ),
                         ),
                       ),
+                      // Score badge
+                      if (item.score != null && item.score! > 0)
+                        Positioned(
+                          top: 7,
+                          right: 7,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.75),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: AppColors.accent.withValues(alpha: 0.45),
+                                width: 0.8,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.star_rounded, size: 11, color: AppColors.accent),
+                                const SizedBox(width: 3),
+                                Text(
+                                  item.score!.toStringAsFixed(1),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      // Episode / Format pill
+                      Positioned(
+                        top: 7,
+                        left: 7,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.7),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            item.eps != null && item.eps! > 0
+                                ? '${item.eps} eps'
+                                : (item.platform ?? 'TV'),
+                            style: const TextStyle(
+                              color: Color(0xFFB5E2B5),
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Title
                       Positioned(
                         left: 10,
                         right: 10,
                         bottom: 8,
                         child: Text(
-                          item.name,
+                          title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 13,
+                            fontSize: 12.5,
                             fontWeight: FontWeight.w700,
                             letterSpacing: -0.2,
                             shadows: [

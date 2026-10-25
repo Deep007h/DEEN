@@ -68,6 +68,14 @@ abstract class MetadataRepository {
     CancelToken? cancelToken,
   }) async => [];
 
+  /// Fetches recommended anime based on AniList recommendations and popularity.
+  Future<List<AnimeSummary>> getRecommendedAnime({
+    int page = 1,
+    int limit = 10,
+    bool forceRefresh = false,
+    CancelToken? cancelToken,
+  }) async => [];
+
   /// Fetches anime for a specific category / genre.
   Future<List<AnimeSummary>> getAnimeByGenre(
     String genre, {

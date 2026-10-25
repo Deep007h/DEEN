@@ -39,6 +39,14 @@ final recentlyAddedAnimeProvider = FutureProvider<List<AnimeSummary>>((ref) asyn
   return repo.getRecentlyUpdatedAnime(page: page, limit: 10, forceRefresh: seed > 0);
 });
 
+/// Recommended anime list provider.
+final recommendedAnimeProvider = FutureProvider<List<AnimeSummary>>((ref) async {
+  final repo = ref.watch(metadataRepositoryProvider);
+  final seed = ref.watch(homeRefreshSeedProvider);
+  final page = (seed % 5) + 1;
+  return repo.getRecommendedAnime(page: page, limit: 10, forceRefresh: seed > 0);
+});
+
 /// Anime list filtered by genre / category.
 final categoryAnimeProvider = FutureProvider.autoDispose.family<List<AnimeSummary>, String>((ref, genre) async {
   final repo = ref.watch(metadataRepositoryProvider);

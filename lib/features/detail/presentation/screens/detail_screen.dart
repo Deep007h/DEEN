@@ -546,17 +546,30 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                                       targetScale: 0.96,
                                       child: FilledButton.icon(
                                         onPressed: () {
+                                          if (detail.episodes.isEmpty) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(
+                                                content: Text('This title is not yet available on Server 1, 2, or 3.'),
+                                                duration: Duration(seconds: 2),
+                                              ),
+                                            );
+                                            return;
+                                          }
                                           final epToPlay = lastWatchedEp ?? 1;
                                           _playEpisode(currentId, epToPlay, selectedProviderId);
                                         },
-                                        icon: const Icon(
-                                          Icons.play_arrow_rounded,
+                                        icon: Icon(
+                                          detail.episodes.isEmpty
+                                              ? Icons.block_rounded
+                                              : Icons.play_arrow_rounded,
                                           size: 24,
                                         ),
                                         label: Text(
-                                          lastWatchedEp != null
-                                              ? 'PLAY EP $lastWatchedEp'
-                                              : l10n.playAction.toUpperCase(),
+                                          detail.episodes.isEmpty
+                                              ? 'UNAVAILABLE'
+                                              : (lastWatchedEp != null
+                                                  ? 'PLAY EP $lastWatchedEp'
+                                                  : l10n.playAction.toUpperCase()),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: const TextStyle(
@@ -974,10 +987,33 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
 
                 // Episode List or Grid
                 if (detail != null && detail.episodes.isEmpty)
-                  const SliverToBoxAdapter(
+                  SliverToBoxAdapter(
                     child: Padding(
-                      padding: EdgeInsets.all(AppSpacing.pageMargin),
-                      child: Text('No episodes listed for this subject', style: AppText.meta),
+                      padding: const EdgeInsets.all(AppSpacing.pageMargin),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF141914),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0x384E604E), width: 1.0),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.info_outline_rounded, color: Color(0xFF8E9E8E), size: 20),
+                            SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'This title is not yet available on Server 1, 2, or 3.',
+                                style: TextStyle(
+                                  color: Color(0xFF8E9E8E),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   )
                 else if (detail != null && _isGridView)
