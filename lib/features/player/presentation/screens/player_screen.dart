@@ -100,6 +100,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   bool _showNextEpisodeCountdown = false;
   int _nextEpisodeCountdownSeconds = 5;
   Timer? _countdownTimer;
+  bool _hasPrewarmedNextEpisode = false;
 
   // Gestures
   final PlayerGestureMath _gestureMath = PlayerGestureMath();
@@ -402,6 +403,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       _position = pos;
       _positionNotifier.value = pos;
       _checkEpisodeEndCountdown(pos, _duration);
+      if (pos > const Duration(seconds: 10) && !_hasPrewarmedNextEpisode) {
+        _hasPrewarmedNextEpisode = true;
+        _prewarmNextEpisode();
+      }
     }));
 
     _engineSubscriptions.add(engine.durationStream.listen((dur) {
@@ -560,6 +565,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         _savedResumePosition = null;
         _hasCheckedResume = true;
         _isSwitchingEpisode = false;
+        _hasPrewarmedNextEpisode = false;
       } else if (_position > Duration.zero) {
         startPos = _position;
       } else {
@@ -892,10 +898,27 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     });
   }
 
+  void _prewarmNextEpisode() {
+    if (!mounted || widget.isKShow) return;
+    final nextEp = widget.episodeNumber + 1;
+    final nextParams = StreamResolutionParams(
+      animeId: widget.animeId,
+      episodeNumber: nextEp,
+      preferredProviderId: widget.preferredProviderId,
+      isKShow: widget.isKShow,
+    );
+    unawaited(() async {
+      try {
+        await ref.read(activeStreamProvider(nextParams).future);
+      } catch (_) {}
+    }());
+  }
+
   void _playNextEpisode() {
     _countdownTimer?.cancel();
     _saveCurrentProgress();
     _isSwitchingEpisode = true;
+    _hasPrewarmedNextEpisode = false;
     _engine?.stop();
     _engine?.pause();
     _position = Duration.zero;
@@ -910,6 +933,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     if (widget.episodeNumber <= 1) return;
     _saveCurrentProgress();
     _isSwitchingEpisode = true;
+    _hasPrewarmedNextEpisode = false;
     _engine?.stop();
     _engine?.pause();
     _position = Duration.zero;

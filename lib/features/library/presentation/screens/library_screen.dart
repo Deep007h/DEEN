@@ -9,6 +9,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../settings/data/repositories/app_settings_repository.dart';
 import '../providers/library_providers.dart';
 
 /// Unified Library Screen presenting Followed anime and Watch History with Material 3 SegmentedButton.
@@ -24,6 +25,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(accentColorProvider);
     final theme = Theme.of(context);
     final topPadding = MediaQuery.paddingOf(context).top;
     final followedAsync = ref.watch(followedAnimeListProvider);

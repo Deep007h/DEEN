@@ -288,7 +288,7 @@ class AniFamProvider implements StreamProvider {
               'server_id': serverId,
               'track': track,
             },
-          ).timeout(const Duration(milliseconds: 1800));
+          ).timeout(const Duration(milliseconds: 600));
 
           final rData = resolveResp.data ?? {};
           final rUrl = rData['url']?.toString();

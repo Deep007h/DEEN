@@ -80,6 +80,7 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(accentColorProvider);
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
 

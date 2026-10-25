@@ -24,6 +24,7 @@ import '../../../../core/presentation/widgets/shimmer_box.dart';
 import '../../../../core/presentation/widgets/hero_shuttle_builder.dart';
 import '../../../../core/presentation/widgets/floating_nav_bar.dart';
 import '../../../explore/presentation/providers/explore_providers.dart';
+import '../../../settings/data/repositories/app_settings_repository.dart';
 
 /// State provider for Home screen genre filter pill bar.
 final homeGenreFilterProvider = StateProvider<String>((ref) => 'Home');
@@ -126,6 +127,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
     final topPadding = MediaQuery.paddingOf(context).top;
     final topBarHeight = topPadding + 104.0;
 
+    // Reactively watch accent color so entire Home UI repaints on accent changes
+    ref.watch(accentColorProvider);
+
     final selectedGenre = ref.watch(homeGenreFilterProvider);
     final featuredAsync = ref.watch(featuredAnimeProvider);
     final trendingAsync = (selectedGenre == 'Home' || selectedGenre == 'All')
@@ -150,7 +154,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
             // 1. Scrollable Content Layer with Scoped Refresh Indicator & Stretch
             RefreshIndicator(
               color: AppColors.accent,
-              backgroundColor: const Color(0xFF141914),
+              backgroundColor: AppColors.surfaceCard,
               displacement: 32,
               edgeOffset: topBarHeight + 6,
               onRefresh: () async {
@@ -413,13 +417,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
 // ---------------------------------------------------------------------------
 // Fixed Auto-Hiding Top Bar Component
 // ---------------------------------------------------------------------------
-class _HomeTopBar extends StatelessWidget {
+class _HomeTopBar extends ConsumerWidget {
   final double topPadding;
 
   const _HomeTopBar({required this.topPadding});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Reactively watch accent color so entire Top Bar repaints on accent changes
+    ref.watch(accentColorProvider);
+
     return Container(
       decoration: BoxDecoration(
         color: AppColors.background.withValues(alpha: 0.95),
@@ -506,7 +513,7 @@ class _HomeTopBar extends StatelessWidget {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
-                                    color: Color(0xFF8E9E8E),
+                                    color: AppColors.textSecondary,
                                     fontSize: 12,
                                     fontWeight: FontWeight.w400,
                                     letterSpacing: 0.1,
@@ -520,7 +527,7 @@ class _HomeTopBar extends StatelessWidget {
                     ),
                     const SizedBox(width: 6),
 
-                    // Top Bar Action Buttons: Circular Search, Notification Bell with lime unread dot & Profile Avatar
+                    // Top Bar Action Buttons: Circular Search, Notification Bell with dynamic accent unread dot & Profile Avatar
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -533,9 +540,9 @@ class _HomeTopBar extends StatelessWidget {
                               width: 38,
                               height: 38,
                               decoration: BoxDecoration(
-                                color: const Color(0xFF141914),
+                                color: AppColors.surfaceCard,
                                 shape: BoxShape.circle,
-                                border: Border.all(color: const Color(0x334E604E), width: 0.9),
+                                border: Border.all(color: AppColors.border, width: 0.9),
                               ),
                               child: const Center(
                                 child: Icon(Icons.search_rounded, color: Colors.white, size: 20),
@@ -568,15 +575,15 @@ class _HomeTopBar extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Notification Bell Button with Lime Unread Dot Badge
+// Notification Bell Button with Dynamic Accent Unread Dot Badge
 // ---------------------------------------------------------------------------
-class _NotificationButton extends StatelessWidget {
+class _NotificationButton extends ConsumerWidget {
   const _NotificationButton();
 
   void _showNotificationsSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF141914),
+      backgroundColor: AppColors.surfaceCard,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -591,7 +598,7 @@ class _NotificationButton extends StatelessWidget {
                 width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: const Color(0x334E604E),
+                  color: AppColors.border,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -625,7 +632,7 @@ class _NotificationButton extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E281E),
+                  color: AppColors.accent.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                   border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
                 ),
@@ -637,7 +644,7 @@ class _NotificationButton extends StatelessWidget {
               ),
               subtitle: const Text(
                 'Full UI redesign, dynamic pull-to-refresh & K-Drama catalog enabled',
-                style: TextStyle(color: Color(0xFF8E9E8E), fontSize: 12),
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
               ),
             ),
           ],
@@ -647,7 +654,9 @@ class _NotificationButton extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(accentColorProvider);
+
     return PressableScale(
       targetScale: 0.92,
       onTap: () {
@@ -658,9 +667,9 @@ class _NotificationButton extends StatelessWidget {
         width: 38,
         height: 38,
         decoration: BoxDecoration(
-          color: const Color(0xFF141914),
+          color: AppColors.surfaceCard,
           shape: BoxShape.circle,
-          border: Border.all(color: const Color(0x334E604E), width: 0.9),
+          border: Border.all(color: AppColors.border, width: 0.9),
         ),
         child: Stack(
           alignment: Alignment.center,
@@ -679,7 +688,7 @@ class _NotificationButton extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: AppColors.accent,
                   shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFF0C100C), width: 1.2),
+                  border: Border.all(color: AppColors.background, width: 1.2),
                 ),
               ),
             ),
@@ -691,19 +700,19 @@ class _NotificationButton extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Profile Dropdown Button with Electric Lime Online Indicator Dot
+// Profile Dropdown Button with Dynamic Accent Online Indicator Dot
 // ---------------------------------------------------------------------------
-class _ProfileDropdownButton extends StatelessWidget {
+class _ProfileDropdownButton extends ConsumerWidget {
   const _ProfileDropdownButton();
 
   void _showAboutDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF141914),
+        backgroundColor: AppColors.surfaceCard,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: Color(0xFF263526)),
+          side: const BorderSide(color: AppColors.border),
         ),
         title: Row(
           children: [
@@ -740,7 +749,7 @@ class _ProfileDropdownButton extends StatelessWidget {
             const SizedBox(height: 8),
             const Text(
               'Engineered with AniList GraphQL, high-speed CDN multi-mirror streaming, zero-stall HLS demuxing, and Autonomous Studio telemetry.',
-              style: TextStyle(color: Color(0xFF8E9E8E), fontSize: 13, height: 1.4),
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
             ),
           ],
         ),
@@ -755,15 +764,17 @@ class _ProfileDropdownButton extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(accentColorProvider);
+
     return Theme(
       data: Theme.of(context).copyWith(
-        cardColor: const Color(0xFF141914),
+        cardColor: AppColors.surfaceCard,
         popupMenuTheme: PopupMenuThemeData(
-          color: const Color(0xFF141914),
+          color: AppColors.surfaceCard,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
-            side: const BorderSide(color: Color(0xFF263526), width: 1),
+            side: const BorderSide(color: AppColors.border, width: 1),
           ),
           elevation: 16,
         ),
@@ -779,12 +790,12 @@ class _ProfileDropdownButton extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: AppColors.accent.withValues(alpha: 0.6),
+                  color: AppColors.accent.withValues(alpha: 0.7),
                   width: 1.5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.accent.withValues(alpha: 0.2),
+                    color: AppColors.accent.withValues(alpha: 0.25),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -799,7 +810,7 @@ class _ProfileDropdownButton extends StatelessWidget {
                 ),
               ),
             ),
-            // Electric Lime Online Status Dot at bottom-right
+            // Dynamic Accent Online Status Dot at bottom-right
             Positioned(
               right: 0,
               bottom: 0,
@@ -810,7 +821,7 @@ class _ProfileDropdownButton extends StatelessWidget {
                   color: AppColors.accent,
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: const Color(0xFF0B0E0B),
+                    color: AppColors.background,
                     width: 1.8,
                   ),
                 ),
@@ -952,6 +963,7 @@ class _GenreFilterPillBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selected = ref.watch(homeGenreFilterProvider);
+    ref.watch(accentColorProvider);
 
     return SizedBox(
       height: 38,
@@ -980,12 +992,12 @@ class _GenreFilterPillBar extends ConsumerWidget {
               curve: Curves.easeOutCubic,
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
               decoration: BoxDecoration(
-                color: isSelected ? AppColors.accent : const Color(0xFF141914),
+                color: isSelected ? AppColors.accent : AppColors.surfaceCard,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: isSelected
                       ? AppColors.accent
-                      : const Color(0x384E604E),
+                      : AppColors.border,
                   width: 0.9,
                 ),
                 boxShadow: isSelected
@@ -1003,8 +1015,8 @@ class _GenreFilterPillBar extends ConsumerWidget {
                   cat,
                   style: TextStyle(
                     color: isSelected
-                        ? const Color(0xFF0D120D)
-                        : const Color(0xFFD6DFD6),
+                        ? AppColors.accentContrast
+                        : AppColors.textSecondary,
                     fontSize: 13.5,
                     fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                     letterSpacing: -0.2,
@@ -1103,23 +1115,23 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
           constraints: const BoxConstraints(minHeight: 350, maxHeight: 385),
           height: 350,
         decoration: BoxDecoration(
-          color: const Color(0xFF141914),
+          color: AppColors.surfaceCard,
           borderRadius: BorderRadius.circular(22),
           border: Border.all(
-            color: const Color(0x384E604E),
+            color: AppColors.border,
             width: 1.0,
           ),
-          boxShadow: const [
-            BoxShadow(
+          boxShadow: [
+            const BoxShadow(
               color: Color(0xAA000000),
               blurRadius: 24,
               spreadRadius: 2,
               offset: Offset(0, 10),
             ),
             BoxShadow(
-              color: Color(0x24263526),
+              color: AppColors.border.withValues(alpha: 0.15),
               blurRadius: 6,
-              offset: Offset(0, 2),
+              offset: const Offset(0, 2),
             ),
           ],
         ),
@@ -1179,13 +1191,13 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
                                 imageUrl: imageUrl,
                                 memCacheWidth: 800,
                                 fit: BoxFit.cover,
-                                placeholder: (_, __) => Container(color: const Color(0xFF141914)),
-                                errorWidget: (_, __, ___) => Container(color: const Color(0xFF141914)),
+                                placeholder: (_, __) => Container(color: AppColors.surfaceCard),
+                                errorWidget: (_, __, ___) => Container(color: AppColors.surfaceCard),
                               ),
                             ),
                           )
                         else
-                          Container(color: const Color(0xFF141914)),
+                          Container(color: AppColors.surfaceCard),
 
                       // Gradient Scrim overlay
                       DecoratedBox(
@@ -1362,7 +1374,7 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                                     decoration: BoxDecoration(
-                                      color: const Color(0x551E281E),
+                                      color: AppColors.surfaceCard.withValues(alpha: 0.7),
                                       borderRadius: BorderRadius.circular(22),
                                       border: Border.all(
                                         color: Colors.white.withValues(alpha: 0.35),
@@ -1504,20 +1516,20 @@ class _TrendingLargeCardsList extends StatelessWidget {
                       width: 144,
                       height: 204,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF141914),
+                        color: AppColors.surfaceCard,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0x384E604E), width: 1.0),
-                        boxShadow: const [
-                          BoxShadow(
+                        border: Border.all(color: AppColors.border, width: 1.0),
+                        boxShadow: [
+                          const BoxShadow(
                             color: Color(0x99000000),
                             blurRadius: 16,
                             spreadRadius: 1,
                             offset: Offset(0, 6),
                           ),
                           BoxShadow(
-                            color: Color(0x24263526),
+                            color: AppColors.border.withValues(alpha: 0.15),
                             blurRadius: 4,
-                            offset: Offset(0, 1),
+                            offset: const Offset(0, 1),
                           ),
                         ],
                       ),
@@ -1537,10 +1549,10 @@ class _TrendingLargeCardsList extends StatelessWidget {
                                         imageUrl: item.posterUrl!,
                                         memCacheWidth: 300,
                                         fit: BoxFit.cover,
-                                        placeholder: (_, __) => Container(color: const Color(0xFF141914)),
-                                        errorWidget: (_, __, ___) => Container(color: const Color(0xFF141914)),
+                                        placeholder: (_, __) => Container(color: AppColors.surfaceCard),
+                                        errorWidget: (_, __, ___) => Container(color: AppColors.surfaceCard),
                                       )
-                                    : Container(color: const Color(0xFF141914)),
+                                    : Container(color: AppColors.surfaceCard),
                               ),
                             ),
 
@@ -1595,7 +1607,7 @@ class _TrendingLargeCardsList extends StatelessWidget {
                         ),
                         const Icon(
                           Icons.more_vert_rounded,
-                          color: Color(0xFF8E9E8E),
+                          color: AppColors.textSecondary,
                           size: 16,
                         ),
                       ],
@@ -1612,20 +1624,20 @@ class _TrendingLargeCardsList extends StatelessWidget {
                           scoreStr,
                           style: const TextStyle(
                             fontFamily: 'monospace',
-                            color: Color(0xFF8E9E8E),
+                            color: AppColors.textSecondary,
                             fontSize: 11.5,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         if (item.platform != null && item.platform!.isNotEmpty) ...[
-                          const Text(' • ', style: TextStyle(color: Color(0xFF8E9E8E), fontSize: 11)),
+                          const Text(' • ', style: TextStyle(color: AppColors.textSecondary, fontSize: 11)),
                           Expanded(
                             child: Text(
                               item.platform!,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                color: Color(0xFF8E9E8E),
+                                color: AppColors.textSecondary,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -1718,7 +1730,7 @@ class _SectionHeader extends StatelessWidget {
                   Text(
                     'See All',
                     style: TextStyle(
-                      color: Color(0xFF8E9E8E),
+                      color: AppColors.textSecondary,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
@@ -1727,7 +1739,7 @@ class _SectionHeader extends StatelessWidget {
                   Icon(
                     Icons.arrow_forward_ios_rounded,
                     size: 10,
-                    color: Color(0xFF8E9E8E),
+                    color: AppColors.textSecondary,
                   ),
                 ],
               ),
@@ -1782,7 +1794,7 @@ class _GenresList extends ConsumerWidget {
                 width: 88,
                 height: 76,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF141914),
+                  color: AppColors.surfaceCard,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: cat.color.withValues(alpha: 0.28),
@@ -1870,9 +1882,9 @@ class _RecommendedForYouList extends StatelessWidget {
                 width: 168,
                 height: 104,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF141914),
+                  color: AppColors.surfaceCard,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0x384E604E), width: 1.0),
+                  border: Border.all(color: AppColors.border, width: 1.0),
                   boxShadow: const [
                     BoxShadow(
                       color: Color(0x77000000),
@@ -1895,15 +1907,15 @@ class _RecommendedForYouList extends StatelessWidget {
                             memCacheWidth: 340,
                             fit: BoxFit.cover,
                             alignment: Alignment.center,
-                            placeholder: (_, __) => Container(color: const Color(0xFF141914)),
+                            placeholder: (_, __) => Container(color: AppColors.surfaceCard),
                             errorWidget: (_, __, ___) => Container(
-                              color: const Color(0xFF141914),
-                              child: const Icon(Icons.movie_rounded, color: Color(0xFF8E9E8E)),
+                              color: AppColors.surfaceCard,
+                              child: const Icon(Icons.movie_rounded, color: AppColors.textSecondary),
                             ),
                           ),
                         )
                       else
-                        Container(color: const Color(0xFF141914)),
+                        Container(color: AppColors.surfaceCard),
                       DecoratedBox(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
@@ -2052,20 +2064,20 @@ class _TopRatedHorizontalList extends StatelessWidget {
                   children: [
                     Container(
                       decoration: BoxDecoration(
-                        color: const Color(0xFF141914),
+                        color: AppColors.surfaceCard,
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color(0x384E604E), width: 1.0),
-                        boxShadow: const [
-                          BoxShadow(
+                        border: Border.all(color: AppColors.border, width: 1.0),
+                        boxShadow: [
+                          const BoxShadow(
                             color: Color(0x99000000),
                             blurRadius: 14,
                             spreadRadius: 1,
                             offset: Offset(0, 5),
                           ),
                           BoxShadow(
-                            color: Color(0x24263526),
+                            color: AppColors.border.withValues(alpha: 0.15),
                             blurRadius: 4,
-                            offset: Offset(0, 1),
+                            offset: const Offset(0, 1),
                           ),
                         ],
                       ),
@@ -2074,7 +2086,7 @@ class _TopRatedHorizontalList extends StatelessWidget {
                         child: Container(
                           width: 138,
                           height: 193,
-                          color: const Color(0xFF141914),
+                          color: AppColors.surfaceCard,
                           child: item.posterUrl != null
                               ? Hero(
                                   tag: heroTag,
@@ -2086,8 +2098,8 @@ class _TopRatedHorizontalList extends StatelessWidget {
                                       imageUrl: item.posterUrl!,
                                       memCacheWidth: 250,
                                       fit: BoxFit.cover,
-                                      placeholder: (_, __) => Container(color: const Color(0xFF141914)),
-                                      errorWidget: (_, __, ___) => Container(color: const Color(0xFF141914)),
+                                      placeholder: (_, __) => Container(color: AppColors.surfaceCard),
+                                      errorWidget: (_, __, ___) => Container(color: AppColors.surfaceCard),
                                     ),
                                   ),
                                 )
@@ -2125,7 +2137,7 @@ class _TopRatedHorizontalList extends StatelessWidget {
                           item.eps != null ? '${item.eps} eps' : 'Series',
                           style: const TextStyle(
                             fontFamily: 'monospace',
-                            color: Color(0xFF8E9E8E),
+                            color: AppColors.textSecondary,
                             fontSize: 10.5,
                           ),
                         ),
@@ -2189,20 +2201,20 @@ class _RecentlyAddedHorizontalList extends StatelessWidget {
                       children: [
                         Container(
                           decoration: BoxDecoration(
-                            color: const Color(0xFF141914),
+                            color: AppColors.surfaceCard,
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: const Color(0x384E604E), width: 1.0),
-                            boxShadow: const [
-                              BoxShadow(
+                            border: Border.all(color: AppColors.border, width: 1.0),
+                            boxShadow: [
+                              const BoxShadow(
                                 color: Color(0x99000000),
                                 blurRadius: 14,
                                 spreadRadius: 1,
                                 offset: Offset(0, 5),
                               ),
                               BoxShadow(
-                                color: Color(0x24263526),
+                                color: AppColors.border.withValues(alpha: 0.15),
                                 blurRadius: 4,
-                                offset: Offset(0, 1),
+                                offset: const Offset(0, 1),
                               ),
                             ],
                           ),
@@ -2211,7 +2223,7 @@ class _RecentlyAddedHorizontalList extends StatelessWidget {
                             child: Container(
                               width: 138,
                               height: 193,
-                              color: const Color(0xFF141914),
+                              color: AppColors.surfaceCard,
                               child: item.posterUrl != null
                                   ? Hero(
                                       tag: heroTag,
@@ -2223,8 +2235,8 @@ class _RecentlyAddedHorizontalList extends StatelessWidget {
                                           imageUrl: item.posterUrl!,
                                           memCacheWidth: 250,
                                           fit: BoxFit.cover,
-                                          placeholder: (_, __) => Container(color: const Color(0xFF141914)),
-                                          errorWidget: (_, __, ___) => Container(color: const Color(0xFF141914)),
+                                          placeholder: (_, __) => Container(color: AppColors.surfaceCard),
+                                          errorWidget: (_, __, ___) => Container(color: AppColors.surfaceCard),
                                         ),
                                       ),
                                     )
@@ -2330,20 +2342,20 @@ class _UserFavouritesList extends StatelessWidget {
                   children: [
                     Container(
                       decoration: BoxDecoration(
-                        color: const Color(0xFF141914),
+                        color: AppColors.surfaceCard,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0x384E604E), width: 1.0),
-                        boxShadow: const [
-                          BoxShadow(
+                        border: Border.all(color: AppColors.border, width: 1.0),
+                        boxShadow: [
+                          const BoxShadow(
                             color: Color(0x99000000),
                             blurRadius: 14,
                             spreadRadius: 1,
                             offset: Offset(0, 5),
                           ),
                           BoxShadow(
-                            color: Color(0x24263526),
+                            color: AppColors.border.withValues(alpha: 0.15),
                             blurRadius: 4,
-                            offset: Offset(0, 1),
+                            offset: const Offset(0, 1),
                           ),
                         ],
                       ),
@@ -2352,14 +2364,14 @@ class _UserFavouritesList extends StatelessWidget {
                         child: Container(
                           width: 138,
                           height: 193,
-                          color: const Color(0xFF1E1E26),
+                          color: AppColors.surfaceCard,
                           child: poster != null && poster.isNotEmpty
                               ? CachedNetworkImage(
                                   imageUrl: poster,
                                   memCacheWidth: 250,
                                   fit: BoxFit.cover,
-                                  placeholder: (_, __) => Container(color: const Color(0xFF1E1E26)),
-                                  errorWidget: (_, __, ___) => Container(color: const Color(0xFF1E1E26)),
+                                  placeholder: (_, __) => Container(color: AppColors.surfaceCard),
+                                  errorWidget: (_, __, ___) => Container(color: AppColors.surfaceCard),
                                 )
                               : const Icon(Icons.star_rounded, color: Colors.white24, size: 40),
                         ),
@@ -2521,10 +2533,10 @@ class _ContinueWatchingCard extends StatelessWidget {
             Container(
               height: 132,
               decoration: BoxDecoration(
-                color: const Color(0xFF141914),
+                color: AppColors.surfaceCard,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: const Color(0x384E604E),
+                  color: AppColors.border,
                   width: 1.0,
                 ),
                 boxShadow: const [
@@ -2545,11 +2557,11 @@ class _ContinueWatchingCard extends StatelessWidget {
                         imageUrl: posterUrl!,
                         memCacheWidth: 480,
                         fit: BoxFit.cover,
-                        placeholder: (_, __) => Container(color: const Color(0xFF141914)),
-                        errorWidget: (_, __, ___) => Container(color: const Color(0xFF141914)),
+                        placeholder: (_, __) => Container(color: AppColors.surfaceCard),
+                        errorWidget: (_, __, ___) => Container(color: AppColors.surfaceCard),
                       )
                     else
-                      Container(color: const Color(0xFF141914)),
+                      Container(color: AppColors.surfaceCard),
 
                     // Dark gradient overlay
                     DecoratedBox(
@@ -2632,13 +2644,13 @@ class _ContinueWatchingCard extends StatelessWidget {
                     tooltip: 'Options',
                     icon: const Icon(
                       Icons.more_vert_rounded,
-                      color: Color(0xFF8E9E8E),
+                      color: AppColors.textSecondary,
                       size: 18,
                     ),
                     color: AppColors.surfaceElevated,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
-                      side: const BorderSide(color: Color(0x384E604E), width: 0.8),
+                      side: const BorderSide(color: AppColors.border, width: 0.8),
                     ),
                     onSelected: (val) {
                       if (val == 'remove') {
@@ -2662,7 +2674,7 @@ class _ContinueWatchingCard extends StatelessWidget {
                 else
                   const Icon(
                     Icons.more_vert_rounded,
-                    color: Color(0xFF8E9E8E),
+                    color: AppColors.textSecondary,
                     size: 18,
                   ),
               ],
@@ -2676,7 +2688,7 @@ class _ContinueWatchingCard extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                color: Color(0xFF8E9E8E),
+                color: AppColors.textSecondary,
                 fontSize: 11.5,
                 fontWeight: FontWeight.w500,
               ),
@@ -2742,19 +2754,19 @@ class _SectionErrorCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF141914),
+        color: AppColors.surfaceCard,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0x384E604E), width: 0.8),
+        border: Border.all(color: AppColors.border, width: 0.8),
       ),
       child: Row(
         children: [
-          const Icon(Icons.info_outline_rounded, size: 18, color: Color(0xFF8E9E8E)),
+          const Icon(Icons.info_outline_rounded, size: 18, color: AppColors.textSecondary),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               'Unable to load $title',
               style: const TextStyle(
-                color: Color(0xFF8E9E8E),
+                color: AppColors.textSecondary,
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
               ),

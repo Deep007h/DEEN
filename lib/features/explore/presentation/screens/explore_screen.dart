@@ -12,6 +12,7 @@ import '../../../../core/presentation/widgets/shimmer_box.dart';
 import '../../../metadata/data/datasources/anilist_remote_data_source.dart' show FeaturedAnimeItem;
 import '../../../metadata/domain/models/anime_summary.dart';
 import '../providers/explore_providers.dart';
+import '../../../settings/data/repositories/app_settings_repository.dart';
 
 /// Interactive Explore Screen with full-page genre reactivity, curated multi-lists,
 /// hero spotlight, view-mode toggles, and endless paginated scrolling.
@@ -77,6 +78,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(accentColorProvider);
     final topPadding = MediaQuery.paddingOf(context).top;
     final selectedGenre = ref.watch(selectedExploreGenreProvider);
     final viewMode = ref.watch(exploreViewModeProvider);
@@ -185,9 +187,9 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                     icon: Container(
                       padding: const EdgeInsets.all(9),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF141914),
+                        color: AppColors.surfaceCard,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFF263526), width: 0.8),
+                        border: Border.all(color: AppColors.border, width: 0.8),
                       ),
                       child: const Icon(Icons.search_rounded, color: Colors.white, size: 20),
                     ),
@@ -448,13 +450,13 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF141914),
+                    color: AppColors.surfaceCard,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0x384E604E), width: 0.8),
+                    border: Border.all(color: AppColors.border, width: 0.8),
                   ),
                   child: Column(
                     children: [
-                      const Icon(Icons.info_outline_rounded, color: Color(0xFF8E9E8E), size: 28),
+                      const Icon(Icons.info_outline_rounded, color: AppColors.textSecondary, size: 28),
                       const SizedBox(height: 10),
                       Text(
                         'Failed to load $selectedGenre catalog',
@@ -465,7 +467,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                         onPressed: () => ref.read(genreCatalogProvider(selectedGenre).notifier).init(),
                         style: FilledButton.styleFrom(
                           backgroundColor: AppColors.accent,
-                          foregroundColor: Colors.black,
+                          foregroundColor: AppColors.accentContrast,
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                         ),
                         child: const Text('Retry', style: TextStyle(fontWeight: FontWeight.w700)),
@@ -941,7 +943,7 @@ class _ExplorePosterCard extends StatelessWidget {
                     Container(
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color(0xFF263526), width: 1.0),
+                        border: Border.all(color: AppColors.border, width: 1.0),
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(13),
@@ -969,7 +971,7 @@ class _ExplorePosterCard extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
                         decoration: BoxDecoration(
-                          color: const Color(0xEE0B0E0B),
+                          color: AppColors.background.withValues(alpha: 0.9),
                           borderRadius: BorderRadius.circular(5),
                           border: Border.all(
                             color: AppColors.accent.withValues(alpha: 0.6),
@@ -994,9 +996,9 @@ class _ExplorePosterCard extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
                         decoration: BoxDecoration(
-                          color: const Color(0xEE141914),
+                          color: AppColors.surfaceCard.withValues(alpha: 0.9),
                           borderRadius: BorderRadius.circular(5),
-                          border: Border.all(color: const Color(0xFF263526), width: 0.8),
+                          border: Border.all(color: AppColors.border, width: 0.8),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -1063,20 +1065,20 @@ class _CatalogGridCard extends StatelessWidget {
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xFF141914),
+                  color: AppColors.surfaceCard,
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: const Color(0x384E604E), width: 1.0),
-                  boxShadow: const [
-                    BoxShadow(
+                  border: Border.all(color: AppColors.border, width: 1.0),
+                  boxShadow: [
+                    const BoxShadow(
                       color: Color(0x99000000),
                       blurRadius: 14,
                       spreadRadius: 1,
                       offset: Offset(0, 5),
                     ),
                     BoxShadow(
-                      color: Color(0x24263526),
+                      color: AppColors.border.withValues(alpha: 0.15),
                       blurRadius: 4,
-                      offset: Offset(0, 1),
+                      offset: const Offset(0, 1),
                     ),
                   ],
                 ),
@@ -1204,20 +1206,20 @@ class _CatalogListCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: const Color(0xFF141914),
+            color: AppColors.surfaceCard,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0x384E604E), width: 1.0),
-            boxShadow: const [
-              BoxShadow(
+            border: Border.all(color: AppColors.border, width: 1.0),
+            boxShadow: [
+              const BoxShadow(
                 color: Color(0x99000000),
                 blurRadius: 14,
                 spreadRadius: 1,
                 offset: Offset(0, 5),
               ),
               BoxShadow(
-                color: Color(0x24263526),
+                color: AppColors.border.withValues(alpha: 0.15),
                 blurRadius: 4,
-                offset: Offset(0, 1),
+                offset: const Offset(0, 1),
               ),
             ],
           ),
@@ -1317,20 +1319,20 @@ class _CatalogWideCard extends StatelessWidget {
         child: Container(
           height: 154,
           decoration: BoxDecoration(
-            color: const Color(0xFF141914),
+            color: AppColors.surfaceCard,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: const Color(0x384E604E), width: 1.0),
-            boxShadow: const [
-              BoxShadow(
+            border: Border.all(color: AppColors.border, width: 1.0),
+            boxShadow: [
+              const BoxShadow(
                 color: Color(0x99000000),
                 blurRadius: 14,
                 spreadRadius: 1,
                 offset: Offset(0, 5),
               ),
               BoxShadow(
-                color: Color(0x24263526),
+                color: AppColors.border.withValues(alpha: 0.15),
                 blurRadius: 4,
-                offset: Offset(0, 1),
+                offset: const Offset(0, 1),
               ),
             ],
           ),

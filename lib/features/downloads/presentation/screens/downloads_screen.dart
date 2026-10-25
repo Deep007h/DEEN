@@ -8,6 +8,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/presentation/widgets/pressable_scale.dart';
 import '../providers/download_providers.dart';
 import '../../data/download_service.dart';
+import '../../../settings/data/repositories/app_settings_repository.dart';
 
 /// Screen representing the 4th tab (Downloads) for managing offline media.
 class DownloadsScreen extends ConsumerStatefulWidget {
@@ -25,6 +26,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
     final topPadding = MediaQuery.paddingOf(context).top;
     final bottomPadding = MediaQuery.paddingOf(context).bottom + 90;
     final downloadService = ref.watch(downloadServiceProvider);
+    ref.watch(accentColorProvider);
     final allDownloads = downloadService.downloads;
 
     final filteredDownloads = allDownloads.where((d) {
@@ -75,9 +77,9 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF141914),
+                      color: AppColors.surfaceCard,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0x334E604E), width: 0.8),
+                      border: Border.all(color: AppColors.border, width: 0.8),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -87,7 +89,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                         Text(
                           '$usedMb MB Used',
                           style: const TextStyle(
-                            color: Color(0xFFC0CCC0),
+                            color: AppColors.textSecondary,
                             fontSize: 11.5,
                             fontWeight: FontWeight.w600,
                           ),
@@ -110,9 +112,9 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF141914),
+                  color: AppColors.surfaceCard,
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: const Color(0x284E604E), width: 1.0),
+                  border: Border.all(color: AppColors.border, width: 1.0),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -344,9 +346,9 @@ class _DownloadItemCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF141914),
+        color: AppColors.surfaceCard,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFF222B22), width: 1.0),
+        border: Border.all(color: AppColors.border, width: 1.0),
       ),
       child: Row(
         children: [
@@ -356,7 +358,7 @@ class _DownloadItemCard extends StatelessWidget {
             child: Container(
               width: 80,
               height: 52,
-              color: const Color(0xFF1C251C),
+              color: AppColors.surfaceCard,
               child: Stack(
                 fit: StackFit.expand,
                 children: [
@@ -474,17 +476,17 @@ class _FilterPill extends StatelessWidget {
         curve: AppMotion.hyperOsSpring,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.accent : const Color(0xFF141914),
+          color: isSelected ? AppColors.accent : AppColors.surfaceCard,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? AppColors.accent : const Color(0x334E604E),
+            color: isSelected ? AppColors.accent : AppColors.border,
             width: 0.8,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? Colors.black : const Color(0xFFCCD6CC),
+            color: isSelected ? AppColors.accentContrast : AppColors.textSecondary,
             fontSize: 12.5,
             fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
           ),

@@ -49,6 +49,7 @@ class MegaVidProvider implements StreamProvider {
     _variantMemoryCache.clear();
     _episodeMemoryCache.clear();
     _dubAvailabilityCache.clear();
+    _embedResolver.clearCache();
   }
 
   /// Checks if Dub track is available for this match on MegaVid/AniStream.

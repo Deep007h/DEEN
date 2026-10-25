@@ -87,17 +87,17 @@ class PlayerDescriptionSheet extends StatelessWidget {
                       width: 32,
                       height: 32,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E281E),
+                        color: AppColors.surfaceHighlight,
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                          color: const Color(0xFF2E3D2E),
+                          color: AppColors.border,
                           width: 1.0,
                         ),
                       ),
                       child: const Center(
                         child: Icon(
                           Icons.close_rounded,
-                          color: Color(0xFFC0D0C0),
+                          color: AppColors.textSecondary,
                           size: 18,
                         ),
                       ),
@@ -107,7 +107,7 @@ class PlayerDescriptionSheet extends StatelessWidget {
               ],
             ),
           ),
-          const Divider(height: 1, color: Color(0xFF1C251C)),
+          const Divider(height: 1, color: AppColors.border),
 
           // Scrollable Content
           Expanded(
@@ -132,7 +132,7 @@ class PlayerDescriptionSheet extends StatelessWidget {
                     Text(
                       originalTitle!,
                       style: const TextStyle(
-                        color: Color(0xFF8E9E8E),
+                        color: AppColors.textSecondary,
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                       ),
@@ -222,7 +222,7 @@ class PlayerDescriptionSheet extends StatelessWidget {
                         ? summary!.trim()
                         : 'No synopsis available for this title.',
                     style: const TextStyle(
-                      color: Color(0xFFB6C4B6),
+                      color: AppColors.textSecondary,
                       fontSize: 13.0,
                       height: 1.55,
                       letterSpacing: 0.15,
@@ -243,7 +243,7 @@ class PlayerDescriptionSheet extends StatelessWidget {
     IconData? icon,
     Color? iconColor,
     required String text,
-    Color textColor = const Color(0xFFD0DCD0),
+    Color textColor = AppColors.textPrimary,
   }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -276,14 +276,14 @@ class PlayerDescriptionSheet extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A221A),
+        color: AppColors.surfaceCard,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFF2B3A2B), width: 0.8),
+        border: Border.all(color: AppColors.border, width: 0.8),
       ),
       child: Text(
         tag,
         style: const TextStyle(
-          color: Color(0xFFA2B6A2),
+          color: AppColors.textSecondary,
           fontSize: 10.5,
           fontWeight: FontWeight.w500,
         ),
