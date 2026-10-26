@@ -42,5 +42,45 @@ seg3.ts
 
       await server.stop();
     });
+
+    test('rewrites EXT-X-MEDIA subtitles playlists to proxied local URLs', () {
+      final server = LocalHlsServer.instance;
+      const masterContent = '''
+#EXTM3U
+#EXT-X-VERSION:3
+#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="English",DEFAULT=YES,AUTOSELECT=YES,FORCED=NO,LANGUAGE="en",URI="sub_eng.m3u8"
+#EXT-X-STREAM-INF:BANDWIDTH=1280000,RESOLUTION=1280x720,SUBTITLES="subs"
+variant-720p.m3u8
+''';
+
+      final rewritten = server.rewriteMasterPlaylistForTesting(
+        masterContent,
+        'https://cdn.example.com/hls/master.m3u8',
+      );
+
+      expect(rewritten, contains('URI="http://127.0.0.1:0/variant-test_token-0.m3u8"'));
+      expect(rewritten, contains('http://127.0.0.1:0/variant-test_token-1.m3u8'));
+    });
+
+    test('rewrites EXT-X-MAP initialization chunks to proxied segment URLs', () {
+      final server = LocalHlsServer.instance;
+      const variantContent = '''
+#EXTM3U
+#EXT-X-VERSION:7
+#EXT-X-TARGETDURATION:6
+#EXT-X-MAP:URI="init.mp4"
+#EXTINF:6.000,
+seg1.mp4
+#EXT-X-ENDLIST
+''';
+
+      final rewritten = server.rewriteVariantPlaylistForTesting(
+        variantContent,
+        'https://cdn.example.com/hls/variant-720p.m3u8',
+      );
+
+      expect(rewritten, contains('#EXT-X-MAP:URI="http://127.0.0.1:0/segment-test_token?url=https%3A%2F%2Fcdn.example.com%2Fhls%2Finit.mp4"'));
+      expect(rewritten, contains('http://127.0.0.1:0/segment-test_token?url=https%3A%2F%2Fcdn.example.com%2Fhls%2Fseg1.mp4'));
+    });
   });
 }

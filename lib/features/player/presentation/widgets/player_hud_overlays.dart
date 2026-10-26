@@ -1,6 +1,7 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_text.dart';
 
 /// Top-center speed pill indicator shown during temporary hold gesture (e.g. "1.5X Speed ▶▶").
@@ -34,43 +35,49 @@ class HoldSpeedPill extends StatelessWidget {
       child: SafeArea(
         child: Align(
           alignment: Alignment.topCenter,
-          child: Container(
-            margin: const EdgeInsets.only(top: 20),
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xE618181B),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: const Color(0x33FFFFFF),
-                width: 0.8,
-              ),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x88000000),
-                  blurRadius: 16,
-                  offset: Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.fast_forward_rounded,
-                  size: 16,
-                  color: Colors.white,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  speedText,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.5,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: Container(
+                margin: const EdgeInsets.only(top: AppSpacing.xl),
+                padding: AppSpacing.buttonPaddingSm,
+                decoration: BoxDecoration(
+                  color: const Color(0xD9101216),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.20),
+                    width: 0.8,
                   ),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x88000000),
+                      blurRadius: 16,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
                 ),
-              ],
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.fast_forward_rounded,
+                      size: 16,
+                      color: AppColors.accent,
+                    ),
+                    const SizedBox(width: AppSpacing.xs + 2),
+                    Text(
+                      speedText,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
@@ -280,56 +287,77 @@ class ScrubPreviewHud extends StatelessWidget {
   Widget build(BuildContext context) {
     final deltaSeconds = delta.inSeconds;
     final isForward = deltaSeconds >= 0;
+    final deltaColor = isForward ? AppColors.accent : const Color(0xFFFFB800);
 
     return Center(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.8),
-          borderRadius: AppRadius.cardBorder,
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.2),
-            width: 1.0,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.5),
-              blurRadius: 20,
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              '${_format(targetPosition)} / ${_format(totalDuration)}',
-              style: AppText.sectionTitle.copyWith(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+            decoration: BoxDecoration(
+              color: const Color(0xD9101216),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.18),
+                width: 1.0,
               ),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x66000000),
+                  blurRadius: 20,
+                  offset: Offset(0, 4),
+                ),
+              ],
             ),
-            const SizedBox(height: 4),
-            Row(
+            child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  isForward ? Icons.arrow_forward_rounded : Icons.arrow_back_rounded,
-                  size: 13,
-                  color: isForward ? AppColors.accent : Colors.amberAccent,
-                ),
-                const SizedBox(width: 4),
                 Text(
-                  '${isForward ? '+' : ''}${deltaSeconds}s',
-                  style: AppText.meta.copyWith(
-                    color: isForward ? AppColors.accent : Colors.amberAccent,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                  '${_format(targetPosition)} / ${_format(totalDuration)}',
+                  style: AppText.sectionTitle.copyWith(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs + 2),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: deltaColor.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: deltaColor.withValues(alpha: 0.35),
+                      width: 0.8,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isForward ? Icons.arrow_forward_rounded : Icons.arrow_back_rounded,
+                        size: 13,
+                        color: deltaColor,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${isForward ? '+' : ''}${deltaSeconds}s',
+                        style: AppText.meta.copyWith(
+                          color: deltaColor,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );

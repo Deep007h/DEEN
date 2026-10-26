@@ -78,3 +78,24 @@ class SubtitleTrack {
   @override
   String toString() => 'SubtitleTrack($id, $label, format: ${format.name})';
 }
+
+/// User configurable settings for subtitle rendering and timing.
+class SubtitleSettings {
+  final double fontSize;
+  final double delaySeconds;
+
+  const SubtitleSettings({
+    this.fontSize = 18.0,
+    this.delaySeconds = 0.0,
+  });
+
+  SubtitleSettings copyWith({
+    double? fontSize,
+    double? delaySeconds,
+  }) {
+    return SubtitleSettings(
+      fontSize: fontSize ?? this.fontSize,
+      delaySeconds: delaySeconds ?? this.delaySeconds,
+    );
+  }
+}

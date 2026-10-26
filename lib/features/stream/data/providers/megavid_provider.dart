@@ -634,32 +634,7 @@ class MegaVidProvider implements StreamProvider {
   }
 
   List<SubtitleTrack> _parseSubtitleTracks(dynamic rawTracks) {
-    final list = <SubtitleTrack>[SubtitleTrack.off()];
-    if (rawTracks is! List) return list;
-
-    for (final t in rawTracks) {
-      if (t is! Map) continue;
-      final file = (t['file'] ?? t['src'])?.toString();
-      final label = t['label']?.toString();
-      if (file == null || file.isEmpty || label == null || label.isEmpty) continue;
-
-      final code = _langCodeFromLabel(label);
-      final isDefault = t['default'] == true || code == 'en';
-      final isSrt = file.toLowerCase().endsWith('.srt');
-
-      list.add(
-        SubtitleTrack(
-          id: 'sub_${list.length}',
-          languageCode: code,
-          label: label,
-          url: file,
-          format: isSrt ? SubtitleFormat.srt : SubtitleFormat.vtt,
-          isDefault: isDefault,
-        ),
-      );
-    }
-
-    return list;
+    return EmbedStreamResolver.parseSubtitleTracks(rawTracks, baseUrl: defaultBaseUrl);
   }
 
   (double, double)? _parseChapters(dynamic chapters, String kind) {
@@ -697,22 +672,7 @@ class MegaVidProvider implements StreamProvider {
     ];
   }
 
-  String _langCodeFromLabel(String label) {
-    final l = label.toLowerCase();
-    if (l.contains('english')) return 'en';
-    if (l.contains('spanish') || l.contains('español')) return 'es';
-    if (l.contains('french') || l.contains('français')) return 'fr';
-    if (l.contains('german') || l.contains('deutsch')) return 'de';
-    if (l.contains('italian') || l.contains('italiano')) return 'it';
-    if (l.contains('portuguese') || l.contains('português')) return 'pt';
-    if (l.contains('russian') || l.contains('русский')) return 'ru';
-    if (l.contains('arabic') || l.contains('العربية')) return 'ar';
-    if (l.contains('indonesia') || l.contains('indonesian')) return 'id';
-    if (l.contains('khmer')) return 'km';
-    if (l.contains('malay')) return 'ms';
-    if (l.contains('dutch')) return 'nl';
-    return l.substring(0, l.length.clamp(0, 3));
-  }
+
 
   String _sanitizeQuery(String raw) {
     var s = raw;

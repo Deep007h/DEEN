@@ -100,8 +100,20 @@ abstract class VideoPlaybackEngine {
   /// Sets video aspect ratio display mode.
   void setAspectRatioMode(VideoAspectRatioMode mode);
 
-  /// Selects or disables subtitle track.
-  Future<void> setSubtitleTrack(SubtitleTrack track);
+  /// Selects or disables subtitle track, optionally passing required upstream CDN headers.
+  Future<void> setSubtitleTrack(SubtitleTrack track, {Map<String, String>? headers});
+
+  /// Updates subtitle display settings (font size, delay).
+  void setSubtitleSettings(SubtitleSettings settings);
+
+  /// Current subtitle configuration.
+  SubtitleSettings get subtitleSettings;
+
+  /// Stream of current subtitle text lines for on-screen captions rendering.
+  Stream<List<String>> get subtitleStream;
+
+  /// Current active subtitle text lines.
+  List<String> get currentSubtitle;
 
   /// Sets track preferences for automatic selection when media streams load.
   void setTrackPreferences({String? audioLanguage, String? qualityPreference});

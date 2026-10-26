@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 
 /// Session metadata for a proxied HLS stream.
 class _HlsSession {
@@ -142,6 +143,18 @@ class LocalHlsServer {
   void clearSessions() {
     _sessions.clear();
     _inFlightRequests.clear();
+  }
+
+  @visibleForTesting
+  String rewriteMasterPlaylistForTesting(String content, String baseUrl) {
+    final session = _HlsSession(token: 'test_token', sourceUrl: baseUrl, headers: {});
+    return _rewriteMasterPlaylist(content, session, baseUrl);
+  }
+
+  @visibleForTesting
+  String rewriteVariantPlaylistForTesting(String content, String baseUrl) {
+    final session = _HlsSession(token: 'test_token', sourceUrl: baseUrl, headers: {});
+    return _rewriteVariantPlaylist(content, session, baseUrl);
   }
 
   /// Alias for [clearSessions].
@@ -453,6 +466,18 @@ class LocalHlsServer {
           'http://127.0.0.1:$port/variant-${session.token}-$variantIndex.m3u8',
         );
         variantIndex++;
+      } else if (trimmed.startsWith('#EXT-X-MEDIA:')) {
+        final uriMatch = RegExp(r'URI="([^"]+)"').firstMatch(trimmed);
+        if (uriMatch != null) {
+          final rawUri = uriMatch.group(1)!;
+          final resolvedUrl = _resolveUrl(baseUrl, rawUri);
+          session.variantUrls[variantIndex] = resolvedUrl;
+          final proxied = 'http://127.0.0.1:$port/variant-${session.token}-$variantIndex.m3u8';
+          output.add(line.replaceFirst('URI="$rawUri"', 'URI="$proxied"'));
+          variantIndex++;
+        } else {
+          output.add(line);
+        }
       } else {
         output.add(line);
       }
@@ -474,7 +499,18 @@ class LocalHlsServer {
       final trimmed = line.trim();
       if (trimmed.isEmpty) continue;
 
-      if (!trimmed.startsWith('#')) {
+      if (trimmed.startsWith('#EXT-X-MAP:')) {
+        final mapMatch = RegExp(r'URI="([^"]+)"').firstMatch(trimmed);
+        if (mapMatch != null) {
+          final rawMapUri = mapMatch.group(1)!;
+          final resolvedMapUrl = _resolveUrl(baseUrl, rawMapUri);
+          final encoded = Uri.encodeComponent(resolvedMapUrl);
+          final proxied = 'http://127.0.0.1:$port/segment-${session.token}?url=$encoded';
+          output.add(line.replaceFirst('URI="$rawMapUri"', 'URI="$proxied"'));
+        } else {
+          output.add(line);
+        }
+      } else if (!trimmed.startsWith('#')) {
         // Segment URL
         final resolvedUrl = _resolveUrl(baseUrl, trimmed);
         final encoded = Uri.encodeComponent(resolvedUrl);

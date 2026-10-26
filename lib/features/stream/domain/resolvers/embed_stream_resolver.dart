@@ -228,7 +228,7 @@ class EmbedStreamResolver {
     final streamUrl = rawSource.contains('.m3u8') ? rawSource : '$rawSource#.m3u8';
 
     // Parse all subtitle tracks
-    final tracks = parseSubtitleTracks(data['tracks']);
+    final tracks = parseSubtitleTracks(data['tracks'], baseUrl: defaultBaseUrl);
 
     // Parse chapter markers (intro & outro)
     final intro = parseChapters(data['chapters'], 'intro') ?? parseTimeRange(data['intro']);
@@ -344,7 +344,7 @@ class EmbedStreamResolver {
   }
 
   /// Extracts subtitle tracks into typed [SubtitleTrack] models.
-  static List<SubtitleTrack> parseSubtitleTracks(dynamic rawTracks) {
+  static List<SubtitleTrack> parseSubtitleTracks(dynamic rawTracks, {String? baseUrl}) {
     final list = <SubtitleTrack>[SubtitleTrack.off()];
     if (rawTracks is! List) return list;
 
@@ -354,17 +354,34 @@ class EmbedStreamResolver {
       final label = t['label']?.toString();
       if (file == null || file.isEmpty || label == null || label.isEmpty) continue;
 
+      String resolvedFile = file.trim();
+      if (!resolvedFile.startsWith('http://') && !resolvedFile.startsWith('https://')) {
+        if (resolvedFile.startsWith('//')) {
+          resolvedFile = 'https:$resolvedFile';
+        } else if (baseUrl != null && baseUrl.isNotEmpty) {
+          final uri = Uri.tryParse(baseUrl);
+          if (uri != null && uri.hasScheme) {
+            if (resolvedFile.startsWith('/')) {
+              resolvedFile = '${uri.scheme}://${uri.host}$resolvedFile';
+            } else {
+              resolvedFile = '$baseUrl/$resolvedFile';
+            }
+          }
+        }
+      }
+
       final code = langCodeFromLabel(label);
       final isDefault = t['default'] == true || code == 'en';
-      final isSrt = file.toLowerCase().endsWith('.srt');
+      final isSrt = resolvedFile.toLowerCase().endsWith('.srt');
+      final isAss = resolvedFile.toLowerCase().endsWith('.ass');
 
       list.add(
         SubtitleTrack(
           id: 'sub_${list.length}',
           languageCode: code,
           label: label,
-          url: file,
-          format: isSrt ? SubtitleFormat.srt : SubtitleFormat.vtt,
+          url: resolvedFile,
+          format: isAss ? SubtitleFormat.ass : (isSrt ? SubtitleFormat.srt : SubtitleFormat.vtt),
           isDefault: isDefault,
         ),
       );

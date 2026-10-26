@@ -183,6 +183,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                 ),
                 const SizedBox(width: 8),
                   IconButton(
+                    tooltip: 'Search anime & series',
                     onPressed: () => context.push('/search'),
                     icon: Container(
                       padding: const EdgeInsets.all(9),
@@ -1226,7 +1227,7 @@ class _CatalogListCard extends StatelessWidget {
           child: Row(
             children: [
               ClipRRect(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
                 child: Hero(
                   tag: heroTag,
                   createRectTween: smoothHeroRectTween,
@@ -1236,6 +1237,10 @@ class _CatalogListCard extends StatelessWidget {
                     width: 70,
                     height: 97,
                     fit: BoxFit.cover,
+                    memCacheWidth: 180,
+                    memCacheHeight: 250,
+                    maxWidthDiskCache: 360,
+                    maxHeightDiskCache: 500,
                     placeholder: (_, __) => Container(color: AppColors.surfaceContainerLow),
                     errorWidget: (_, __, ___) => Container(color: AppColors.surfaceContainerLow),
                   ),
@@ -1348,6 +1353,10 @@ class _CatalogWideCard extends StatelessWidget {
                   child: CachedNetworkImage(
                     imageUrl: item.posterUrl ?? '',
                     fit: BoxFit.cover,
+                    memCacheWidth: 600,
+                    memCacheHeight: 340,
+                    maxWidthDiskCache: 900,
+                    maxHeightDiskCache: 510,
                     placeholder: (_, __) => Container(color: AppColors.surfaceContainerLow),
                     errorWidget: (_, __, ___) => Container(color: AppColors.surfaceContainerLow),
                   ),

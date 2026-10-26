@@ -56,4 +56,10 @@ abstract final class AppMotion {
   static const ScrollPhysics m3ScrollPhysics = BouncingScrollPhysics(
     parent: AlwaysScrollableScrollPhysics(),
   );
+
+  // 6. Dedicated Overlay & HUD Transitions
+  static const Duration overlayEnter = Duration(milliseconds: 240);
+  static const Duration overlayExit = Duration(milliseconds: 180);
+  static const Curve overlayEnterCurve = hyperOsDecelerate;
+  static const Curve overlayExitCurve = hyperOsAccelerate;
 }
