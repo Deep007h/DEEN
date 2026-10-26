@@ -14,12 +14,16 @@ import '../../../../l10n/app_localizations.dart';
 import 'package:anime_stream/features/metadata/presentation/providers/metadata_providers.dart';
 import 'package:anime_stream/features/metadata/domain/models/anime_titles.dart';
 import 'package:anime_stream/features/metadata/domain/models/anime_detail.dart';
+import 'package:anime_stream/features/metadata/domain/models/episode.dart';
 import 'package:anime_stream/features/stream/presentation/providers/stream_providers.dart';
 import 'package:anime_stream/features/library/domain/models/followed_anime.dart';
 import 'package:anime_stream/features/stream/domain/models/source_match.dart';
+import 'package:collection/collection.dart';
 import '../../../../core/presentation/widgets/hero_shuttle_builder.dart';
 import '../../../../core/presentation/widgets/start_io_banner.dart';
 import '../../../../core/presentation/widgets/pressable_scale.dart';
+import '../../../downloads/data/download_service.dart';
+import '../../../downloads/presentation/providers/download_providers.dart';
 import '../../../settings/data/repositories/app_settings_repository.dart';
 
 /// Detail screen matching reference Screen 2.
@@ -55,6 +59,126 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
   AnimeDetail? _lastLoadedDetail;
   int _lastEpisodeNavTime = 0;
   final Set<String> _prewarmedEpisodes = {};
+  int _episodeMode = 0; // 0: Watch, 1: Download
+  final Set<int> _selectedDownloadEpisodes = {};
+
+  void _toggleEpisodeDownloadSelection(int epNum) {
+    HapticFeedback.selectionClick();
+    setState(() {
+      if (_selectedDownloadEpisodes.contains(epNum)) {
+        _selectedDownloadEpisodes.remove(epNum);
+      } else {
+        _selectedDownloadEpisodes.add(epNum);
+      }
+    });
+  }
+
+  void _selectAllEpisodesForDownload(List<Episode> episodes) {
+    HapticFeedback.lightImpact();
+    setState(() {
+      for (final ep in episodes) {
+        _selectedDownloadEpisodes.add(ep.number.toInt());
+      }
+    });
+  }
+
+  void _deselectAllEpisodesForDownload() {
+    HapticFeedback.lightImpact();
+    setState(() {
+      _selectedDownloadEpisodes.clear();
+    });
+  }
+
+  Future<void> _startBatchDownload(List<int> epNumbers, AnimeDetail detail, String? selectedProviderId) async {
+    final messenger = ScaffoldMessenger.of(context);
+    GoRouter? router;
+    try {
+      router = GoRouter.of(context);
+    } catch (_) {}
+    final downloadService = ref.read(downloadServiceProvider);
+    final orchestrator = await ref.read(streamOrchestratorProvider.future);
+    final currentId = detail.id;
+    final animeTitle = detail.titles.preferredTitle();
+    final posterUrl = detail.posterUrl;
+
+    messenger.removeCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.downloading_rounded, color: AppColors.accent, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Starting download for ${epNumbers.length} episode(s)...',
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+        action: SnackBarAction(
+          label: 'View',
+          textColor: AppColors.accent,
+          onPressed: () {
+            if (router != null) {
+              router.go('/downloads');
+            }
+          },
+        ),
+        duration: const Duration(seconds: 4),
+        backgroundColor: AppColors.surfaceCard,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: const BorderSide(color: AppColors.border),
+        ),
+      ),
+    );
+
+    for (final epNum in epNumbers) {
+      if (downloadService.isDownloaded(currentId, epNum) || downloadService.isDownloading(currentId, epNum)) {
+        continue;
+      }
+
+      final ep = detail.episodes.firstWhereOrNull((e) => e.number.toInt() == epNum);
+      final epTitle = ep != null && ep.title.isNotEmpty ? ep.title : 'Episode $epNum';
+
+      await downloadService.registerQueuedDownload(
+        animeId: currentId,
+        episodeNumber: epNum,
+        title: epTitle,
+        animeTitle: animeTitle,
+        posterUrl: posterUrl,
+      );
+
+      // Resolve and start download in background
+      () async {
+        try {
+          final res = await orchestrator.resolveEpisode(
+            anime: detail,
+            episodeNumber: epNum,
+            preferredProviderId: selectedProviderId,
+          );
+          final streamUrl = (res.selectedQuality.url != null && res.selectedQuality.url!.isNotEmpty)
+              ? res.selectedQuality.url!
+              : res.selectedVariant.url;
+
+          await downloadService.startDownload(
+            animeId: currentId,
+            episodeNumber: epNum,
+            title: epTitle,
+            animeTitle: animeTitle,
+            posterUrl: posterUrl,
+            streamUrl: streamUrl,
+            headers: res.selectedVariant.headers,
+          );
+        } catch (e) {
+          debugPrint('Failed to resolve episode $epNum for download: $e');
+          downloadService.cancelDownload('${currentId}_$epNum');
+        }
+      }();
+    }
+  }
 
   void _playEpisode(int currentId, int epNum, String? selectedProviderId) {
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -124,6 +248,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
     final isFollowedAsync = ref.watch(isFollowingProvider(currentId));
     final lastWatchedEpAsync = ref.watch(lastWatchedEpisodeProvider(currentId));
     ref.watch(accentColorProvider);
+    final downloadService = ref.watch(downloadServiceProvider);
 
     final registry = ref.watch(streamProviderRegistryProvider).valueOrNull;
     final enabledProviders = registry?.getOrderedEnabledProviders() ?? [];
@@ -146,6 +271,9 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
       },
       child: Scaffold(
         backgroundColor: AppColors.background,
+        bottomNavigationBar: (_episodeMode == 1 && detail != null)
+            ? _buildDownloadBottomBar(context, detail, selectedProviderId, downloadService)
+            : null,
         body: Stack(
           children: [
             // 1. Scrollable Content Layer
@@ -582,8 +710,9 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                                           ),
                                         ),
                                         style: FilledButton.styleFrom(
-                                          minimumSize: const Size.fromHeight(48),
-                                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                                          minimumSize: const Size.fromHeight(AppSpacing.buttonHeightLg),
+                                          padding: AppSpacing.buttonPaddingLg,
+                                          shape: const StadiumBorder(),
                                         ),
                                       ),
                                     ),
@@ -919,7 +1048,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                     child: StartIoBannerWidget(),
                   ),
 
-                // Episodes Header with List / Grid View Switcher
+                // Episodes Header with List / Grid View Switcher & Watch / Download Mode
                 if (detail != null)
                   SliverToBoxAdapter(
                   child: Padding(
@@ -929,58 +1058,133 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                       AppSpacing.pageMargin,
                       AppSpacing.sm,
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
-                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 3.5,
+                                  height: 16,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.accent,
+                                    borderRadius: BorderRadius.circular(2),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: AppColors.accent.withValues(alpha: 0.5),
+                                        blurRadius: 6,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  l10n.episodesTitle,
+                                  style: AppText.sectionTitle.copyWith(fontSize: 16),
+                                ),
+                              ],
+                            ),
+                            // M3 Segmented Button for View Switcher (Grid / List)
+                            SegmentedButton<bool>(
+                              segments: const [
+                                ButtonSegment<bool>(
+                                  value: true,
+                                  icon: Icon(Icons.grid_view_rounded, size: 16),
+                                  tooltip: 'Grid view',
+                                ),
+                                ButtonSegment<bool>(
+                                  value: false,
+                                  icon: Icon(Icons.view_list_rounded, size: 16),
+                                  tooltip: 'List view',
+                                ),
+                              ],
+                              selected: {_isGridView},
+                              onSelectionChanged: (newSelection) {
+                                if (newSelection.isNotEmpty) {
+                                  setState(() => _isGridView = newSelection.first);
+                                }
+                              },
+                              showSelectedIcon: false,
+                              style: const ButtonStyle(
+                                visualDensity: VisualDensity.compact,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        // Mode Switcher: Watch vs Download
+                        Row(
                           children: [
                             Container(
-                              width: 3.5,
-                              height: 16,
+                              padding: const EdgeInsets.all(3),
                               decoration: BoxDecoration(
-                                color: AppColors.accent,
-                                borderRadius: BorderRadius.circular(2),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppColors.accent.withValues(alpha: 0.5),
-                                    blurRadius: 6,
+                                color: AppColors.surfaceCard,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: AppColors.border, width: 0.8),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _buildModePill(
+                                    icon: Icons.play_arrow_rounded,
+                                    label: 'Watch',
+                                    isSelected: _episodeMode == 0,
+                                    onTap: () {
+                                      HapticFeedback.selectionClick();
+                                      setState(() => _episodeMode = 0);
+                                    },
+                                  ),
+                                  _buildModePill(
+                                    icon: Icons.download_rounded,
+                                    label: 'Download',
+                                    isSelected: _episodeMode == 1,
+                                    onTap: () {
+                                      HapticFeedback.selectionClick();
+                                      setState(() => _episodeMode = 1);
+                                    },
                                   ),
                                 ],
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            Text(
-                              l10n.episodesTitle,
-                              style: AppText.sectionTitle.copyWith(fontSize: 16),
-                            ),
+                            if (_episodeMode == 1) ...[
+                              const Spacer(),
+                              TextButton.icon(
+                                onPressed: () {
+                                  if (_selectedDownloadEpisodes.length == detail.episodes.length) {
+                                    _deselectAllEpisodesForDownload();
+                                  } else {
+                                    _selectAllEpisodesForDownload(detail.episodes);
+                                  }
+                                },
+                                icon: Icon(
+                                  _selectedDownloadEpisodes.length == detail.episodes.length
+                                      ? Icons.deselect_rounded
+                                      : Icons.select_all_rounded,
+                                  size: 16,
+                                  color: AppColors.accent,
+                                ),
+                                label: Text(
+                                  _selectedDownloadEpisodes.length == detail.episodes.length
+                                      ? 'Deselect All'
+                                      : 'Select All',
+                                  style: TextStyle(
+                                    color: AppColors.accent,
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                style: TextButton.styleFrom(
+                                  visualDensity: VisualDensity.compact,
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                ),
+                              ),
+                            ],
                           ],
-                        ),
-                        // M3 Segmented Button for View Switcher (Grid / List)
-                        SegmentedButton<bool>(
-                          segments: const [
-                            ButtonSegment<bool>(
-                              value: true,
-                              icon: Icon(Icons.grid_view_rounded, size: 16),
-                              tooltip: 'Grid view',
-                            ),
-                            ButtonSegment<bool>(
-                              value: false,
-                              icon: Icon(Icons.view_list_rounded, size: 16),
-                              tooltip: 'List view',
-                            ),
-                          ],
-                          selected: {_isGridView},
-                          onSelectionChanged: (newSelection) {
-                            if (newSelection.isNotEmpty) {
-                              setState(() => _isGridView = newSelection.first);
-                            }
-                          },
-                          showSelectedIcon: false,
-                          style: const ButtonStyle(
-                            visualDensity: VisualDensity.compact,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
                         ),
                       ],
                     ),
@@ -1034,9 +1238,92 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                           final epNum = ep.number.toInt();
                           final isCurrent = lastWatchedEp != null && epNum == lastWatchedEp;
                           final isWatched = lastWatchedEp != null && epNum < lastWatchedEp;
+                          final isDownloaded = downloadService.isDownloaded(currentId, epNum);
+                          final isDownloading = downloadService.isDownloading(currentId, epNum);
+                          final downloadProgress = downloadService.getDownloadProgress(currentId, epNum);
+                          final isSelected = _selectedDownloadEpisodes.contains(epNum);
 
+                          if (_episodeMode == 1) {
+                            // Download selection mode
+                            return Tooltip(
+                              message: 'Episode $epNum - ${isDownloaded ? "Downloaded" : (isDownloading ? "Downloading" : (isSelected ? "Selected" : "Tap to select"))}',
+                              child: PressableScale(
+                                targetScale: 0.92,
+                                onTap: () => _toggleEpisodeDownloadSelection(epNum),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 150),
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? AppColors.accent.withValues(alpha: 0.22)
+                                        : isDownloaded
+                                            ? AppColors.accentSoft
+                                            : AppColors.surfaceCard,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? AppColors.accent
+                                          : isDownloaded
+                                              ? AppColors.accent.withValues(alpha: 0.6)
+                                              : (isDownloading ? AppColors.accent : AppColors.border),
+                                      width: isSelected ? 1.8 : 1.0,
+                                    ),
+                                  ),
+                                  child: Stack(
+                                    children: [
+                                      Center(
+                                        child: isDownloading
+                                            ? SizedBox(
+                                                width: 20,
+                                                height: 20,
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 2.2,
+                                                  value: downloadProgress,
+                                                  color: AppColors.accent,
+                                                ),
+                                              )
+                                            : Text(
+                                                '$epNum',
+                                                style: TextStyle(
+                                                  fontFamily: 'monospace',
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: isSelected
+                                                      ? AppColors.accent
+                                                      : isDownloaded
+                                                          ? AppColors.accent
+                                                          : Colors.white,
+                                                ),
+                                              ),
+                                      ),
+                                      // Top-Right Indicator Badge
+                                      Positioned(
+                                        top: 3,
+                                        right: 3,
+                                        child: isDownloaded
+                                            ? Icon(Icons.download_done_rounded, size: 12, color: AppColors.accent)
+                                            : isDownloading
+                                                ? Icon(Icons.downloading_rounded, size: 12, color: AppColors.accent)
+                                                : isSelected
+                                                    ? Icon(Icons.check_circle_rounded, size: 14, color: AppColors.accent)
+                                                    : Container(
+                                                        width: 10,
+                                                        height: 10,
+                                                        decoration: BoxDecoration(
+                                                          shape: BoxShape.circle,
+                                                          border: Border.all(color: AppColors.textMuted.withValues(alpha: 0.5), width: 1.0),
+                                                        ),
+                                                      ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
+
+                          // Standard Watch Mode
                           return Tooltip(
-                            message: 'Episode $epNum${ep.title.isNotEmpty ? ': ${ep.title}' : ''}',
+                            message: 'Episode $epNum${ep.title.isNotEmpty ? ': ${ep.title}' : ''}${isDownloaded ? ' (Downloaded)' : ''}',
                             child: PressableScale(
                               targetScale: 0.92,
                               onTap: () => _playEpisode(currentId, epNum, selectedProviderId),
@@ -1053,23 +1340,34 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                                         ? AppColors.accent
                                         : isWatched
                                             ? AppColors.accent.withValues(alpha: 0.5)
-                                            : AppColors.border,
+                                            : (isDownloaded ? AppColors.accent.withValues(alpha: 0.4) : AppColors.border),
                                     width: isCurrent ? 1.5 : 1.0,
                                   ),
                                 ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  '$epNum',
-                                  style: TextStyle(
-                                    fontFamily: 'monospace',
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w800,
-                                    color: isCurrent
-                                        ? const Color(0xFF0B0E0B)
-                                        : isWatched
-                                            ? AppColors.accent
-                                            : Colors.white,
-                                  ),
+                                child: Stack(
+                                  children: [
+                                    Center(
+                                      child: Text(
+                                        '$epNum',
+                                        style: TextStyle(
+                                          fontFamily: 'monospace',
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w800,
+                                          color: isCurrent
+                                              ? const Color(0xFF0B0E0B)
+                                              : isWatched
+                                                  ? AppColors.accent
+                                                  : Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                    if (isDownloaded)
+                                      Positioned(
+                                        top: 4,
+                                        right: 4,
+                                        child: Icon(Icons.download_done_rounded, size: 11, color: isCurrent ? const Color(0xFF0B0E0B) : AppColors.accent),
+                                      ),
+                                  ],
                                 ),
                               ),
                             ),
@@ -1088,91 +1386,168 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                           final ep = detail.episodes[index];
                           final epNum = ep.number.toInt();
                           final isWatched = lastWatchedEp != null && epNum <= lastWatchedEp;
+                          final isDownloaded = downloadService.isDownloaded(currentId, epNum);
+                          final isDownloading = downloadService.isDownloading(currentId, epNum);
+                          final downloadProgress = downloadService.getDownloadProgress(currentId, epNum);
+                          final isSelected = _selectedDownloadEpisodes.contains(epNum);
 
                           return Container(
                             margin: const EdgeInsets.only(bottom: AppSpacing.sm),
                             child: PressableScale(
                               targetScale: 0.965,
-                              onTap: () => _playEpisode(currentId, epNum, selectedProviderId),
+                              onTap: _episodeMode == 1
+                                  ? () => _toggleEpisodeDownloadSelection(epNum)
+                                  : () => _playEpisode(currentId, epNum, selectedProviderId),
                               child: Container(
                                 padding: const EdgeInsets.all(AppSpacing.md),
                                 decoration: BoxDecoration(
-                                  color: AppColors.surface,
+                                  color: (_episodeMode == 1 && isSelected)
+                                      ? AppColors.accent.withValues(alpha: 0.15)
+                                      : AppColors.surface,
                                   borderRadius: BorderRadius.circular(14),
                                   border: Border.all(
-                                    color: isWatched
-                                        ? AppColors.accent.withValues(alpha: 0.3)
-                                        : AppColors.border,
-                                    width: 0.8,
+                                    color: (_episodeMode == 1 && isSelected)
+                                        ? AppColors.accent
+                                        : isWatched
+                                            ? AppColors.accent.withValues(alpha: 0.3)
+                                            : AppColors.border,
+                                    width: (_episodeMode == 1 && isSelected) ? 1.5 : 0.8,
                                   ),
                                 ),
-                                  child: Row(
-                                    children: [
-                                      // Episode Number Badge
-                                      Container(
-                                        width: 38,
-                                        height: 38,
-                                        decoration: BoxDecoration(
-                                          color: isWatched
-                                              ? AppColors.accentSoft
-                                              : AppColors.surfaceElevated,
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        alignment: Alignment.center,
-                                        child: Text(
-                                          '$epNum',
-                                          style: AppText.badgeText.copyWith(
-                                            color: isWatched
-                                                ? AppColors.accent
-                                                : AppColors.textPrimary,
-                                            fontSize: 14,
-                                          ),
+                                child: Row(
+                                  children: [
+                                    // Episode Number Badge
+                                    Container(
+                                      width: 38,
+                                      height: 38,
+                                      decoration: BoxDecoration(
+                                        color: (_episodeMode == 1 && isSelected)
+                                            ? AppColors.accent
+                                            : isWatched
+                                                ? AppColors.accentSoft
+                                                : AppColors.surfaceElevated,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        '$epNum',
+                                        style: AppText.badgeText.copyWith(
+                                          color: (_episodeMode == 1 && isSelected)
+                                              ? const Color(0xFF0B0E0B)
+                                              : isWatched
+                                                  ? AppColors.accent
+                                                  : AppColors.textPrimary,
+                                          fontSize: 14,
                                         ),
                                       ),
-                                      const SizedBox(width: AppSpacing.md),
-                                      // Title & Original
-                                      Expanded(
-                                        child: Builder(
-                                          builder: (_) {
-                                            final isEpLatin = AnimeTitles.isPrimarilyLatin(ep.title);
-                                            final displayEpTitle = (titlePref == TitlePreference.english && !isEpLatin)
-                                                ? 'Episode $epNum'
-                                                : ep.title;
-                                            final displayEpSub = (titlePref == TitlePreference.english)
-                                                ? (ep.titleOriginal != null && AnimeTitles.isPrimarilyLatin(ep.titleOriginal!)
-                                                    ? ep.titleOriginal
-                                                    : (isEpLatin && ep.title != displayEpTitle ? ep.title : null))
-                                                : (ep.titleOriginal != null && ep.titleOriginal != ep.title ? ep.titleOriginal : null);
+                                    ),
+                                    const SizedBox(width: AppSpacing.md),
+                                    // Title & Original
+                                    Expanded(
+                                      child: Builder(
+                                        builder: (_) {
+                                          final isEpLatin = AnimeTitles.isPrimarilyLatin(ep.title);
+                                          final displayEpTitle = (titlePref == TitlePreference.english && !isEpLatin)
+                                              ? 'Episode $epNum'
+                                              : ep.title;
+                                          final displayEpSub = (titlePref == TitlePreference.english)
+                                              ? (ep.titleOriginal != null && AnimeTitles.isPrimarilyLatin(ep.titleOriginal!)
+                                                  ? ep.titleOriginal
+                                                  : (isEpLatin && ep.title != displayEpTitle ? ep.title : null))
+                                              : (ep.titleOriginal != null && ep.titleOriginal != ep.title ? ep.titleOriginal : null);
 
-                                            return Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
+                                          return Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                displayEpTitle,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: AppText.body.copyWith(
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                              if (displayEpSub != null) ...[
+                                                const SizedBox(height: 2),
                                                 Text(
-                                                  displayEpTitle,
+                                                  displayEpSub,
                                                   maxLines: 1,
                                                   overflow: TextOverflow.ellipsis,
-                                                  style: AppText.body.copyWith(
-                                                    fontWeight: FontWeight.w500,
+                                                  style: AppText.meta.copyWith(
+                                                    color: AppColors.textMuted,
+                                                    fontSize: 11,
                                                   ),
                                                 ),
-                                                if (displayEpSub != null) ...[
-                                                  const SizedBox(height: 2),
-                                                  Text(
-                                                    displayEpSub,
-                                                    maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
-                                                    style: AppText.meta.copyWith(
-                                                      color: AppColors.textMuted,
-                                                      fontSize: 11,
-                                                    ),
-                                                  ),
-                                                ],
                                               ],
-                                            );
-                                          },
-                                        ),
+                                            ],
+                                          );
+                                        },
                                       ),
-                                      // Watched indicator or air date
+                                    ),
+                                    // Trailing Widget: Selection Checkbox / Download indicator / Watched indicator
+                                    if (_episodeMode == 1) ...[
+                                      if (isDownloading)
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            SizedBox(
+                                              width: 16,
+                                              height: 16,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                value: downloadProgress,
+                                                color: AppColors.accent,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              '${((downloadProgress ?? 0) * 100).toInt()}%',
+                                              style: TextStyle(
+                                                color: AppColors.accent,
+                                                fontSize: 11.5,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ],
+                                        )
+                                      else if (isDownloaded)
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.download_done_rounded, size: 16, color: AppColors.accent),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              'Saved',
+                                              style: TextStyle(
+                                                color: AppColors.accent,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Icon(
+                                              isSelected ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
+                                              size: 20,
+                                              color: isSelected ? AppColors.accent : AppColors.textMuted,
+                                            ),
+                                          ],
+                                        )
+                                      else
+                                        Icon(
+                                          isSelected ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
+                                          size: 22,
+                                          color: isSelected ? AppColors.accent : AppColors.textMuted,
+                                        ),
+                                    ] else ...[
+                                      if (isDownloaded)
+                                        Padding(
+                                          padding: const EdgeInsets.only(left: 6, right: 6),
+                                          child: Icon(
+                                            Icons.download_done_rounded,
+                                            size: 16,
+                                            color: AppColors.accent,
+                                          ),
+                                        ),
                                       if (isWatched)
                                         Padding(
                                           padding: const EdgeInsets.only(left: 6),
@@ -1191,10 +1566,11 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                                           ),
                                         ),
                                     ],
-                                  ),
+                                  ],
                                 ),
                               ),
-                            );
+                            ),
+                          );
                         },
                         childCount: detail.episodes.length,
                       ),
@@ -1378,6 +1754,163 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
       ),
     );
   }
+
+  Widget _buildModePill({
+    required IconData icon,
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.accent : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: AppColors.accent.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 15,
+              color: isSelected ? Colors.black : AppColors.textSecondary,
+            ),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.black : AppColors.textSecondary,
+                fontSize: 12.5,
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDownloadBottomBar(
+    BuildContext context,
+    AnimeDetail detail,
+    String? selectedProviderId,
+    DownloadService downloadService,
+  ) {
+    final selectedCount = _selectedDownloadEpisodes.length;
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+
+    return Container(
+      padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottomInset),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceCard.withValues(alpha: 0.95),
+        border: const Border(top: BorderSide(color: AppColors.border, width: 1.0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.4),
+            blurRadius: 16,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Selected count info
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  selectedCount > 0 ? '$selectedCount Episode(s) selected' : 'No episodes selected',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  selectedCount > 0 ? 'Tap download to save offline' : 'Select episodes above to download',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 11.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Download Action Button
+          PressableScale(
+            targetScale: selectedCount > 0 ? 0.95 : 1.0,
+            onTap: selectedCount > 0
+                ? () {
+                    final epsToDownload = _selectedDownloadEpisodes.toList()..sort();
+                    _startBatchDownload(epsToDownload, detail, selectedProviderId);
+                    setState(() {
+                      _selectedDownloadEpisodes.clear();
+                    });
+                  }
+                : null,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              decoration: BoxDecoration(
+                color: selectedCount > 0 ? AppColors.accent : AppColors.surfaceElevated,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: selectedCount > 0
+                    ? [
+                        BoxShadow(
+                          color: AppColors.accent.withValues(alpha: 0.35),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.file_download_rounded,
+                    color: selectedCount > 0 ? Colors.black : AppColors.textMuted,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    selectedCount > 0 ? 'Download ($selectedCount)' : 'Download',
+                    style: TextStyle(
+                      color: selectedCount > 0 ? Colors.black : AppColors.textMuted,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _InfoPill extends StatelessWidget {
@@ -1394,7 +1927,8 @@ class _InfoPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pill = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      height: AppSpacing.buttonHeightSm,
+      padding: AppSpacing.chipPadding,
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: AppRadius.pillBorder,
@@ -1406,13 +1940,14 @@ class _InfoPill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: AppColors.textSecondary),
-          const SizedBox(width: 4),
+          Icon(icon, size: 14, color: AppColors.textSecondary),
+          const SizedBox(width: AppSpacing.xs + 1),
           Text(
             label,
             style: AppText.meta.copyWith(
               color: AppColors.textSecondary,
-              fontSize: 11,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -1422,6 +1957,7 @@ class _InfoPill extends StatelessWidget {
     if (onTap != null) {
       return PressableScale(
         targetScale: 0.94,
+        curve: AppMotion.hyperOsSpring,
         onTap: onTap,
         child: pill,
       );
@@ -1438,38 +1974,44 @@ class _FloatingBackButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-      child: PressableScale(
-        targetScale: 0.90,
-        onTap: onPressed,
-        child: ClipOval(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.50),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.20),
-                  width: 0.9,
-                ),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x7A000000),
-                    blurRadius: 12,
-                    offset: Offset(0, 2),
+      constraints: const BoxConstraints(
+        minWidth: AppSpacing.minTouchTarget,
+        minHeight: AppSpacing.minTouchTarget,
+      ),
+      child: Center(
+        child: PressableScale(
+          targetScale: 0.90,
+          curve: AppMotion.hyperOsSpring,
+          onTap: onPressed,
+          child: ClipOval(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: Container(
+                width: AppSpacing.circleButtonSm,
+                height: AppSpacing.circleButtonSm,
+                decoration: BoxDecoration(
+                  color: const Color(0xD9101216),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.22),
+                    width: 1.0,
                   ),
-                ],
-              ),
-              child: const Center(
-                child: Tooltip(
-                  message: 'Back',
-                  child: Icon(
-                    Icons.arrow_back_rounded,
-                    color: AppColors.textPrimary,
-                    size: 19,
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x7A000000),
+                      blurRadius: 12,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Center(
+                  child: Tooltip(
+                    message: 'Back',
+                    child: Icon(
+                      Icons.arrow_back_rounded,
+                      color: AppColors.textPrimary,
+                      size: 20,
+                    ),
                   ),
                 ),
               ),
@@ -1548,7 +2090,7 @@ class _SpringStarButtonState extends State<_SpringStarButton>
         child: Icon(
           widget.isFollowed ? Icons.star_rounded : Icons.star_outline_rounded,
           color: widget.isFollowed ? AppColors.ratingStar : Colors.white,
-          size: 20,
+          size: 22,
         ),
       ),
       label: Text(
@@ -1562,14 +2104,14 @@ class _SpringStarButtonState extends State<_SpringStarButton>
       ),
       style: OutlinedButton.styleFrom(
         foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+        padding: AppSpacing.buttonPaddingLg,
         side: BorderSide(
           color: widget.isFollowed
               ? AppColors.ratingStar.withValues(alpha: 0.6)
               : AppColors.border,
           width: 1,
         ),
-        minimumSize: const Size.fromHeight(48),
+        minimumSize: const Size.fromHeight(AppSpacing.buttonHeightLg),
         shape: const StadiumBorder(),
         backgroundColor: widget.isFollowed
             ? AppColors.ratingStar.withValues(alpha: 0.12)

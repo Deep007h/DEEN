@@ -132,7 +132,7 @@ class DownloadService extends ChangeNotifier {
   bool isDownloaded(int animeId, int episodeNumber) {
     final id = '${animeId}_$episodeNumber';
     final item = _downloads[id];
-    return item != null && item.isCompleted;
+    return item != null && item.isCompleted && File(item.localFilePath).existsSync();
   }
 
   bool isDownloading(int animeId, int episodeNumber) {
@@ -141,8 +141,57 @@ class DownloadService extends ChangeNotifier {
     return item != null && !item.isCompleted;
   }
 
+  double? getDownloadProgress(int animeId, int episodeNumber) {
+    final id = '${animeId}_$episodeNumber';
+    return _downloads[id]?.progress;
+  }
+
   DownloadedEpisode? getDownload(int animeId, int episodeNumber) {
     return _downloads['${animeId}_$episodeNumber'];
+  }
+
+  /// Registers an episode immediately in queued downloading state so UI displays progress indicator
+  Future<DownloadedEpisode> registerQueuedDownload({
+    required int animeId,
+    required int episodeNumber,
+    required String title,
+    required String animeTitle,
+    String? posterUrl,
+  }) async {
+    final id = '${animeId}_$episodeNumber';
+
+    Directory dir;
+    try {
+      dir = await getApplicationDocumentsDirectory();
+    } catch (_) {
+      dir = Directory.systemTemp;
+    }
+
+    final downloadDir = Directory('${dir.path}/deen_downloads');
+    if (!downloadDir.existsSync()) {
+      downloadDir.createSync(recursive: true);
+    }
+    final savePath = '${downloadDir.path}/$id.ts';
+
+    final queuedEntry = DownloadedEpisode(
+      id: id,
+      animeId: animeId,
+      episodeNumber: episodeNumber,
+      title: title,
+      animeTitle: animeTitle,
+      posterUrl: posterUrl,
+      localFilePath: savePath,
+      streamUrl: '',
+      fileSizeBytes: 0,
+      downloadedAt: DateTime.now(),
+      isCompleted: false,
+      progress: 0.02,
+    );
+
+    _downloads[id] = queuedEntry;
+    notifyListeners();
+    _saveToStorage();
+    return queuedEntry;
   }
 
   void _loadFromStorage() {
@@ -197,7 +246,8 @@ class DownloadService extends ChangeNotifier {
       downloadDir.createSync(recursive: true);
     }
 
-    final extension = streamUrl.toLowerCase().contains('.mp4') ? 'mp4' : 'm3u8';
+    final isHls = streamUrl.toLowerCase().contains('.m3u8');
+    final extension = streamUrl.toLowerCase().contains('.mp4') ? 'mp4' : (isHls ? 'ts' : 'mp4');
     final savePath = '${downloadDir.path}/$id.$extension';
 
     final initialEntry = DownloadedEpisode(
@@ -209,10 +259,10 @@ class DownloadService extends ChangeNotifier {
       posterUrl: posterUrl,
       localFilePath: savePath,
       streamUrl: streamUrl,
-      fileSizeBytes: 0,
+      fileSizeBytes: _downloads[id]?.fileSizeBytes ?? 0,
       downloadedAt: DateTime.now(),
       isCompleted: false,
-      progress: 0.05,
+      progress: (_downloads[id]?.progress ?? 0.05).clamp(0.05, 0.95),
     );
 
     _downloads[id] = initialEntry;
@@ -253,25 +303,30 @@ class DownloadService extends ChangeNotifier {
         return;
       }
 
-      await _dio.download(
-        url,
-        savePath,
-        cancelToken: cancelToken,
-        options: Options(
-          headers: headers,
-          followRedirects: true,
-        ),
-        onReceiveProgress: (received, total) {
-          if (total > 0) {
-            final p = (received / total).clamp(0.0, 1.0);
-            _downloads[entry.id] = entry.copyWith(
-              progress: p,
-              fileSizeBytes: received,
-            );
-            notifyListeners();
-          }
-        },
-      );
+      final isHls = url.toLowerCase().contains('.m3u8');
+      if (isHls) {
+        await _downloadHlsStream(entry, savePath, url, headers, cancelToken);
+      } else {
+        await _dio.download(
+          url,
+          savePath,
+          cancelToken: cancelToken,
+          options: Options(
+            headers: headers,
+            followRedirects: true,
+          ),
+          onReceiveProgress: (received, total) {
+            if (total > 0) {
+              final p = (received / total).clamp(0.0, 1.0);
+              _downloads[entry.id] = entry.copyWith(
+                progress: p,
+                fileSizeBytes: received,
+              );
+              notifyListeners();
+            }
+          },
+        );
+      }
 
       final downloadedFile = File(savePath);
       final size = downloadedFile.existsSync() ? downloadedFile.lengthSync() : 0;
@@ -288,7 +343,7 @@ class DownloadService extends ChangeNotifier {
       if (cancelToken.isCancelled) {
         _downloads.remove(entry.id);
       } else {
-        // Fallback: If HLS manifest was downloaded or direct chunk, mark available
+        // Fallback: If HLS manifest or segments were downloaded, mark available
         final file = File(savePath);
         if (file.existsSync() && file.lengthSync() > 0) {
           _downloads[entry.id] = entry.copyWith(
@@ -305,6 +360,144 @@ class DownloadService extends ChangeNotifier {
       _saveToStorage();
     } finally {
       _activeTasks.remove(entry.id);
+    }
+  }
+
+  Future<void> _downloadHlsStream(
+    DownloadedEpisode entry,
+    String savePath,
+    String playlistUrl,
+    Map<String, String>? headers,
+    CancelToken cancelToken,
+  ) async {
+    final cleanUrl = playlistUrl.split('#').first.trim();
+    final effectiveHeaders = Map<String, String>.from(headers ?? {});
+    effectiveHeaders.putIfAbsent('Referer', () => 'https://megavid.buzz/');
+    effectiveHeaders.putIfAbsent('Origin', () => 'https://megavid.buzz');
+    effectiveHeaders.putIfAbsent(
+      'User-Agent',
+      () => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+    );
+
+    // 1. Fetch playlist content
+    final resp = await _dio.get<String>(
+      cleanUrl,
+      options: Options(
+        responseType: ResponseType.plain,
+        headers: effectiveHeaders,
+        receiveTimeout: const Duration(seconds: 10),
+      ),
+      cancelToken: cancelToken,
+    );
+
+    String playlistContent = resp.data ?? '';
+    String targetVariantUrl = cleanUrl;
+
+    // 2. Check if master playlist
+    if (playlistContent.contains('#EXT-X-STREAM-INF')) {
+      final lines = playlistContent.split(RegExp(r'\r?\n'));
+      String? bestVariantUri;
+      for (int i = 0; i < lines.length; i++) {
+        final line = lines[i].trim();
+        if (line.startsWith('#EXT-X-STREAM-INF') && i + 1 < lines.length) {
+          for (int j = i + 1; j < lines.length; j++) {
+            final next = lines[j].trim();
+            if (next.isNotEmpty && !next.startsWith('#')) {
+              bestVariantUri = next;
+              break;
+            }
+          }
+          if (bestVariantUri != null) break;
+        }
+      }
+
+      if (bestVariantUri != null) {
+        try {
+          targetVariantUrl = Uri.parse(cleanUrl).resolve(bestVariantUri).toString();
+        } catch (_) {
+          targetVariantUrl = bestVariantUri;
+        }
+
+        final varResp = await _dio.get<String>(
+          targetVariantUrl,
+          options: Options(
+            responseType: ResponseType.plain,
+            headers: effectiveHeaders,
+            receiveTimeout: const Duration(seconds: 10),
+          ),
+          cancelToken: cancelToken,
+        );
+        playlistContent = varResp.data ?? '';
+      }
+    }
+
+    // 3. Extract segments
+    final segmentUrls = <String>[];
+    final lines = playlistContent.split(RegExp(r'\r?\n'));
+    final baseUri = Uri.parse(targetVariantUrl);
+    for (final rawLine in lines) {
+      final line = rawLine.trim();
+      if (line.isEmpty || line.startsWith('#')) continue;
+      try {
+        final resolved = baseUri.resolve(line).toString();
+        segmentUrls.add(resolved);
+      } catch (_) {
+        segmentUrls.add(line);
+      }
+    }
+
+    if (segmentUrls.isEmpty) {
+      throw Exception('No playable segments found in HLS playlist');
+    }
+
+    // 4. Download and concatenate segments into single MPEG-TS file
+    final file = File(savePath);
+    final sink = file.openWrite(mode: FileMode.write);
+    int totalDownloadedBytes = 0;
+
+    try {
+      for (int i = 0; i < segmentUrls.length; i++) {
+        if (cancelToken.isCancelled) {
+          break;
+        }
+
+        final segUrl = segmentUrls[i];
+        List<int>? bytes;
+        for (int attempt = 0; attempt < 3; attempt++) {
+          try {
+            final segResp = await _dio.get<List<int>>(
+              segUrl,
+              options: Options(
+                responseType: ResponseType.bytes,
+                headers: effectiveHeaders,
+                receiveTimeout: const Duration(seconds: 20),
+              ),
+              cancelToken: cancelToken,
+            );
+            bytes = segResp.data;
+            if (bytes != null && bytes.isNotEmpty) break;
+          } catch (e) {
+            if (cancelToken.isCancelled) rethrow;
+            if (attempt == 2) rethrow;
+            await Future.delayed(const Duration(milliseconds: 300));
+          }
+        }
+
+        if (bytes != null && bytes.isNotEmpty) {
+          sink.add(bytes);
+          totalDownloadedBytes += bytes.length;
+        }
+
+        final p = ((i + 1) / segmentUrls.length).clamp(0.05, 0.99);
+        _downloads[entry.id] = entry.copyWith(
+          progress: p,
+          fileSizeBytes: totalDownloadedBytes,
+        );
+        notifyListeners();
+      }
+      await sink.flush();
+    } finally {
+      await sink.close();
     }
   }
 

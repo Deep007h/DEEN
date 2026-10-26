@@ -273,9 +273,13 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                       imageUrl: item.posterUrl ?? '',
                                       fit: BoxFit.cover,
                                       width: double.infinity,
-                                      placeholder: (_, __) => Container(color: const Color(0xFF1E1E26)),
+                                      memCacheWidth: 240,
+                                      memCacheHeight: 360,
+                                      maxWidthDiskCache: 480,
+                                      maxHeightDiskCache: 720,
+                                      placeholder: (_, __) => Container(color: AppColors.surfaceContainerLow),
                                       errorWidget: (_, __, ___) => Container(
-                                        color: const Color(0xFF1E1E26),
+                                        color: AppColors.surfaceContainerLow,
                                         child: const Icon(Icons.broken_image, color: Colors.white24),
                                       ),
                                     ),
@@ -465,6 +469,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                     ),
                                     const SizedBox(width: 8),
                                     IconButton(
+                                      tooltip: 'Play episode',
                                       constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
                                       icon: const Icon(Icons.play_circle_fill_rounded, color: Colors.white, size: 32),
                                       onPressed: () {

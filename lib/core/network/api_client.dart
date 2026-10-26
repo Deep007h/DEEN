@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:dio/dio.dart';
 
 /// Pre-configured Dio HTTP client with retry interceptor, timeouts, and descriptive User-Agent.
@@ -7,6 +8,25 @@ class ApiClient {
       'DEEN/1.0 (Linux; https://github.com/animeapp/deen; contact: user@deen.app)';
 
   final Dio dio;
+
+  /// Asynchronously pre-warms DNS and socket connections for critical streaming & metadata domains
+  /// to eliminate first-tap resolution lag (D-005).
+  static void prewarmHosts([List<String>? hosts]) {
+    final targetHosts = hosts ?? const [
+      'https://megavid.buzz',
+      'https://kisskh.co',
+      'https://api.bgm.tv',
+      'https://graphql.anilist.co',
+    ];
+    unawaited(Future.wait(
+      targetHosts.map((host) async {
+        try {
+          final uri = Uri.parse(host);
+          await InternetAddress.lookup(uri.host);
+        } catch (_) {}
+      }),
+    ));
+  }
 
   ApiClient({
     String? baseUrl,

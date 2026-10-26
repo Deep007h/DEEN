@@ -127,9 +127,9 @@ class MediaKitPlaybackEngine implements VideoPlaybackEngine {
     print('[ENGINE_OPEN] Opening effectiveUrl: $effectiveUrl, startPosition: $startPosition');
     print('[ENGINE_OPEN] Headers: $effectiveHeaders');
 
-    // Route HLS streams through in-app LocalHlsServer to guarantee headers, retry transient CDN blocks, and bypass demuxer MIME issues
+    final isLocal = effectiveUrl.startsWith('/') || effectiveUrl.startsWith('file://');
     String playUrl = effectiveUrl;
-    if (isHls && !effectiveUrl.contains('127.0.0.1')) {
+    if (isHls && !isLocal && !effectiveUrl.contains('127.0.0.1')) {
       try {
         LocalHlsServer.instance.clearSessions();
         playUrl = await LocalHlsServer.instance.proxyStream(

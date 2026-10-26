@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/presentation/widgets/floating_nav_bar.dart';
@@ -22,11 +24,49 @@ import 'package:anime_stream/features/stream/domain/models/source_match.dart';
 import 'package:anime_stream/features/stream/presentation/providers/stream_providers.dart';
 import 'package:anime_stream/features/player/presentation/widgets/embed_stream_dialog.dart';
 
-enum SearchCatalogKind { anime, kshow }
+/// Filter tabs for unified search results
+enum SearchFilterTab {
+  all,
+  anime,
+  kdrama,
+}
 
-/// Full-screen search screen matching reference Screen 3.
-/// Features a dark control panel, tag filters, segmented sort, 2-column poster grid,
-/// floating rating & heat badges, infinite scroll, and hero transitions.
+/// Unified search result item model merging Anime and K-Drama/Asian Drama titles
+class UnifiedSearchItem {
+  final String id;
+  final String title;
+  final String? posterUrl;
+  final double? score;
+  final int? heat;
+  final int? episodeCount;
+  final bool isKShow;
+  final AnimeSummary? anime;
+  final SourceMatch? kshow;
+
+  UnifiedSearchItem.fromAnime(this.anime, this.title)
+      : id = anime!.id.toString(),
+        posterUrl = anime.posterUrl,
+        score = anime.score,
+        heat = anime.heat,
+        episodeCount = anime.eps,
+        isKShow = false,
+        kshow = null;
+
+  UnifiedSearchItem.fromKShow(this.kshow)
+      : id = kshow!.id,
+        title = kshow.title,
+        posterUrl = kshow.customData['thumb'] as String?,
+        score = null,
+        heat = null,
+        episodeCount = kshow.episodeCount,
+        isKShow = true,
+        anime = null;
+}
+
+/// Redesigned Full-Screen Unified Search Screen.
+/// Seamlessly queries and merges Anime and K-Drama catalogs concurrently.
+/// Features a streamlined search bar, animated filter pills, trending suggestions,
+/// and smooth staggered entry animations.
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
 
@@ -36,27 +76,55 @@ class SearchScreen extends ConsumerStatefulWidget {
 
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   late final TextEditingController _searchController;
+  late final FocusNode _focusNode;
   late final ScrollController _scrollController;
 
-  SearchCatalogKind _selectedKind = SearchCatalogKind.anime;
+  SearchFilterTab _selectedFilter = SearchFilterTab.all;
   List<SourceMatch> _kshowResults = [];
   bool _isKShowLoading = false;
-  String? _kshowError;
   Timer? _kshowDebounceTimer;
   CancelToken? _kshowCancelToken;
+
+  static const List<String> _trendingSearches = [
+    'Frieren',
+    'Solo Leveling',
+    'Queen of Tears',
+    'Demon Slayer',
+    'Crash Landing on You',
+    'Jujutsu Kaisen',
+    'Teach You a Lesson',
+    'Vincenzo',
+    'Attack on Titan',
+    'Squid Game',
+  ];
+
+  static const List<String> _popularGenres = [
+    'Action',
+    'Fantasy',
+    'Romance',
+    'Drama',
+    'Mystery',
+    'Sci-Fi',
+    'Comedy',
+    'Supernatural',
+  ];
 
   @override
   void initState() {
     super.initState();
     final initialQuery = ref.read(searchQueryProvider);
     _searchController = TextEditingController(text: initialQuery);
+    _focusNode = FocusNode();
     _scrollController = ScrollController()..addListener(_onScroll);
+
+    if (initialQuery.trim().isNotEmpty) {
+      _searchKShows(initialQuery.trim());
+    }
   }
 
   void _onScroll() {
-    if (_selectedKind == SearchCatalogKind.anime &&
-        _scrollController.position.pixels >=
-            _scrollController.position.maxScrollExtent - 300) {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 320) {
       ref.read(searchPaginationProvider.notifier).loadMore();
     }
   }
@@ -66,19 +134,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     _kshowDebounceTimer?.cancel();
     _kshowCancelToken?.cancel('SearchScreen disposed');
     _searchController.dispose();
+    _focusNode.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
   void _onQueryChanged(String val) {
-    if (_selectedKind == SearchCatalogKind.anime) {
-      ref.read(searchQueryProvider.notifier).state = val;
-    } else {
-      _kshowDebounceTimer?.cancel();
-      _kshowDebounceTimer = Timer(const Duration(milliseconds: 300), () {
-        _searchKShows(val);
-      });
-    }
+    ref.read(searchQueryProvider.notifier).state = val;
+    _kshowDebounceTimer?.cancel();
+    _kshowDebounceTimer = Timer(const Duration(milliseconds: 320), () {
+      _searchKShows(val);
+    });
   }
 
   Future<void> _searchKShows(String query) async {
@@ -89,17 +155,21 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
     final trimmed = query.trim();
     if (trimmed.isEmpty) {
-      setState(() {
-        _kshowResults = [];
-        _isKShowLoading = false;
-        _kshowError = null;
-      });
+      if (mounted) {
+        setState(() {
+          _kshowResults = [];
+          _isKShowLoading = false;
+        });
+      }
       return;
     }
-    setState(() {
-      _isKShowLoading = true;
-      _kshowError = null;
-    });
+
+    if (mounted) {
+      setState(() {
+        _isKShowLoading = true;
+      });
+    }
+
     try {
       final results = await ref.read(megaVidProvider).searchKShows(
         trimmed,
@@ -122,28 +192,34 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       if (mounted && cancelToken == _kshowCancelToken) {
         setState(() {
           _isKShowLoading = false;
-          _kshowError = 'Failed to load K-Shows';
         });
       }
     }
   }
 
   void _submitSearch([String? rawQuery]) {
-    FocusScope.of(context).unfocus();
+    _focusNode.unfocus();
     final query = (rawQuery ?? _searchController.text).trim();
-    if (_selectedKind == SearchCatalogKind.kshow) {
-      _kshowDebounceTimer?.cancel();
-      _searchKShows(query);
-    } else {
-      ref.read(searchQueryProvider.notifier).state = query;
-      ref.read(searchPaginationProvider.notifier).search(query);
-    }
+    ref.read(searchQueryProvider.notifier).state = query;
+    ref.read(searchPaginationProvider.notifier).search(query);
+    _kshowDebounceTimer?.cancel();
+    _searchKShows(query);
+  }
+
+  void _applyQuickQuery(String query) {
+    HapticFeedback.selectionClick();
+    _searchController.text = query;
+    _searchController.selection = TextSelection.fromPosition(
+      TextPosition(offset: query.length),
+    );
+    _submitSearch(query);
   }
 
   @override
   Widget build(BuildContext context) {
     ref.watch(accentColorProvider);
     final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
 
     final currentSort = ref.watch(searchSortProvider);
     final selectedTags = ref.watch(selectedTagsProvider);
@@ -156,11 +232,62 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       (SearchSort.score, l10n.filterRating),
     ];
 
-    final theme = Theme.of(context);
     final screenWidth = MediaQuery.sizeOf(context).width;
     final gridCrossAxisCount = screenWidth >= 1000
         ? 5
         : (screenWidth >= 700 ? 4 : (screenWidth >= 480 ? 3 : 2));
+
+    // Construct unified items list
+    final animeItems = paginationState.items
+        .map((a) => UnifiedSearchItem.fromAnime(a, a.titles.preferredTitle(titlePref)))
+        .toList();
+    final kshowItems = _kshowResults
+        .map((k) => UnifiedSearchItem.fromKShow(k))
+        .toList();
+
+    List<UnifiedSearchItem> displayedItems;
+    switch (_selectedFilter) {
+      case SearchFilterTab.all:
+        // Interleave matches gracefully: prioritize exact/strong title matches first
+        final combined = <UnifiedSearchItem>[];
+        final query = _searchController.text.trim().toLowerCase();
+
+        final priorityAnime = <UnifiedSearchItem>[];
+        final otherAnime = <UnifiedSearchItem>[];
+        for (final item in animeItems) {
+          if (query.isNotEmpty && item.title.toLowerCase().contains(query)) {
+            priorityAnime.add(item);
+          } else {
+            otherAnime.add(item);
+          }
+        }
+
+        final priorityKShow = <UnifiedSearchItem>[];
+        final otherKShow = <UnifiedSearchItem>[];
+        for (final item in kshowItems) {
+          if (query.isNotEmpty && item.title.toLowerCase().contains(query)) {
+            priorityKShow.add(item);
+          } else {
+            otherKShow.add(item);
+          }
+        }
+
+        combined.addAll(priorityAnime);
+        combined.addAll(priorityKShow);
+        combined.addAll(otherAnime);
+        combined.addAll(otherKShow);
+        displayedItems = combined;
+        break;
+      case SearchFilterTab.anime:
+        displayedItems = animeItems;
+        break;
+      case SearchFilterTab.kdrama:
+        displayedItems = kshowItems;
+        break;
+    }
+
+    final isSearching = paginationState.isLoading || _isKShowLoading;
+    final hasActiveQuery = _searchController.text.trim().isNotEmpty || selectedTags.isNotEmpty;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -174,23 +301,26 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           padding: const EdgeInsets.only(left: AppSpacing.pageMargin),
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-              child: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.12),
-                    width: 0.8,
+              constraints: const BoxConstraints(
+                minWidth: AppSpacing.minTouchTarget,
+                minHeight: AppSpacing.minTouchTarget,
+              ),
+              child: PressableScale(
+                targetScale: 0.92,
+                curve: AppMotion.hyperOsSpring,
+                onTap: () => context.pop(),
+                child: Container(
+                  width: AppSpacing.circleButtonSm,
+                  height: AppSpacing.circleButtonSm,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.08),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.14),
+                      width: 0.8,
+                    ),
                   ),
-                ),
-                child: IconButton(
-                  tooltip: 'Back',
-                  padding: EdgeInsets.zero,
-                  onPressed: () => context.pop(),
-                  icon: const Icon(
+                  child: const Icon(
                     Icons.arrow_back_rounded,
                     color: AppColors.textPrimary,
                     size: 20,
@@ -200,13 +330,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             ),
           ),
         ),
-        leadingWidth: AppSpacing.pageMargin + 44,
+        leadingWidth: AppSpacing.pageMargin + 48,
         centerTitle: true,
         title: Text(
           l10n.searchTitle,
           style: AppText.sectionTitle.copyWith(
             fontSize: 16,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.2,
           ),
         ),
         actions: [
@@ -214,23 +345,26 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             padding: const EdgeInsets.only(right: AppSpacing.pageMargin),
             child: Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: AppColors.accent.withValues(alpha: 0.12),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: AppColors.accent.withValues(alpha: 0.3),
-                      width: 0.8,
+                constraints: const BoxConstraints(
+                  minWidth: AppSpacing.minTouchTarget,
+                  minHeight: AppSpacing.minTouchTarget,
+                ),
+                child: PressableScale(
+                  targetScale: 0.92,
+                  curve: AppMotion.hyperOsSpring,
+                  onTap: () => EmbedStreamDialog.show(context),
+                  child: Container(
+                    width: AppSpacing.circleButtonSm,
+                    height: AppSpacing.circleButtonSm,
+                    decoration: BoxDecoration(
+                      color: AppColors.accent.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: AppColors.accent.withValues(alpha: 0.35),
+                        width: 0.8,
+                      ),
                     ),
-                  ),
-                  child: IconButton(
-                    tooltip: 'Stream from Embed URL',
-                    padding: EdgeInsets.zero,
-                    onPressed: () => EmbedStreamDialog.show(context),
-                    icon: Icon(
+                    child: Icon(
                       Icons.link_rounded,
                       color: AppColors.accent,
                       size: 20,
@@ -244,10 +378,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       ),
       body: CustomScrollView(
         controller: _scrollController,
-        physics: AppMotion.m3ScrollPhysics,
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: ClampingScrollPhysics(),
+        ),
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         slivers: [
-          // Big Page Title: "Anime Search" (Bangumi 搜索) & subtitle
+          // Header: "Anime Search" (Ensures test compatibility) & Subtitle
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(
@@ -259,449 +395,502 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 children: [
                   Text(
                     l10n.bangumiSearchTitle,
-                    style: AppText.pageTitle.copyWith(fontSize: 28),
+                    style: AppText.pageTitle.copyWith(
+                      fontSize: 27,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.4,
+                    ),
                   ),
-                  const SizedBox(height: AppSpacing.xxs),
+                  const SizedBox(height: 3),
                   Text(
-                    l10n.searchInstruction,
+                    'Search all anime, k-dramas, and asian series concurrently',
                     style: AppText.bodySecondary.copyWith(
                       color: AppColors.textSecondary,
                       fontSize: 13,
                     ),
                   ),
-                  const SizedBox(height: AppSpacing.md),
+                  const SizedBox(height: AppSpacing.elementGapMd),
                 ],
               ),
             ),
           ),
 
-          // Material 3 Dark Control Panel containing input, tags, and segmented sort
+          // Streamlined Material 3 Search Control Bar (Without Dropdown)
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
-              child: Card(
-                elevation: 0,
-                color: theme.colorScheme.surfaceContainerLow,
-                shape: RoundedRectangleBorder(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerLow,
                   borderRadius: AppRadius.cardBorder,
-                  side: BorderSide(
+                  border: Border.all(
                     color: theme.colorScheme.outlineVariant.withValues(alpha: 0.35),
                     width: 0.8,
                   ),
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.md),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Text Field + Search Button
-                      Container(
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surfaceContainerHighest,
-                          borderRadius: AppRadius.pillBorder,
-                          border: Border.all(
-                            color: theme.colorScheme.outline.withValues(alpha: 0.15),
-                            width: 0.8,
-                          ),
+                padding: const EdgeInsets.all(AppSpacing.elementGapMd),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Unified Search Bar Pill
+                    Container(
+                      height: AppSpacing.buttonHeightLg,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerHighest,
+                        borderRadius: AppRadius.pillBorder,
+                        border: Border.all(
+                          color: _focusNode.hasFocus
+                              ? AppColors.accent.withValues(alpha: 0.6)
+                              : theme.colorScheme.outline.withValues(alpha: 0.15),
+                          width: _focusNode.hasFocus ? 1.2 : 0.8,
                         ),
-                        child: Row(
-                          children: [
-                            // Catalog Kind Dropdown: Anime vs K-Show
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10),
-                              decoration: BoxDecoration(
-                                border: Border(
-                                  right: BorderSide(
-                                    color: theme.colorScheme.outline.withValues(alpha: 0.2),
-                                    width: 1,
-                                  ),
+                        boxShadow: _focusNode.hasFocus
+                            ? [
+                                BoxShadow(
+                                  color: AppColors.accent.withValues(alpha: 0.18),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 2),
                                 ),
-                              ),
-                              child: DropdownButtonHideUnderline(
-                                child: DropdownButton<SearchCatalogKind>(
-                                  value: _selectedKind,
-                                  dropdownColor: theme.colorScheme.surfaceContainerHigh,
-                                  icon: const Icon(
-                                    Icons.arrow_drop_down_rounded,
-                                    size: 20,
+                              ]
+                            : null,
+                      ),
+                      child: Row(
+                        children: [
+                          const SizedBox(width: 14),
+                          Icon(
+                            Icons.search_rounded,
+                            color: _focusNode.hasFocus
+                                ? AppColors.accent
+                                : AppColors.textSecondary,
+                            size: 21,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: ValueListenableBuilder<TextEditingValue>(
+                              valueListenable: _searchController,
+                              builder: (context, value, _) {
+                                return TextField(
+                                  controller: _searchController,
+                                  focusNode: _focusNode,
+                                  autofocus: false,
+                                  textInputAction: TextInputAction.search,
+                                  style: AppText.body.copyWith(
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.w500,
                                   ),
-                                  style: AppText.meta.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  onChanged: (val) {
-                                    if (val != null && val != _selectedKind) {
-                                      setState(() => _selectedKind = val);
-                                      _submitSearch();
-                                    }
-                                  },
-                                  items: const [
-                                    DropdownMenuItem(
-                                      value: SearchCatalogKind.anime,
-                                      child: Text('Anime'),
+                                  cursorColor: AppColors.accent,
+                                  onSubmitted: (val) => _submitSearch(val),
+                                  onChanged: _onQueryChanged,
+                                  decoration: InputDecoration(
+                                    hintText: 'Search anime, k-drama, series…',
+                                    hintStyle: AppText.bodySecondary.copyWith(
+                                      color: AppColors.textMuted,
+                                      fontSize: 13.5,
                                     ),
-                                    DropdownMenuItem(
-                                      value: SearchCatalogKind.kshow,
-                                      child: Text('K-Show'),
+                                    border: InputBorder.none,
+                                    isDense: true,
+                                    suffixIcon: value.text.isNotEmpty
+                                        ? IconButton(
+                                            icon: const Icon(
+                                              Icons.close_rounded,
+                                              size: 18,
+                                              color: AppColors.textSecondary,
+                                            ),
+                                            tooltip: 'Clear',
+                                            onPressed: () {
+                                              HapticFeedback.lightImpact();
+                                              _searchController.clear();
+                                              _onQueryChanged('');
+                                            },
+                                          )
+                                        : null,
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.only(right: 5),
+                            child: PressableScale(
+                              targetScale: 0.94,
+                              curve: AppMotion.hyperOsSpring,
+                              onTap: _submitSearch,
+                              child: Container(
+                                height: 38,
+                                padding: const EdgeInsets.symmetric(horizontal: 14),
+                                decoration: BoxDecoration(
+                                  color: AppColors.accent,
+                                  borderRadius: BorderRadius.circular(19),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.search_rounded,
+                                      size: 16,
+                                      color: AppColors.accentContrast,
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      l10n.searchAction,
+                                      style: TextStyle(
+                                        color: AppColors.accentContrast,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                     ),
                                   ],
                                 ),
                               ),
                             ),
-                            Expanded(
-                              child: Padding(
-                                padding: const EdgeInsets.only(left: 12),
-                                child: ValueListenableBuilder<TextEditingValue>(
-                                  valueListenable: _searchController,
-                                  builder: (context, value, _) {
-                                    return TextField(
-                                      controller: _searchController,
-                                      autofocus: false,
-                                      textInputAction: TextInputAction.search,
-                                      style: AppText.body,
-                                      cursorColor: AppColors.accent,
-                                      onSubmitted: (val) => _submitSearch(val),
-                                      onChanged: _onQueryChanged,
-                                      decoration: InputDecoration(
-                                        hintText: _selectedKind == SearchCatalogKind.kshow
-                                            ? 'Search kshow…'
-                                            : l10n.searchHint,
-                                        hintStyle: AppText.bodySecondary.copyWith(
-                                          color: AppColors.textMuted,
-                                          fontSize: 13.5,
-                                        ),
-                                        border: InputBorder.none,
-                                        isDense: true,
-                                        suffixIcon: value.text.isNotEmpty
-                                            ? IconButton(
-                                                icon: const Icon(
-                                                  Icons.close_rounded,
-                                                  size: 18,
-                                                  color: AppColors.textSecondary,
-                                                ),
-                                                tooltip: 'Clear',
-                                                onPressed: () {
-                                                  _searchController.clear();
-                                                  _onQueryChanged('');
-                                                },
-                                              )
-                                            : null,
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Filter Pills: All / Anime / K-Drama
+                    if (hasActiveQuery || displayedItems.isNotEmpty) ...[
+                      const SizedBox(height: AppSpacing.elementGapMd),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        physics: AppMotion.m3ScrollPhysics,
+                        child: Row(
+                          children: [
+                            _buildFilterPill(
+                              label: 'All (${animeItems.length + kshowItems.length})',
+                              tab: SearchFilterTab.all,
+                              icon: Icons.auto_awesome_rounded,
                             ),
-                            // Search Button
-                            Padding(
-                              padding: const EdgeInsets.all(4.0),
-                              child: FilledButton.icon(
-                                onPressed: _submitSearch,
-                                icon: const Icon(Icons.search_rounded, size: 16),
-                                label: Text(l10n.searchAction),
-                                style: FilledButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                                  visualDensity: VisualDensity.compact,
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                ),
-                              ),
+                            const SizedBox(width: 8),
+                            _buildFilterPill(
+                              label: 'Anime (${animeItems.length})',
+                              tab: SearchFilterTab.anime,
+                              icon: Icons.movie_filter_rounded,
+                            ),
+                            const SizedBox(width: 8),
+                            _buildFilterPill(
+                              label: 'K-Drama (${kshowItems.length})',
+                              tab: SearchFilterTab.kdrama,
+                              icon: Icons.live_tv_rounded,
+                              activeColor: const Color(0xFF8B5CF6),
                             ),
                           ],
                         ),
                       ),
+                    ],
 
-                      if (_selectedKind != SearchCatalogKind.kshow) ...[
-                        // Tag Filter Row (Material 3 InputChip)
-                        if (selectedTags.isNotEmpty) ...[
-                          const SizedBox(height: AppSpacing.md),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Text(
-                                l10n.tagFilter,
-                                style: AppText.meta.copyWith(
-                                  color: AppColors.textSecondary,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  physics: AppMotion.m3ScrollPhysics,
-                                  child: Row(
-                                    children: selectedTags.map((tag) {
-                                      return Padding(
-                                        padding: const EdgeInsets.only(right: 6),
-                                        child: InputChip(
-                                          label: Text(tag, style: const TextStyle(fontSize: 11)),
-                                          onDeleted: () {
-                                            ref.read(selectedTagsProvider.notifier).removeTag(tag);
-                                          },
-                                          deleteIconColor: AppColors.accent,
-                                          visualDensity: VisualDensity.compact,
-                                        ),
-                                      );
-                                    }).toList(),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-
-                        const SizedBox(height: AppSpacing.md),
-
-                        // Material 3 SegmentedButton (Match | Popularity | Score)
-                        SizedBox(
-                          width: double.infinity,
-                          child: SegmentedButton<SearchSort>(
-                            segments: sortOptions.map((entry) {
-                              return ButtonSegment<SearchSort>(
-                                value: entry.$1,
-                                label: Text(entry.$2),
-                              );
-                            }).toList(),
-                            selected: {currentSort},
-                            onSelectionChanged: (newSelection) {
-                              if (newSelection.isNotEmpty) {
-                                ref.read(searchSortProvider.notifier).state = newSelection.first;
-                              }
-                            },
-                            showSelectedIcon: false,
-                            style: const ButtonStyle(
-                              visualDensity: VisualDensity.compact,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    // Tag Filter Row (when tags are active)
+                    if (selectedTags.isNotEmpty) ...[
+                      const SizedBox(height: AppSpacing.elementGapSm),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Text(
+                            l10n.tagFilter,
+                            style: AppText.meta.copyWith(
+                              color: AppColors.textSecondary,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              physics: AppMotion.m3ScrollPhysics,
+                              child: Row(
+                                children: selectedTags.map((tag) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(right: 6),
+                                    child: InputChip(
+                                      label: Text(tag, style: const TextStyle(fontSize: 11)),
+                                      onDeleted: () {
+                                        ref.read(selectedTagsProvider.notifier).removeTag(tag);
+                                      },
+                                      deleteIconColor: AppColors.accent,
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
-                  ),
+
+                    // Segmented Sort (Match | Popularity | Score)
+                    if (_selectedFilter != SearchFilterTab.kdrama && hasActiveQuery) ...[
+                      const SizedBox(height: AppSpacing.elementGapMd),
+                      SizedBox(
+                        width: double.infinity,
+                        child: SegmentedButton<SearchSort>(
+                          segments: sortOptions.map((entry) {
+                            return ButtonSegment<SearchSort>(
+                              value: entry.$1,
+                              label: Text(entry.$2),
+                            );
+                          }).toList(),
+                          selected: {currentSort},
+                          onSelectionChanged: (newSelection) {
+                            if (newSelection.isNotEmpty) {
+                              ref.read(searchSortProvider.notifier).state = newSelection.first;
+                            }
+                          },
+                          showSelectedIcon: false,
+                          style: const ButtonStyle(
+                            visualDensity: VisualDensity.compact,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ),
           ),
 
-          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.md)),
+          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.elementGapMd)),
 
-          // 2-Column Grid Results, Shimmer Loading, Empty, and Error States
-          if (_selectedKind == SearchCatalogKind.kshow) ...[
-            if (_isKShowLoading)
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
-                sliver: SliverGrid(
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: gridCrossAxisCount,
-                    childAspectRatio: 0.62,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 14,
-                  ),
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) => const _PosterSkeletonCard(),
-                    childCount: 6,
-                  ),
+          // Content States: Loading / Empty Suggestions / Results Grid
+          if (isSearching && displayedItems.isEmpty) ...[
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
+              sliver: SliverGrid(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: gridCrossAxisCount,
+                  childAspectRatio: 0.60,
+                  crossAxisSpacing: 11,
+                  mainAxisSpacing: 13,
                 ),
-              )
-            else if (_kshowError != null)
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.xl),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) => const _PosterSkeletonCard(),
+                  childCount: 6,
+                ),
+              ),
+            ),
+          ] else if (!hasActiveQuery && displayedItems.isEmpty) ...[
+            // Discovery & Trending Suggestions Section
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: AppSpacing.elementGapSm),
+                    Row(
                       children: [
-                        Icon(Icons.error_outline_rounded, size: 44, color: AppColors.accent),
-                        const SizedBox(height: AppSpacing.md),
-                        Text('Error loading K-Shows', style: AppText.sectionTitle.copyWith(fontSize: 16)),
-                        const SizedBox(height: AppSpacing.lg),
-                        ElevatedButton.icon(
-                          onPressed: () => _searchKShows(_searchController.text),
-                          icon: const Icon(Icons.refresh_rounded, size: 18),
-                          label: Text(l10n.retry),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.surfaceHighlight,
-                            foregroundColor: Colors.white,
+                        const Icon(
+                          Icons.local_fire_department_rounded,
+                          size: 19,
+                          color: Color(0xFFFF6D00),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Trending Searches',
+                          style: AppText.sectionTitle.copyWith(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ],
                     ),
-                  ),
-                ),
-              )
-            else if (_kshowResults.isEmpty)
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.xxl),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
+                    const SizedBox(height: AppSpacing.elementGapSm + 2),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _trendingSearches.map((keyword) {
+                        return PressableScale(
+                          targetScale: 0.94,
+                          curve: AppMotion.hyperOsSpring,
+                          onTap: () => _applyQuickQuery(keyword),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.65),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.10),
+                                width: 0.8,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.trending_up_rounded,
+                                  size: 14,
+                                  color: AppColors.accent,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  keyword,
+                                  style: AppText.meta.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 12.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+
+                    const SizedBox(height: AppSpacing.sectionGap),
+
+                    Row(
                       children: [
                         Icon(
-                          Icons.live_tv_rounded,
-                          size: 48,
-                          color: AppColors.textMuted.withValues(alpha: 0.5),
+                          Icons.category_rounded,
+                          size: 18,
+                          color: AppColors.accent,
                         ),
-                        const SizedBox(height: AppSpacing.md),
+                        const SizedBox(width: 6),
                         Text(
-                          _searchController.text.trim().isEmpty
-                              ? 'Search K-Shows, K-Dramas & Asian Dramas'
-                              : 'No K-Shows found',
-                          textAlign: TextAlign.center,
-                          style: AppText.bodySecondary,
+                          'Popular Genres',
+                          style: AppText.sectionTitle.copyWith(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ],
                     ),
+                    const SizedBox(height: AppSpacing.elementGapSm + 2),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _popularGenres.map((genre) {
+                        return PressableScale(
+                          targetScale: 0.94,
+                          curve: AppMotion.hyperOsSpring,
+                          onTap: () {
+                            ref.read(selectedTagsProvider.notifier).addTag(genre);
+                            _submitSearch();
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6.5),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceCard,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.08),
+                                width: 0.8,
+                              ),
+                            ),
+                            child: Text(
+                              genre,
+                              style: AppText.meta.copyWith(
+                                color: AppColors.textSecondary,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: AppSpacing.sectionGap),
+                  ],
+                ),
+              ),
+            ),
+          ] else if (displayedItems.isEmpty) ...[
+            // Empty Results State
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.xxl),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 72,
+                        height: 72,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.06),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.search_off_rounded,
+                          size: 36,
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.elementGapLg),
+                      Text(
+                        'No matching titles found',
+                        style: AppText.sectionTitle.copyWith(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Try searching by anime name, drama title, or alternative spelling',
+                        textAlign: TextAlign.center,
+                        style: AppText.bodySecondary.copyWith(
+                          color: AppColors.textMuted,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              )
-            else
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
-                sliver: SliverGrid(
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: gridCrossAxisCount,
-                    childAspectRatio: 0.62,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 14,
-                  ),
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final match = _kshowResults[index];
-                      return _KShowPosterCard(
-                        match: match,
-                        onTap: () {
-                          ref.read(metadataRepositoryProvider).recordKShowMatch(match);
-                          final thumb = match.customData['thumb'] as String?;
+              ),
+            ),
+          ] else ...[
+            // Animated Staggered Results Grid
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
+              sliver: SliverGrid(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: gridCrossAxisCount,
+                  childAspectRatio: 0.60,
+                  crossAxisSpacing: 11,
+                  mainAxisSpacing: 13,
+                ),
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final item = displayedItems[index];
+                    return _UnifiedPosterCard(
+                      key: ValueKey(item.id + (item.isKShow ? '_kshow' : '_anime')),
+                      item: item,
+                      index: index,
+                      onTap: () {
+                        if (item.isKShow && item.kshow != null) {
+                          ref.read(metadataRepositoryProvider).recordKShowMatch(item.kshow!);
                           context.push(
-                            '/anime/${match.id}?isKShow=true',
+                            '/anime/${item.id}?isKShow=true',
                             extra: {
-                              'posterUrl': thumb,
-                              'title': match.title,
+                              'posterUrl': item.posterUrl,
+                              'title': item.title,
                               'isKShow': true,
-                              'match': match,
+                              'match': item.kshow,
                             },
                           );
-                        },
-                      );
-                    },
-                    childCount: _kshowResults.length,
-                  ),
+                        } else if (item.anime != null) {
+                          context.push(
+                            '/anime/${item.id}',
+                            extra: {
+                              'posterUrl': item.posterUrl,
+                              'title': item.title,
+                            },
+                          );
+                        }
+                      },
+                    );
+                  },
+                  childCount: displayedItems.length,
                 ),
               ),
-          ] else ...[
-            if (paginationState.isLoading)
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
-                sliver: SliverGrid(
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: gridCrossAxisCount,
-                    childAspectRatio: 0.62,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 14,
-                  ),
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) => const _PosterSkeletonCard(),
-                    childCount: 6,
-                  ),
-                ),
-              )
-            else if (paginationState.error != null)
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.xl),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.error_outline_rounded, size: 44, color: AppColors.accent),
-                        const SizedBox(height: AppSpacing.md),
-                        Text(l10n.errorLoading, style: AppText.sectionTitle.copyWith(fontSize: 16)),
-                        const SizedBox(height: AppSpacing.xs),
-                        Text(
-                          paginationState.error.toString(),
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppText.meta,
-                        ),
-                        const SizedBox(height: AppSpacing.lg),
-                        ElevatedButton.icon(
-                          onPressed: () => ref.read(searchPaginationProvider.notifier).search(),
-                          icon: const Icon(Icons.refresh_rounded, size: 18),
-                          label: Text(l10n.retry),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.surfaceHighlight,
-                            foregroundColor: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              )
-            else if (paginationState.items.isEmpty)
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.xxl),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.search_rounded,
-                          size: 48,
-                          color: AppColors.textMuted.withValues(alpha: 0.5),
-                        ),
-                        const SizedBox(height: AppSpacing.md),
-                        Text(
-                          _searchController.text.trim().isEmpty && selectedTags.isEmpty
-                              ? l10n.homeEmptySearchPrompt
-                              : 'No anime found',
-                          textAlign: TextAlign.center,
-                          style: AppText.bodySecondary,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              )
-            else
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
-                sliver: SliverGrid(
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: gridCrossAxisCount,
-                    childAspectRatio: 0.60,
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 11,
-                  ),
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final anime = paginationState.items[index];
-                      final title = anime.titles.preferredTitle(titlePref);
-                      return _PosterGridCard(
-                        anime: anime,
-                        title: title,
-                        onTap: () => context.push(
-                          '/anime/${anime.id}',
-                          extra: {'posterUrl': anime.posterUrl, 'title': title},
-                        ),
-                      );
-                    },
-                    childCount: paginationState.items.length,
-                  ),
-                ),
-              ),
+            ),
           ],
 
-          // Infinite Scroll Bottom Loading Spinner
-          if (paginationState.isLoadingMore)
+          // Infinite Scroll Bottom Loading Spinner for Anime
+          if (paginationState.isLoadingMore && _selectedFilter != SearchFilterTab.kdrama)
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
@@ -718,24 +907,80 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               ),
             ),
 
-          SliverToBoxAdapter(child: SizedBox(height: FloatingNavBar.getBottomPadding(context))),
+          SliverToBoxAdapter(
+            child: SizedBox(height: FloatingNavBar.getBottomPadding(context)),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFilterPill({
+    required String label,
+    required SearchFilterTab tab,
+    required IconData icon,
+    Color? activeColor,
+  }) {
+    final isSelected = _selectedFilter == tab;
+    final tint = activeColor ?? AppColors.accent;
+
+    return PressableScale(
+      targetScale: 0.94,
+      curve: AppMotion.hyperOsSpring,
+      onTap: () {
+        HapticFeedback.selectionClick();
+        setState(() => _selectedFilter = tab);
+      },
+      child: AnimatedContainer(
+        duration: AppMotion.short4,
+        curve: AppMotion.hyperOsDecelerate,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? tint.withValues(alpha: 0.18)
+              : Colors.white.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected
+                ? tint.withValues(alpha: 0.5)
+                : Colors.white.withValues(alpha: 0.10),
+            width: isSelected ? 1.2 : 0.8,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 14,
+              color: isSelected ? tint : AppColors.textSecondary,
+            ),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.white : AppColors.textSecondary,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-/// 2-Column Poster Card matching the reference design.
-/// Aspect ratio ~2:3 with rounded corners, translucent rating & heat pills over the poster,
-/// and title below.
-class _PosterGridCard extends StatelessWidget {
-  final AnimeSummary anime;
-  final String title;
+/// Unified Poster Card with Smooth Staggered Slide+Fade Transition
+class _UnifiedPosterCard extends StatelessWidget {
+  final UnifiedSearchItem item;
+  final int index;
   final VoidCallback onTap;
 
-  const _PosterGridCard({
-    required this.anime,
-    required this.title,
+  const _UnifiedPosterCard({
+    super.key,
+    required this.item,
+    required this.index,
     required this.onTap,
   });
 
@@ -749,186 +994,285 @@ class _PosterGridCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final heatStr = _formatHeat(anime.heat);
+    final heatStr = _formatHeat(item.heat);
 
-    return PressableScale(
-      onTap: onTap,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Poster with Hero transition and bottom overlay badges
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(13),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Hero(
-                    tag: 'poster_${anime.id}',
-                    createRectTween: smoothHeroRectTween,
-                    flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
-                    child: anime.posterUrl != null && anime.posterUrl!.isNotEmpty
-                        ? CachedNetworkImage(
-                            imageUrl: anime.posterUrl!,
-                            fit: BoxFit.cover,
-                            memCacheWidth: 360,
-                            memCacheHeight: 540,
-                            maxWidthDiskCache: 500,
-                            maxHeightDiskCache: 750,
-                            placeholder: (context, url) => Container(
-                              color: AppColors.surface,
-                              child: const Center(
-                                child: SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: AppColors.textMuted,
+    // Stagger animation based on card index
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0.0, end: 1.0),
+      duration: Duration(milliseconds: 220 + math.min(index * 20, 260)),
+      curve: AppMotion.hyperOsDecelerate,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, (1.0 - value) * 12),
+            child: child,
+          ),
+        );
+      },
+      child: PressableScale(
+        targetScale: 0.94,
+        curve: AppMotion.hyperOsSpring,
+        onTap: onTap,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Poster Frame
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Hero(
+                      tag: item.isKShow
+                          ? 'kshow_poster_${item.id}'
+                          : 'poster_${item.id}',
+                      createRectTween: smoothHeroRectTween,
+                      flightShuttleBuilder: smoothHeroFlightShuttleBuilder,
+                      child: item.posterUrl != null && item.posterUrl!.isNotEmpty
+                          ? CachedNetworkImage(
+                              imageUrl: item.posterUrl!,
+                              fit: BoxFit.cover,
+                              memCacheWidth: 360,
+                              memCacheHeight: 540,
+                              maxWidthDiskCache: 500,
+                              maxHeightDiskCache: 750,
+                              placeholder: (context, url) => Container(
+                                color: AppColors.surface,
+                                child: const Center(
+                                  child: SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AppColors.textMuted,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                            errorWidget: (context, url, error) => Container(
+                              errorWidget: (context, url, error) => Container(
+                                color: AppColors.surface,
+                                child: Icon(
+                                  item.isKShow ? Icons.live_tv_rounded : Icons.broken_image_outlined,
+                                  color: AppColors.textMuted,
+                                ),
+                              ),
+                            )
+                          : Container(
                               color: AppColors.surface,
-                              child: const Icon(
-                                Icons.broken_image_outlined,
+                              child: Icon(
+                                item.isKShow ? Icons.live_tv_rounded : Icons.movie_outlined,
                                 color: AppColors.textMuted,
                               ),
                             ),
-                          )
-                        : Container(
-                            color: AppColors.surface,
-                            child: const Icon(
-                              Icons.movie_outlined,
-                              color: AppColors.textMuted,
-                            ),
-                          ),
-                  ),
+                    ),
 
-                  // Bottom Gradient Shade for Badges Readability
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    height: 48,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            Colors.black.withValues(alpha: 0.8),
+                    // Top Gradient Shadow for Badge Legibility
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: 0,
+                      height: 38,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.black.withValues(alpha: 0.75),
+                              Colors.transparent,
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // Top-Left Category Badge: ANIME vs K-DRAMA
+                    Positioned(
+                      left: 6,
+                      top: 6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+                        decoration: BoxDecoration(
+                          color: item.isKShow
+                              ? const Color(0xE67C3AED)
+                              : const Color(0xE6101216),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: item.isKShow
+                                ? const Color(0xFFA78BFA)
+                                : AppColors.accent.withValues(alpha: 0.6),
+                            width: 0.8,
+                          ),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x66000000),
+                              blurRadius: 6,
+                              offset: Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (item.isKShow) ...[
+                              const Icon(
+                                Icons.live_tv_rounded,
+                                size: 10,
+                                color: Colors.white,
+                              ),
+                              const SizedBox(width: 3),
+                            ],
+                            Text(
+                              item.isKShow ? 'K-DRAMA' : 'ANIME',
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.4,
+                                color: item.isKShow ? Colors.white : AppColors.accent,
+                              ),
+                            ),
                           ],
                         ),
                       ),
                     ),
-                  ),
 
-                  // Bottom Badges Row (Left: Star + Rating, Right: Flame + Heat)
-                  Positioned(
-                    left: 6,
-                    right: 6,
-                    bottom: 6,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        // Left: Star + Score
-                        if (anime.score != null)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.65),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.star_rounded,
-                                  size: 13,
-                                  color: AppColors.ratingStar,
-                                ),
-                                const SizedBox(width: 2.5),
-                                Text(
-                                  anime.score!.toStringAsFixed(1),
-                                  style: AppText.badgeText.copyWith(
-                                    fontSize: 10.5,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )
-                        else
-                          const SizedBox.shrink(),
-
-                        // Right: Flame + Heat
-                        if (heatStr.isNotEmpty)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.65),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.local_fire_department_rounded,
-                                  size: 12,
-                                  color: Color(0xFFFF6D00),
-                                ),
-                                const SizedBox(width: 2),
-                                Text(
-                                  heatStr,
-                                  style: AppText.badgeText.copyWith(
-                                    fontSize: 10.5,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )
-                        else
-                          const SizedBox.shrink(),
-                      ],
+                    // Bottom Gradient Shadow for Rating / Stats Legibility
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      height: 48,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.transparent,
+                              Colors.black.withValues(alpha: 0.85),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+
+                    // Bottom Badges Row (Rating / Episodes / Heat)
+                    Positioned(
+                      left: 6,
+                      right: 6,
+                      bottom: 6,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          if (item.score != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2.5),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.7),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.star_rounded,
+                                    size: 13,
+                                    color: AppColors.ratingStar,
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    item.score!.toStringAsFixed(1),
+                                    style: AppText.badgeText.copyWith(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else if (item.episodeCount != null && item.episodeCount! > 0)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2.5),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.7),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                '${item.episodeCount} eps',
+                                style: AppText.badgeText.copyWith(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            )
+                          else
+                            const SizedBox.shrink(),
+
+                          if (heatStr.isNotEmpty)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2.5),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.7),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.local_fire_department_rounded,
+                                    size: 12,
+                                    color: Color(0xFFFF6D00),
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    heatStr,
+                                    style: AppText.badgeText.copyWith(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else
+                            const SizedBox.shrink(),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
 
-          const SizedBox(height: 6),
+            const SizedBox(height: 7),
 
-          // Title below the poster (aligned container with consistent sizing so card heights don't jitter)
-          SizedBox(
-            height: 36,
-            child: Text(
-              title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: AppText.cardTitle.copyWith(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                height: 1.25,
+            // Title below poster (fixed 36px height container so cards align symmetrically)
+            SizedBox(
+              height: 36,
+              child: Text(
+                item.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: AppText.cardTitle.copyWith(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  height: 1.25,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-/// Shimmer placeholder card for 2-column grid loading state
+/// Shimmer Skeleton placeholder card for loading state
 class _PosterSkeletonCard extends StatelessWidget {
   const _PosterSkeletonCard();
 
@@ -941,10 +1285,10 @@ class _PosterSkeletonCard extends StatelessWidget {
           child: ShimmerBox(
             width: double.infinity,
             height: double.infinity,
-            borderRadius: BorderRadius.circular(13),
+            borderRadius: BorderRadius.circular(14),
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 7),
         ShimmerBox(
           width: 110,
           height: 14,
@@ -957,123 +1301,6 @@ class _PosterSkeletonCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(4),
         ),
       ],
-    );
-  }
-}
-
-/// 2-Column Poster Card for K-Shows / Dramas from KissKH
-class _KShowPosterCard extends StatelessWidget {
-  final SourceMatch match;
-  final VoidCallback onTap;
-
-  const _KShowPosterCard({
-    required this.match,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final thumb = match.customData['thumb'] as String?;
-    final eps = match.episodeCount;
-
-    return PressableScale(
-      onTap: onTap,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(13),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (thumb != null && thumb.isNotEmpty)
-                    CachedNetworkImage(
-                      imageUrl: thumb,
-                      fit: BoxFit.cover,
-                      memCacheWidth: 360,
-                      memCacheHeight: 540,
-                      placeholder: (context, url) => Container(
-                        color: AppColors.surface,
-                        child: const Center(
-                          child: SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: AppColors.textMuted,
-                            ),
-                          ),
-                        ),
-                      ),
-                      errorWidget: (context, url, error) => Container(
-                        color: AppColors.surface,
-                        child: const Icon(Icons.live_tv_rounded, color: AppColors.textMuted),
-                      ),
-                    )
-                  else
-                    Container(
-                      color: AppColors.surface,
-                      child: const Icon(Icons.live_tv_rounded, color: AppColors.textMuted),
-                    ),
-
-                  // Bottom Gradient
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    height: 48,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            Colors.black.withValues(alpha: 0.8),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  // Episodes badge
-                  if (eps != null && eps > 0)
-                    Positioned(
-                      left: 6,
-                      bottom: 6,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.65),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          '$eps eps',
-                          style: AppText.badgeText.copyWith(fontSize: 10.5, color: Colors.white),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 6),
-          SizedBox(
-            height: 36,
-            child: Text(
-              match.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: AppText.cardTitle.copyWith(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                height: 1.25,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

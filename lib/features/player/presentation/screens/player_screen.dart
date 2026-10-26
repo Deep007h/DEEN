@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
+import 'dart:ui';
 import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide StreamProvider;
 import 'package:go_router/go_router.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
+import '../../../../core/presentation/widgets/pressable_scale.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_radius.dart';
@@ -530,6 +533,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     final currentResult = ref.read(activeStreamProvider(_params)).valueOrNull;
     if (currentResult != null) {
       _openStreamIfReady(currentResult);
+    } else {
+      final downloadService = ref.read(downloadServiceProvider);
+      final downloadedEp = downloadService.getDownload(widget.animeId, widget.episodeNumber);
+      if (downloadedEp != null && downloadedEp.isCompleted && File(downloadedEp.localFilePath).existsSync()) {
+        _currentlyLoadedUrl = downloadedEp.localFilePath;
+        _engine?.open(downloadedEp.localFilePath);
+      }
     }
   }
 
@@ -540,9 +550,17 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     }
     if (!_isEngineReady || _engine == null) return;
 
-    final activeUrl = (result.selectedQuality.url != null && result.selectedQuality.url!.isNotEmpty)
-        ? result.selectedQuality.url!
-        : result.selectedVariant.url;
+    final downloadService = ref.read(downloadServiceProvider);
+    final downloadedEp = downloadService.getDownload(widget.animeId, widget.episodeNumber);
+    final hasOfflineFile = downloadedEp != null &&
+        downloadedEp.isCompleted &&
+        File(downloadedEp.localFilePath).existsSync();
+
+    final activeUrl = hasOfflineFile
+        ? downloadedEp.localFilePath
+        : ((result.selectedQuality.url != null && result.selectedQuality.url!.isNotEmpty)
+            ? result.selectedQuality.url!
+            : result.selectedVariant.url);
 
     if (_currentlyLoadedUrl != activeUrl || isNewEpisode || _isSwitchingEpisode) {
       final isStreamSwitch = !isNewEpisode && !_isSwitchingEpisode && _currentlyLoadedUrl != null && _position > Duration.zero;
@@ -1772,120 +1790,136 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                 ),
 
               // 9. Auto-hiding Controls Overlay
-              AnimatedOpacity(
-                opacity: (_controlsVisible && !_isLocked && !_isHolding2x) ? 1.0 : 0.0,
-                duration: AppMotion.medium1,
-                child: IgnorePointer(
-                  ignoring: !_controlsVisible || _isLocked || _isHolding2x,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      // Top Bar
-                      Positioned(
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        child: PlayerTopBar(
-                          title: matchTitle,
-                          episodeSubtitle: epSubtitle,
-                          danmakuEnabled: _danmakuEnabled,
-                          audioLabel: result.selectedAudio.code == AudioLanguage.englishDub.code ? 'DUB' : 'SUB',
-                          streamType: 'HLS',
-                          qualityLabel: result.selectedQuality.height != null
-                              ? '${result.selectedQuality.height}P'
-                              : (result.selectedQuality.isAuto ? '1080P' : result.selectedQuality.label.toUpperCase()),
-                          onLock: _lockPlayer,
-                          onOpenDescription: _toggleDescription,
-                          onToggleAudio: () {
-                            final currentAudio = result.selectedAudio;
-                            final targetAudio = currentAudio.code == AudioLanguage.englishDub.code
-                                ? AudioLanguage.japaneseOriginal
-                                : AudioLanguage.englishDub;
-                            streamNotifier.selectAudioLanguage(targetAudio);
-                          },
-                          onBack: _exitPlayer,
-                          onToggleDanmaku: () {
-                            setState(() => _danmakuEnabled = !_danmakuEnabled);
-                            _resetControlsHideTimer();
-                          },
-                          onCast: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Searching for Cast / AirPlay devices...'),
-                                duration: Duration(seconds: 2),
-                              ),
-                            );
-                            _resetControlsHideTimer();
-                          },
-                          onOpenMore: _toggleMore,
-                          onOpenEpisodes: _openEpisodes,
-                          onOpenDiagnostics: () => _showDiagnosticsSheet(context),
-                          onSwitchToEmbed: () {
-                            setState(() => _useEmbedPlayer = true);
-                            _engine?.pause();
-                          },
-                          onCopyEmbedUrl: () {
-                            final matchId = result.match.id.isNotEmpty ? result.match.id : widget.animeId.toString();
-                            final isDub = result.selectedAudio.code == AudioLanguage.englishDub.code;
-                            final lang = isDub ? 'dub' : 'sub';
-                            final kisskhEpId = result.episode.customData['kisskhEpId'];
-                            final embedUrl = kisskhEpId != null
-                                ? 'https://megavid.buzz/kisskh/$kisskhEpId'
-                                : 'https://megavid.buzz/ani/$matchId/${widget.episodeNumber}/$lang';
-                            Clipboard.setData(ClipboardData(text: embedUrl));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Copied embed URL: $embedUrl'),
-                                duration: const Duration(seconds: 2),
-                                backgroundColor: AppColors.surfaceElevated,
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-
-                      // Left Floating Lock Button (Immediate one-tap locking on preview screen)
-                      Positioned(
-                        left: math.max(MediaQuery.paddingOf(context).left + 16.0, 24.0),
-                        top: 0,
-                        bottom: 0,
-                        child: Center(
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: () {
-                                HapticFeedback.mediumImpact();
-                                _lockPlayer();
-                              },
-                              borderRadius: BorderRadius.circular(22),
-                              child: Container(
-                                width: 44,
-                                height: 44,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xDD121812),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.18),
-                                    width: 1.0,
-                                  ),
-                                  boxShadow: const [
-                                    BoxShadow(
-                                      color: Color(0x66000000),
-                                      blurRadius: 10,
-                                      offset: Offset(0, 3),
+              AnimatedScale(
+                scale: (_controlsVisible && !_isLocked && !_isHolding2x) ? 1.0 : 0.98,
+                duration: (_controlsVisible && !_isLocked && !_isHolding2x) ? AppMotion.overlayEnter : AppMotion.overlayExit,
+                curve: (_controlsVisible && !_isLocked && !_isHolding2x) ? AppMotion.overlayEnterCurve : AppMotion.overlayExitCurve,
+                child: AnimatedOpacity(
+                  opacity: (_controlsVisible && !_isLocked && !_isHolding2x) ? 1.0 : 0.0,
+                  duration: (_controlsVisible && !_isLocked && !_isHolding2x) ? AppMotion.overlayEnter : AppMotion.overlayExit,
+                  curve: (_controlsVisible && !_isLocked && !_isHolding2x) ? AppMotion.overlayEnterCurve : AppMotion.overlayExitCurve,
+                  child: IgnorePointer(
+                    ignoring: !_controlsVisible || _isLocked || _isHolding2x,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                            // Top Bar
+                            Positioned(
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              child: PlayerTopBar(
+                                title: matchTitle,
+                                episodeSubtitle: epSubtitle,
+                                danmakuEnabled: _danmakuEnabled,
+                                audioLabel: result.selectedAudio.code == AudioLanguage.englishDub.code ? 'DUB' : 'SUB',
+                                streamType: 'HLS',
+                                qualityLabel: result.selectedQuality.height != null
+                                    ? '${result.selectedQuality.height}P'
+                                    : (result.selectedQuality.isAuto ? '1080P' : result.selectedQuality.label.toUpperCase()),
+                                onLock: _lockPlayer,
+                                onOpenDescription: _toggleDescription,
+                                onToggleAudio: () {
+                                  final currentAudio = result.selectedAudio;
+                                  final targetAudio = currentAudio.code == AudioLanguage.englishDub.code
+                                      ? AudioLanguage.japaneseOriginal
+                                      : AudioLanguage.englishDub;
+                                  streamNotifier.selectAudioLanguage(targetAudio);
+                                },
+                                onBack: _exitPlayer,
+                                onToggleDanmaku: () {
+                                  setState(() => _danmakuEnabled = !_danmakuEnabled);
+                                  _resetControlsHideTimer();
+                                },
+                                onCast: () {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Searching for Cast / AirPlay devices...'),
+                                      duration: Duration(seconds: 2),
                                     ),
-                                  ],
-                                ),
-                                child: const Icon(
-                                  Icons.lock_outline_rounded,
-                                  color: Colors.white,
-                                  size: 20,
+                                  );
+                                  _resetControlsHideTimer();
+                                },
+                                onOpenMore: _toggleMore,
+                                onOpenEpisodes: _openEpisodes,
+                                onOpenDiagnostics: () => _showDiagnosticsSheet(context),
+                                onSwitchToEmbed: () {
+                                  setState(() => _useEmbedPlayer = true);
+                                  _engine?.pause();
+                                },
+                                onCopyEmbedUrl: () {
+                                  final matchId = result.match.id.isNotEmpty ? result.match.id : widget.animeId.toString();
+                                  final isDub = result.selectedAudio.code == AudioLanguage.englishDub.code;
+                                  final lang = isDub ? 'dub' : 'sub';
+                                  final kisskhEpId = result.episode.customData['kisskhEpId'];
+                                  final embedUrl = kisskhEpId != null
+                                      ? 'https://megavid.buzz/kisskh/$kisskhEpId'
+                                      : 'https://megavid.buzz/ani/$matchId/${widget.episodeNumber}/$lang';
+                                  Clipboard.setData(ClipboardData(text: embedUrl));
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Copied embed URL: $embedUrl'),
+                                      duration: const Duration(seconds: 2),
+                                      backgroundColor: AppColors.surfaceElevated,
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+
+                            // Left Floating Lock Button (Immediate one-tap locking on preview screen)
+                            Positioned(
+                              left: math.max(MediaQuery.paddingOf(context).left + AppSpacing.pageMargin, AppSpacing.xxl),
+                              top: 0,
+                              bottom: 0,
+                              child: Center(
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    minWidth: AppSpacing.minTouchTarget,
+                                    minHeight: AppSpacing.minTouchTarget,
+                                  ),
+                                  child: Center(
+                                    child: PressableScale(
+                                      targetScale: 0.90,
+                                      curve: AppMotion.hyperOsSpring,
+                                      onTap: () {
+                                        HapticFeedback.mediumImpact();
+                                        _lockPlayer();
+                                      },
+                                      child: ClipOval(
+                                        child: BackdropFilter(
+                                          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                                          child: Container(
+                                            width: AppSpacing.circleButtonSm,
+                                            height: AppSpacing.circleButtonSm,
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xD9101216),
+                                              shape: BoxShape.circle,
+                                              border: Border.all(
+                                                color: Colors.white.withValues(alpha: 0.20),
+                                                width: 1.0,
+                                              ),
+                                              boxShadow: const [
+                                                BoxShadow(
+                                                  color: Color(0x66000000),
+                                                  blurRadius: 12,
+                                                  offset: Offset(0, 3),
+                                                ),
+                                              ],
+                                            ),
+                                            child: const Icon(
+                                              Icons.lock_outline_rounded,
+                                              color: Colors.white,
+                                              size: 20,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        ),
-                      ),
 
                       // Center Controls (Prev Ep, Replay-10, Play/Pause circle, Forward-10, Next Ep)
                       Builder(
@@ -2021,6 +2055,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                   ),
                 ),
               ),
+            ),
 
               // 10. Resume Toast Overlay (Rendered above controls so taps are received directly)
               if (_resumeToastMessage != null && !_isHolding2x && !_isLocked)
@@ -2029,50 +2064,53 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
               // 11. Floating Unlock Button (ALWAYS visible while locked, NEVER disappears)
               if (_isLocked && !_isHolding2x)
                 Positioned(
-                  left: math.max(MediaQuery.paddingOf(context).left + 16.0, 24.0),
+                  left: math.max(MediaQuery.paddingOf(context).left + AppSpacing.pageMargin, AppSpacing.xxl),
                   top: 0,
                   bottom: 0,
                   child: Center(
                     child: AnimatedOpacity(
-                      duration: const Duration(milliseconds: 250),
-                      curve: Curves.easeOutCubic,
+                      duration: AppMotion.short4,
+                      curve: AppMotion.hyperOsDecelerate,
                       opacity: _showUnlockButton ? 1.0 : 0.45,
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () {
-                            HapticFeedback.lightImpact();
-                            _unlockPlayer();
-                          },
+                      child: PressableScale(
+                        targetScale: 0.92,
+                        curve: AppMotion.hyperOsSpring,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          _unlockPlayer();
+                        },
+                        child: ClipRRect(
                           borderRadius: BorderRadius.circular(22),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 250),
-                            curve: Curves.easeOutCubic,
-                            padding: EdgeInsets.symmetric(
-                              horizontal: _showUnlockButton ? 16 : 12,
-                              vertical: 10,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _showUnlockButton
-                                  ? const Color(0xFA101610)
-                                  : const Color(0xB3101610),
-                              borderRadius: BorderRadius.circular(22),
-                              border: Border.all(
-                                color: _showUnlockButton
-                                    ? AppColors.accent
-                                    : Colors.white.withValues(alpha: 0.25),
-                                width: _showUnlockButton ? 1.4 : 1.0,
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                            child: AnimatedContainer(
+                              duration: AppMotion.short4,
+                              curve: AppMotion.hyperOsDecelerate,
+                              padding: EdgeInsets.symmetric(
+                                horizontal: _showUnlockButton ? AppSpacing.lg : AppSpacing.md,
+                                vertical: 10,
                               ),
-                              boxShadow: [
-                                BoxShadow(
+                              decoration: BoxDecoration(
+                                color: _showUnlockButton
+                                    ? const Color(0xFA101216)
+                                    : const Color(0xB3101216),
+                                borderRadius: BorderRadius.circular(22),
+                                border: Border.all(
                                   color: _showUnlockButton
-                                      ? AppColors.accent.withValues(alpha: 0.35)
-                                      : const Color(0x66000000),
-                                  blurRadius: _showUnlockButton ? 16 : 8,
-                                  offset: const Offset(0, 3),
+                                      ? AppColors.accent
+                                      : Colors.white.withValues(alpha: 0.25),
+                                  width: _showUnlockButton ? 1.4 : 1.0,
                                 ),
-                              ],
-                            ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: _showUnlockButton
+                                        ? AppColors.accent.withValues(alpha: 0.35)
+                                        : const Color(0x66000000),
+                                    blurRadius: _showUnlockButton ? 16 : 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -2103,6 +2141,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                     ),
                   ),
                 ),
+              ),
 
               // 11. Engine Error Overlay
               if (_hasEngineError)

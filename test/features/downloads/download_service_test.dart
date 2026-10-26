@@ -47,5 +47,39 @@ void main() {
       expect(service.downloads, isEmpty);
       expect(service.isDownloaded(400602, 1), isFalse);
     });
+
+    test('registerQueuedDownload sets immediate downloading state and tracks progress', () async {
+      final prefs = await SharedPreferences.getInstance();
+      final service = DownloadService(prefs: prefs);
+
+      expect(service.isDownloading(500100, 2), isFalse);
+
+      final queued = await service.registerQueuedDownload(
+        animeId: 500100,
+        episodeNumber: 2,
+        title: 'Episode 2',
+        animeTitle: 'Solo Leveling',
+      );
+
+      expect(queued.id, '500100_2');
+      expect(service.isDownloading(500100, 2), isTrue);
+      expect(service.isDownloaded(500100, 2), isFalse);
+      expect(service.getDownloadProgress(500100, 2), closeTo(0.02, 0.001));
+
+      // Resolve and start download
+      final completed = await service.startDownload(
+        animeId: 500100,
+        episodeNumber: 2,
+        title: 'Episode 2',
+        animeTitle: 'Solo Leveling',
+        streamUrl: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+      );
+
+      await service.getActiveDownloadTask(completed.id);
+
+      expect(service.isDownloading(500100, 2), isFalse);
+      expect(service.isDownloaded(500100, 2), isTrue);
+      expect(service.getDownloadProgress(500100, 2), equals(1.0));
+    });
   });
 }

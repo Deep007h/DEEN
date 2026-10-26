@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/logging/error_logger.dart';
+import 'core/network/api_client.dart';
 import 'core/router/app_router.dart';
 import 'core/services/ad_service.dart';
 import 'core/theme/app_colors.dart';
@@ -14,6 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   ErrorLogger.initialize();
+  ApiClient.prewarmHosts();
 
   // Initialize SharedPreferences on launch so user settings and data persist synchronously
   SharedPreferences? prefs;

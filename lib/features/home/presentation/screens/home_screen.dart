@@ -155,8 +155,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
             RefreshIndicator(
               color: AppColors.accent,
               backgroundColor: AppColors.surfaceCard,
-              displacement: 32,
-              edgeOffset: topBarHeight + 6,
+              displacement: 36,
+              edgeOffset: topBarHeight + 8,
               onRefresh: () async {
                 HapticFeedback.lightImpact();
                 ref.read(homeRefreshSeedProvider.notifier).state++;
@@ -175,7 +175,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
               child: CustomScrollView(
                 controller: _scrollController,
                 cacheExtent: 500,
-                physics: AppMotion.m3ScrollPhysics,
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: ClampingScrollPhysics(),
+                ),
                 slivers: [
                   // Spacer corresponding to the fixed floating top bar
                   SliverToBoxAdapter(
@@ -204,7 +206,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
               ),
             ),
 
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.sectionGap)),
 
             // 4. Continue Watching (16:9 widescreen cards with play overlay & lime progress)
             historyAsync.maybeWhen(
@@ -219,7 +221,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                         onSeeAll: () => context.go('/library'),
                       ),
                       _ContinueWatchingSection(history: history),
-                      const SizedBox(height: 26),
+                      const SizedBox(height: AppSpacing.sectionGap),
                     ],
                   ),
                 );
@@ -248,7 +250,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
               ),
             ),
 
-            const SliverToBoxAdapter(child: SizedBox(height: 26)),
+            const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.sectionGap)),
 
             // 6. Genres (Themed squircle cards: Action, Adventure, Fantasy, Romance, etc.)
             SliverToBoxAdapter(
@@ -261,7 +263,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
               child: _GenresList(),
             ),
 
-            const SliverToBoxAdapter(child: SizedBox(height: 26)),
+            const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.sectionGap)),
 
             // 7. Recommended for You (Dynamic anime cards)
             SliverToBoxAdapter(
@@ -286,7 +288,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
               ),
             ),
 
-            const SliverToBoxAdapter(child: SizedBox(height: 26)),
+            const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.sectionGap)),
 
             // 8. If non-home category filter is active, show category hit list
             if (selectedGenre != 'Home' && selectedGenre != 'All' && selectedGenre != 'Trending') ...[
@@ -303,7 +305,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                   error: (_, __) => const SizedBox.shrink(),
                 ),
               ),
-              const SliverToBoxAdapter(child: SizedBox(height: 26)),
+              const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.sectionGap)),
             ],
 
             // 9. Top Rated Anime
@@ -327,7 +329,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
               ),
             ),
 
-            const SliverToBoxAdapter(child: SizedBox(height: 26)),
+            const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.sectionGap)),
 
             // 10. Recently Added
             SliverToBoxAdapter(
@@ -358,7 +360,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SizedBox(height: 26),
+                      const SizedBox(height: AppSpacing.sectionGap),
                       _SectionHeader(
                         title: 'My Favourites',
                         onSeeAll: () => context.go('/library'),
@@ -1217,12 +1219,12 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
 
                       // Top-Left "#1 Trending" Badge
                       Positioned(
-                        top: 14,
-                        left: 14,
+                        top: AppSpacing.md,
+                        left: AppSpacing.md,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          padding: AppSpacing.chipPadding,
                           decoration: BoxDecoration(
-                            color: const Color(0xDD142010),
+                            color: const Color(0xD9101216),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
                               color: AppColors.accent.withValues(alpha: 0.8),
@@ -1237,7 +1239,7 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
                                 color: AppColors.accent,
                                 size: 15,
                               ),
-                              const SizedBox(width: 5),
+                              const SizedBox(width: AppSpacing.xs + 1),
                               Text(
                                 '#${index + 1} Trending',
                                 style: TextStyle(
@@ -1254,9 +1256,9 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
 
                       // Bottom Content: Title, metadata, synopsis, CTA buttons
                       Positioned(
-                        left: 16,
-                        right: 16,
-                        bottom: 16,
+                        left: AppSpacing.pageMargin,
+                        right: AppSpacing.pageMargin,
+                        bottom: AppSpacing.pageMargin,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
@@ -1272,7 +1274,7 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
                                 letterSpacing: -0.5,
                               ),
                             ),
-                            const SizedBox(height: 5),
+                            const SizedBox(height: AppSpacing.xs + 1),
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -1282,7 +1284,7 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
-                                      color: Color(0xFFD6DFD6),
+                                      color: AppColors.textSecondary,
                                       fontSize: 12.5,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -1296,38 +1298,40 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 6),
+                            const SizedBox(height: AppSpacing.xs + 2),
                             Text(
                               summary,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                color: Color(0xFFC0CEC0),
+                                color: AppColors.textMuted,
                                 fontSize: 12,
                                 height: 1.35,
                               ),
                             ),
-                            const SizedBox(height: 14),
+                            const SizedBox(height: AppSpacing.md),
                             Wrap(
-                              spacing: 10,
-                              runSpacing: 8,
+                              spacing: AppSpacing.elementGapMd,
+                              runSpacing: AppSpacing.elementGapSm,
                               crossAxisAlignment: WrapCrossAlignment.center,
                               children: [
                                 // Electric Lime "Watch Now" Button
                                 PressableScale(
                                   targetScale: 0.94,
+                                  curve: AppMotion.hyperOsSpring,
                                   onTap: () {
                                     context.push('/player?animeId=${item.id}&ep=1');
                                   },
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+                                    height: AppSpacing.buttonHeightLg,
+                                    padding: AppSpacing.buttonPaddingLg,
                                     decoration: BoxDecoration(
                                       color: AppColors.accent,
-                                      borderRadius: BorderRadius.circular(22),
+                                      borderRadius: BorderRadius.circular(24),
                                       boxShadow: [
                                         BoxShadow(
                                           color: AppColors.accentSoft,
-                                          blurRadius: 10,
+                                          blurRadius: 12,
                                           offset: const Offset(0, 3),
                                         ),
                                       ],
@@ -1338,16 +1342,16 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
                                         Icon(
                                           Icons.play_arrow_rounded,
                                           color: AppColors.accentContrast,
-                                          size: 20,
+                                          size: 22,
                                         ),
-                                        const SizedBox(width: 5),
+                                        const SizedBox(width: AppSpacing.elementGapSm),
                                         Text(
                                           'Watch Now',
                                           style: TextStyle(
                                             color: AppColors.accentContrast,
                                             fontWeight: FontWeight.w800,
-                                            fontSize: 13.5,
-                                            letterSpacing: 0.1,
+                                            fontSize: 14,
+                                            letterSpacing: 0.2,
                                           ),
                                         ),
                                       ],
@@ -1358,6 +1362,7 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
                                 // Translucent Frosted Glass "+ My List" Button
                                 PressableScale(
                                   targetScale: 0.94,
+                                  curve: AppMotion.hyperOsSpring,
                                   onTap: () {
                                     ref.read(followRepositoryProvider).toggleFollow(
                                           item.id,
@@ -1372,13 +1377,14 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
                                         );
                                   },
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                                    height: AppSpacing.buttonHeightLg,
+                                    padding: AppSpacing.buttonPaddingLg,
                                     decoration: BoxDecoration(
-                                      color: AppColors.surfaceCard.withValues(alpha: 0.7),
-                                      borderRadius: BorderRadius.circular(22),
+                                      color: const Color(0xB3101216),
+                                      borderRadius: BorderRadius.circular(24),
                                       border: Border.all(
-                                        color: Colors.white.withValues(alpha: 0.35),
-                                        width: 0.9,
+                                        color: Colors.white.withValues(alpha: 0.25),
+                                        width: 1.0,
                                       ),
                                     ),
                                     child: Row(
@@ -1387,16 +1393,16 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
                                         Icon(
                                           isFollowed ? Icons.check_rounded : Icons.add_rounded,
                                           color: Colors.white,
-                                          size: 17,
+                                          size: 20,
                                         ),
-                                        const SizedBox(width: 5),
+                                        const SizedBox(width: AppSpacing.elementGapSm),
                                         Text(
                                           isFollowed ? 'In List' : 'My List',
                                           style: const TextStyle(
                                             color: Colors.white,
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 13,
-                                            letterSpacing: 0.1,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 14,
+                                            letterSpacing: 0.2,
                                           ),
                                         ),
                                       ],
@@ -2580,18 +2586,32 @@ class _ContinueWatchingCard extends StatelessWidget {
 
                     // Centered circular frosted play button with white icon
                     Center(
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: const Color(0x66000000),
-                          shape: BoxShape.circle,
-                          border: Border.all(color: const Color(0x66FFFFFF), width: 1.0),
-                        ),
-                        child: const Icon(
-                          Icons.play_arrow_rounded,
-                          color: Colors.white,
-                          size: 26,
+                      child: ClipOval(
+                        child: BackdropFilter(
+                          filter: ui.ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                          child: Container(
+                            width: AppSpacing.circleButtonSm,
+                            height: AppSpacing.circleButtonSm,
+                            decoration: BoxDecoration(
+                              color: const Color(0x66000000),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: const Color(0x66FFFFFF), width: 1.0),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0x4D000000),
+                                  blurRadius: 10,
+                                  offset: Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: const Center(
+                              child: Icon(
+                                Icons.play_arrow_rounded,
+                                color: Colors.white,
+                                size: 26,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -2608,7 +2628,7 @@ class _ContinueWatchingCard extends StatelessWidget {
                         ),
                         child: LinearProgressIndicator(
                           value: progress.clamp(0.0, 1.0),
-                          minHeight: 3.5,
+                          minHeight: 4.0,
                           backgroundColor: const Color(0x66000000),
                           valueColor: AlwaysStoppedAnimation<Color>(AppColors.accent),
                         ),
@@ -2619,7 +2639,7 @@ class _ContinueWatchingCard extends StatelessWidget {
               ),
             ),
 
-            const SizedBox(height: 7),
+            const SizedBox(height: AppSpacing.elementGapSm),
 
             // Line 1: Title + Three-dot menu
             Row(

@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
+import '../../../../core/presentation/widgets/pressable_scale.dart';
 import '../../../../core/theme/app_motion.dart';
+import '../../../../core/theme/app_spacing.dart';
 
 /// Center controls overlay with 5-button layout:
-/// - Frosted circular Previous Episode button (far left)
-/// - Frosted circular Replay-10s button (inner left)
-/// - Large frosted circular Play/Pause button with white border (center)
-/// - Frosted circular Forward-10s button (inner right)
-/// - Frosted circular Next Episode button (far right)
-/// - Central buffering spinner
+/// - Frosted circular Previous Episode button (far left, 44x44)
+/// - Frosted circular Replay-10s button (inner left, 52x52)
+/// - Large frosted circular Play/Pause button with white border (center, 72x72)
+/// - Frosted circular Forward-10s button (inner right, 52x52)
+/// - Frosted circular Next Episode button (far right, 44x44)
+/// - Persistent 20px spacing with tactile spring physics on all controls
 class PlayerCenterControls extends StatelessWidget {
   final bool isPlaying;
   final bool isBuffering;
@@ -38,7 +40,7 @@ class PlayerCenterControls extends StatelessWidget {
       child: FittedBox(
         fit: BoxFit.scaleDown,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -50,7 +52,7 @@ class PlayerCenterControls extends StatelessWidget {
                 tooltip: 'Previous Episode',
                 enabled: hasPreviousEpisode,
               ),
-              const SizedBox(width: 22),
+              const SizedBox(width: AppSpacing.xl),
 
               // 2. Replay 10s frosted circle
               _SeekCircleButton(
@@ -58,60 +60,66 @@ class PlayerCenterControls extends StatelessWidget {
                 onPressed: onReplay10,
                 tooltip: 'Replay 10 seconds',
               ),
-              const SizedBox(width: 28),
+              const SizedBox(width: AppSpacing.xl),
 
-              // 3. Big translucent play/pause button with white border (or 78x78 placeholder during buffering)
+              // 3. Central Play/Pause button with white border (or 72x72 placeholder during buffering)
               isBuffering
-                  ? const SizedBox(width: 78, height: 78)
-                  : Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: onTogglePlay,
-                        borderRadius: BorderRadius.circular(39),
-                        child: Container(
-                          width: 78,
-                          height: 78,
-                          decoration: BoxDecoration(
-                            color: const Color(0x5A000000),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: const Color(0x59FFFFFF),
-                              width: 1.2,
-                            ),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0x40000000),
-                                blurRadius: 16,
-                                offset: Offset(0, 4),
-                              ),
-                            ],
+                  ? const SizedBox(
+                      width: AppSpacing.circleButtonLg,
+                      height: AppSpacing.circleButtonLg,
+                    )
+                  : PressableScale(
+                      targetScale: 0.92,
+                      curve: AppMotion.hyperOsSpring,
+                      onTap: onTogglePlay,
+                      child: Container(
+                        width: AppSpacing.circleButtonLg,
+                        height: AppSpacing.circleButtonLg,
+                        decoration: BoxDecoration(
+                          color: const Color(0x66000000),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: const Color(0x66FFFFFF),
+                            width: 1.2,
                           ),
-                          child: Center(
-                            child: AnimatedSwitcher(
-                              duration: AppMotion.short3,
-                              transitionBuilder: (child, animation) {
-                                return FadeTransition(
-                                  opacity: animation,
-                                  child: ScaleTransition(
-                                    scale: Tween<double>(begin: 0.8, end: 1.0).animate(animation),
-                                    child: child,
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x4D000000),
+                              blurRadius: 18,
+                              offset: Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: AnimatedSwitcher(
+                            duration: AppMotion.short3,
+                            transitionBuilder: (child, animation) {
+                              return FadeTransition(
+                                opacity: animation,
+                                child: ScaleTransition(
+                                  scale: Tween<double>(begin: 0.82, end: 1.0).animate(
+                                    CurvedAnimation(
+                                      parent: animation,
+                                      curve: AppMotion.hyperOsSpring,
+                                    ),
                                   ),
-                                );
-                              },
-                              child: Icon(
-                                isPlaying
-                                    ? Icons.pause_rounded
-                                    : Icons.play_arrow_rounded,
-                                key: ValueKey<bool>(isPlaying),
-                                size: 44,
-                                color: Colors.white,
-                              ),
+                                  child: child,
+                                ),
+                              );
+                            },
+                            child: Icon(
+                              isPlaying
+                                  ? Icons.pause_rounded
+                                  : Icons.play_arrow_rounded,
+                              key: ValueKey<bool>(isPlaying),
+                              size: 40,
+                              color: Colors.white,
                             ),
                           ),
                         ),
                       ),
                     ),
-              const SizedBox(width: 28),
+              const SizedBox(width: AppSpacing.xl),
 
               // 4. Forward 10s frosted circle
               _SeekCircleButton(
@@ -119,7 +127,7 @@ class PlayerCenterControls extends StatelessWidget {
                 onPressed: onForward10,
                 tooltip: 'Forward 10 seconds',
               ),
-              const SizedBox(width: 22),
+              const SizedBox(width: AppSpacing.xl),
 
               // 5. Next Episode Button
               _EpisodeCircleButton(
@@ -151,45 +159,63 @@ class _EpisodeCircleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(25),
-        child: Tooltip(
-          message: tooltip,
-          child: AnimatedOpacity(
-            duration: AppMotion.short4,
-            opacity: enabled ? 1.0 : 0.35,
-            child: Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                color: enabled ? const Color(0x52000000) : const Color(0x22000000),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: enabled ? const Color(0x40FFFFFF) : const Color(0x1FFFFFFF),
-                  width: 1.0,
-                ),
-                boxShadow: enabled
-                    ? const [
-                        BoxShadow(
-                          color: Color(0x33000000),
-                          blurRadius: 10,
-                          offset: Offset(0, 2),
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Center(
-                child: Icon(
-                  icon,
-                  size: 28,
-                  color: enabled ? Colors.white : const Color(0x88FFFFFF),
-                ),
-              ),
+    final button = Tooltip(
+      message: tooltip,
+      child: AnimatedOpacity(
+        duration: AppMotion.short4,
+        opacity: enabled ? 1.0 : 0.35,
+        child: Container(
+          width: AppSpacing.circleButtonSm,
+          height: AppSpacing.circleButtonSm,
+          decoration: BoxDecoration(
+            color: enabled ? const Color(0x52000000) : const Color(0x22000000),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: enabled ? const Color(0x40FFFFFF) : const Color(0x1FFFFFFF),
+              width: 1.0,
+            ),
+            boxShadow: enabled
+                ? const [
+                    BoxShadow(
+                      color: Color(0x33000000),
+                      blurRadius: 10,
+                      offset: Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Center(
+            child: Icon(
+              icon,
+              size: 26,
+              color: enabled ? Colors.white : const Color(0x88FFFFFF),
             ),
           ),
+        ),
+      ),
+    );
+
+    if (!enabled || onPressed == null) {
+      return ConstrainedBox(
+        constraints: const BoxConstraints(
+          minWidth: AppSpacing.minTouchTarget,
+          minHeight: AppSpacing.minTouchTarget,
+        ),
+        child: Center(child: button),
+      );
+    }
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(
+        minWidth: AppSpacing.minTouchTarget,
+        minHeight: AppSpacing.minTouchTarget,
+      ),
+      child: Center(
+        child: PressableScale(
+          targetScale: 0.90,
+          curve: AppMotion.hyperOsSpring,
+          onTap: onPressed,
+          child: button,
         ),
       ),
     );
@@ -209,36 +235,42 @@ class _SeekCircleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(27),
-        child: Tooltip(
-          message: tooltip,
-          child: Container(
-            width: 54,
-            height: 54,
-            decoration: BoxDecoration(
-              color: const Color(0x4D000000),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: const Color(0x3DFFFFFF),
-                width: 1.0,
-              ),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x33000000),
-                  blurRadius: 10,
-                  offset: Offset(0, 2),
+    return ConstrainedBox(
+      constraints: const BoxConstraints(
+        minWidth: AppSpacing.minTouchTarget,
+        minHeight: AppSpacing.minTouchTarget,
+      ),
+      child: Center(
+        child: PressableScale(
+          targetScale: 0.91,
+          curve: AppMotion.hyperOsSpring,
+          onTap: onPressed,
+          child: Tooltip(
+            message: tooltip,
+            child: Container(
+              width: AppSpacing.circleButtonMd,
+              height: AppSpacing.circleButtonMd,
+              decoration: BoxDecoration(
+                color: const Color(0x4D000000),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: const Color(0x3DFFFFFF),
+                  width: 1.0,
                 ),
-              ],
-            ),
-            child: Center(
-              child: Icon(
-                icon,
-                size: 29,
-                color: Colors.white,
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x33000000),
+                    blurRadius: 10,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Center(
+                child: Icon(
+                  icon,
+                  size: 28,
+                  color: Colors.white,
+                ),
               ),
             ),
           ),

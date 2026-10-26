@@ -163,7 +163,7 @@ final GoRouter appRouter = GoRouter(
             final curvedAnimation = CurvedAnimation(
               parent: animation,
               curve: AppMotion.hyperOsDecelerate,
-              reverseCurve: Curves.easeInCubic,
+              reverseCurve: AppMotion.hyperOsAccelerate,
             );
             final slideIn = Tween<Offset>(
               begin: const Offset(0.0, 0.025),
@@ -172,7 +172,7 @@ final GoRouter appRouter = GoRouter(
             final fade = CurvedAnimation(
               parent: animation,
               curve: const Interval(0.0, 0.70, curve: Curves.easeOut),
-              reverseCurve: const Interval(0.20, 1.0, curve: Curves.easeIn),
+              reverseCurve: const Interval(0.20, 1.0, curve: AppMotion.hyperOsAccelerate),
             );
             return FadeTransition(
               opacity: fade,
