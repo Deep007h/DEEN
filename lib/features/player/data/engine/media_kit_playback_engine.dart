@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart' hide SubtitleTrack;
 import 'package:media_kit/media_kit.dart' as mk show SubtitleTrack;
@@ -19,6 +20,10 @@ class MediaKitPlaybackEngine implements VideoPlaybackEngine {
   bool _isDisposed = false;
   String? _preferredAudioLanguage;
   String? _preferredQuality;
+  SubtitleTrack _selectedSubtitleTrack = SubtitleTrack.off();
+  SubtitleSettings _subtitleSettings = const SubtitleSettings();
+  Map<String, String>? _lastStreamHeaders;
+  File? _cachedSubtitleFile;
 
   MediaKitPlaybackEngine._(this._player, this._videoController) {
     _subscriptions.add(_player.stream.tracks.listen((tracks) {
@@ -108,6 +113,24 @@ class MediaKitPlaybackEngine implements VideoPlaybackEngine {
       _aspectRatioController.stream;
 
   @override
+  Stream<List<String>> get subtitleStream => _player.stream.subtitle;
+
+  @override
+  List<String> get currentSubtitle => _player.state.subtitle;
+
+  @override
+  SubtitleSettings get subtitleSettings => _subtitleSettings;
+
+  @override
+  void setSubtitleSettings(SubtitleSettings settings) {
+    _subtitleSettings = settings;
+    try {
+      final platform = _player.platform as dynamic;
+      platform?.setProperty('sub-delay', settings.delaySeconds.toString());
+    } catch (_) {}
+  }
+
+  @override
   Future<void> open(
     String url, {
     Map<String, String>? headers,
@@ -191,6 +214,7 @@ class MediaKitPlaybackEngine implements VideoPlaybackEngine {
       print('[ENGINE_CONFIG_ERROR] Failed to configure platform properties: $e\n$st');
     }
 
+    _lastStreamHeaders = effectiveHeaders;
     final media = Media(
       playUrl,
       httpHeaders: effectiveHeaders,
@@ -198,26 +222,151 @@ class MediaKitPlaybackEngine implements VideoPlaybackEngine {
     );
     await _player.open(media, play: true);
     print('[ENGINE_OPEN] _player.open finished with playUrl: $playUrl');
+
+    if (!_selectedSubtitleTrack.isOff) {
+      setSubtitleTrack(_selectedSubtitleTrack, headers: effectiveHeaders);
+    }
   }
 
   @override
-  Future<void> setSubtitleTrack(SubtitleTrack track) async {
+  Future<void> setSubtitleTrack(SubtitleTrack track, {Map<String, String>? headers}) async {
+    _selectedSubtitleTrack = track;
+    if (headers != null) {
+      _lastStreamHeaders = headers;
+    }
+
     try {
-      if (track.isOff || track.url == null || track.url!.isEmpty) {
+      if (track.isOff) {
+        _cleanupCachedSubtitleFile();
         await _player.setSubtitleTrack(mk.SubtitleTrack.no());
-      } else {
-        await _player.setSubtitleTrack(
-          mk.SubtitleTrack.uri(
-            track.url!,
-            title: track.label,
-            language: track.languageCode,
-          ),
-        );
+        return;
+      }
+
+      final url = track.url;
+      if (url != null && url.isNotEmpty) {
+        // 1. Direct local file (downloaded episode or cached)
+        if (url.startsWith('/') || url.startsWith('file://')) {
+          final path = url.startsWith('file://') ? Uri.parse(url).toFilePath() : url;
+          await _player.setSubtitleTrack(
+            mk.SubtitleTrack.uri(
+              path,
+              title: track.label,
+              language: track.languageCode,
+            ),
+          );
+          return;
+        }
+
+        // 2. Remote URL: download with upstream headers to eliminate 403 Forbidden
+        if (url.startsWith('http://') || url.startsWith('https://')) {
+          final localFile = await _downloadSubtitleToCache(url, headers ?? _lastStreamHeaders);
+          if (localFile != null && localFile.existsSync()) {
+            _cleanupCachedSubtitleFile();
+            _cachedSubtitleFile = localFile;
+            await _player.setSubtitleTrack(
+              mk.SubtitleTrack.uri(
+                localFile.path,
+                title: track.label,
+                language: track.languageCode,
+              ),
+            );
+            return;
+          }
+
+          // Fallback to direct URI if download failed
+          await _player.setSubtitleTrack(
+            mk.SubtitleTrack.uri(
+              url,
+              title: track.label,
+              language: track.languageCode,
+            ),
+          );
+          return;
+        }
+      }
+
+      // 3. Embedded track inside the media stream
+      final availableSubs = _player.state.tracks.subtitle;
+      final targetLang = track.languageCode.toLowerCase();
+      final targetId = track.id.toLowerCase();
+      final match = availableSubs.firstWhere(
+        (t) {
+          final lang = t.language?.toLowerCase() ?? '';
+          final id = t.id.toLowerCase();
+          final title = t.title?.toLowerCase() ?? '';
+          return lang == targetLang ||
+              id == targetId ||
+              (targetLang != 'off' && (lang.startsWith(targetLang) || title.contains(targetLang)));
+        },
+        orElse: () => mk.SubtitleTrack.auto(),
+      );
+
+      await _player.setSubtitleTrack(match);
+    } catch (e) {
+      print('[ENGINE_SET_SUBTITLE_ERR] $e');
+    }
+  }
+
+  Future<File?> _downloadSubtitleToCache(String url, Map<String, String>? headers) async {
+    try {
+      final client = HttpClient()
+        ..badCertificateCallback = ((X509Certificate cert, String host, int port) => true)
+        ..connectionTimeout = const Duration(seconds: 8);
+
+      final req = await client.getUrl(Uri.parse(url));
+      final effectiveHeaders = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Referer': 'https://megavid.buzz/',
+        'Origin': 'https://megavid.buzz',
+        ...?headers,
+      };
+      effectiveHeaders.forEach((k, v) {
+        req.headers.set(k, v);
+      });
+
+      final resp = await req.close();
+      if (resp.statusCode >= 200 && resp.statusCode < 300) {
+        final bytes = await resp.fold<List<int>>([], (acc, chunk) => acc..addAll(chunk));
+        if (bytes.isNotEmpty) {
+          final tempDir = Directory.systemTemp;
+          final ext = url.toLowerCase().contains('.ass') ? 'ass' : (url.toLowerCase().contains('.srt') ? 'srt' : 'vtt');
+          final file = File('${tempDir.path}/deen_sub_${DateTime.now().millisecondsSinceEpoch}.$ext');
+          await file.writeAsBytes(bytes);
+          return file;
+        }
+      }
+    } catch (e) {
+      print('[ENGINE_SUBTITLE_DOWNLOAD_ERR] $e');
+    }
+    return null;
+  }
+
+  void _cleanupCachedSubtitleFile() {
+    try {
+      if (_cachedSubtitleFile != null && _cachedSubtitleFile!.existsSync()) {
+        _cachedSubtitleFile!.deleteSync();
+        _cachedSubtitleFile = null;
       }
     } catch (_) {}
   }
 
   void _applyPreferredTracks(Tracks tracks) {
+    if (!_selectedSubtitleTrack.isOff && tracks.subtitle.length > 1) {
+      if (_selectedSubtitleTrack.url == null || _selectedSubtitleTrack.url!.isEmpty) {
+        final targetLang = _selectedSubtitleTrack.languageCode.toLowerCase();
+        final match = tracks.subtitle.firstWhere(
+          (t) {
+            final lang = t.language?.toLowerCase() ?? '';
+            final id = t.id.toLowerCase();
+            return lang == targetLang || id == _selectedSubtitleTrack.id;
+          },
+          orElse: () => tracks.subtitle.first,
+        );
+        if (match != _player.state.track.subtitle) {
+          _player.setSubtitleTrack(match);
+        }
+      }
+    }
     if (_preferredAudioLanguage != null && tracks.audio.length > 1) {
       final target = _preferredAudioLanguage!.toLowerCase();
       final match = tracks.audio.firstWhere(
@@ -333,6 +482,7 @@ class MediaKitPlaybackEngine implements VideoPlaybackEngine {
       controller: _videoController,
       controls: NoVideoControls,
       fit: fit,
+      subtitleViewConfiguration: const SubtitleViewConfiguration(visible: false),
     );
 
     if (fixedAspect != null) {
@@ -351,6 +501,7 @@ class MediaKitPlaybackEngine implements VideoPlaybackEngine {
   Future<void> dispose() async {
     if (_isDisposed) return;
     _isDisposed = true;
+    _cleanupCachedSubtitleFile();
     for (final sub in _subscriptions) {
       await sub.cancel();
     }

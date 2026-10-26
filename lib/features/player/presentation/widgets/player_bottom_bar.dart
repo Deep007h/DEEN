@@ -29,6 +29,8 @@ class PlayerBottomBar extends StatefulWidget {
   final VoidCallback? onNextEpisode;
   final VoidCallback? onCast;
   final bool isSettingsOpen;
+  final VoidCallback? onOpenSubtitles;
+  final bool hasActiveSubtitles;
 
   const PlayerBottomBar({
     super.key,
@@ -50,6 +52,8 @@ class PlayerBottomBar extends StatefulWidget {
     this.onNextEpisode,
     this.onCast,
     this.isSettingsOpen = false,
+    this.onOpenSubtitles,
+    this.hasActiveSubtitles = false,
   });
 
   @override
@@ -306,9 +310,21 @@ class _PlayerBottomBarState extends State<PlayerBottomBar> {
             ),
             const SizedBox(width: 16),
 
-            // Episodes button (matching rectangle with 2 bars)
+            // Subtitles / Captions button
+            if (widget.onOpenSubtitles != null) ...[
+              _FrostedBarButton(
+                icon: widget.hasActiveSubtitles ? Icons.closed_caption_rounded : Icons.closed_caption_outlined,
+                size: 20,
+                onPressed: widget.onOpenSubtitles!,
+                tooltip: 'Captions & Subtitles',
+                isActive: widget.hasActiveSubtitles,
+              ),
+              const SizedBox(width: 8),
+            ],
+
+            // Episodes button (list sheet)
             _FrostedBarButton(
-              icon: Icons.subtitles_outlined,
+              icon: Icons.video_library_rounded,
               size: 19,
               onPressed: widget.onOpenEpisodes,
               tooltip: 'Episodes',

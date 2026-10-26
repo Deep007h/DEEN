@@ -163,6 +163,21 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
               ? res.selectedQuality.url!
               : res.selectedVariant.url;
 
+          String? subUrl;
+          if (res.selectedVariant.subtitles.isNotEmpty) {
+            final defaultOrEn = res.selectedVariant.subtitles.firstWhereOrNull(
+              (s) =>
+                  (s.isDefault ||
+                      s.languageCode == 'en' ||
+                      s.label.toLowerCase().contains('english')) &&
+                  (s.url?.startsWith('http') ?? false),
+            );
+            subUrl = defaultOrEn?.url ??
+                res.selectedVariant.subtitles
+                    .firstWhereOrNull((s) => s.url?.startsWith('http') ?? false)
+                    ?.url;
+          }
+
           await downloadService.startDownload(
             animeId: currentId,
             episodeNumber: epNum,
@@ -170,6 +185,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
             animeTitle: animeTitle,
             posterUrl: posterUrl,
             streamUrl: streamUrl,
+            subtitleUrl: subUrl,
             headers: res.selectedVariant.headers,
           );
         } catch (e) {

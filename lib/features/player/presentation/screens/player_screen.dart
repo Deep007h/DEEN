@@ -38,6 +38,7 @@ import '../widgets/player_more_options_sheet.dart';
 import '../widgets/player_settings_sheet.dart';
 import '../widgets/player_top_bar.dart';
 import '../widgets/skip_intro_button.dart';
+import '../widgets/player_subtitle_overlay.dart';
 import '../widgets/web_embed_player_view.dart';
 import '../widgets/player_corner_banner_ad.dart';
 
@@ -144,6 +145,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   bool _showEpisodeSheet = false;
   bool _showMoreSheet = false;
   bool _showDescriptionSheet = false;
+  int _settingsInitialTabIndex = 0;
 
   // Screen lock system
   bool _isLocked = false;
@@ -279,8 +281,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     }
   }
 
-  void _openSettings() {
+  void _openSettings({int initialTab = 0}) {
     setState(() {
+      _settingsInitialTabIndex = initialTab;
       _showSettingsSheet = true;
       _showEpisodeSheet = false;
       _showMoreSheet = false;
@@ -323,6 +326,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _sidePanelController.forward(from: 0.0);
   }
 
+  void _openSubtitles() {
+    if (_showSettingsSheet && _settingsInitialTabIndex == 2 && _sidePanelController.value > 0.0) {
+      _closeSidePanel();
+    } else {
+      _openSettings(initialTab: 2);
+    }
+  }
+
   void _closeSidePanel() {
     setState(() {
       _showSettingsSheet = false;
@@ -337,7 +348,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     if (_showSettingsSheet && _sidePanelController.value > 0.0) {
       _closeSidePanel();
     } else {
-      _openSettings();
+      _openSettings(initialTab: 0);
     }
   }
 
@@ -606,10 +617,35 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         audioLanguage: result.selectedAudio.code,
         qualityPreference: result.selectedQuality.label,
       );
-      _engine!.open(
+      _engine!.setSubtitleSettings(_subtitleSettings);
+
+      await _engine!.open(
         activeUrl,
         headers: result.selectedVariant.headers,
         startPosition: startPos,
+      );
+
+      SubtitleTrack effectiveSub = result.selectedSubtitle;
+      if (hasOfflineFile) {
+        final baseFilePath = downloadedEp.localFilePath.replaceAll(RegExp(r'\.[^.]+$'), '');
+        for (final ext in ['vtt', 'srt', 'ass']) {
+          final subFile = File('$baseFilePath.$ext');
+          if (subFile.existsSync()) {
+            effectiveSub = SubtitleTrack(
+              id: 'offline_${downloadedEp.id}',
+              languageCode: 'en',
+              label: 'English (Offline)',
+              url: subFile.path,
+            );
+            break;
+          }
+        }
+      }
+
+      _currentlyLoadedSubtitle = effectiveSub;
+      await _engine!.setSubtitleTrack(
+        effectiveSub,
+        headers: result.selectedVariant.headers,
       );
 
       if (_savedResumePosition != null && mounted) {
@@ -634,10 +670,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         audioLanguage: result.selectedAudio.code,
         qualityPreference: result.selectedQuality.label,
       );
-    }
-    if (_currentlyLoadedSubtitle != result.selectedSubtitle) {
-      _currentlyLoadedSubtitle = result.selectedSubtitle;
-      _engine!.setSubtitleTrack(result.selectedSubtitle);
+      if (_currentlyLoadedSubtitle != result.selectedSubtitle) {
+        _currentlyLoadedSubtitle = result.selectedSubtitle;
+        await _engine!.setSubtitleTrack(
+          result.selectedSubtitle,
+          headers: result.selectedVariant.headers,
+        );
+      }
     }
   }
 
@@ -1391,11 +1430,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                         selectedSubtitle: result.selectedSubtitle,
                         onSelectSubtitle: (s) {
                           streamNotifier.selectSubtitleTrack(s);
+                          _currentlyLoadedSubtitle = s;
+                          _engine?.setSubtitleTrack(s, headers: result.selectedVariant.headers);
                         },
                         subtitleSettings: _subtitleSettings,
                         onUpdateSubtitleSettings: (settings) {
                           setState(() => _subtitleSettings = settings);
+                          _engine?.setSubtitleSettings(settings);
                         },
+                        initialTabIndex: _settingsInitialTabIndex,
                         currentSpeed: _playbackRate,
                         onSelectSpeed: (speed) {
                           _engine?.setRate(speed);
@@ -1567,6 +1610,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                                 : Container(color: Colors.black),
                           ),
                         ),
+
+                        // 1a. High-Contrast Material 3 Subtitle Overlay
+                        if (_engine != null && (_currentlyLoadedSubtitle == null || !_currentlyLoadedSubtitle!.isOff))
+                          Positioned.fill(
+                            child: PlayerSubtitleOverlay(
+                              engine: _engine!,
+                              settings: _subtitleSettings,
+                              isHudVisible: _controlsVisible,
+                            ),
+                          ),
 
               // 1b. Impenetrable Lock Screen Guard (intercepts ALL touches when locked)
               if (_isLocked)
@@ -1842,6 +1895,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                                 },
                                 onOpenMore: _toggleMore,
                                 onOpenEpisodes: _openEpisodes,
+                                onOpenSubtitles: _openSubtitles,
+                                hasActiveSubtitles: _currentlyLoadedSubtitle != null && !_currentlyLoadedSubtitle!.isOff,
                                 onOpenDiagnostics: () => _showDiagnosticsSheet(context),
                                 onSwitchToEmbed: () {
                                   setState(() => _useEmbedPlayer = true);
@@ -2038,6 +2093,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                             _resetControlsHideTimer();
                           },
                           onOpenEpisodes: _toggleEpisodes,
+                          onOpenSubtitles: _openSubtitles,
+                          hasActiveSubtitles: _currentlyLoadedSubtitle != null && !_currentlyLoadedSubtitle!.isOff,
                           onOpenSettings: _toggleSettings,
                           onToggleFullscreen: _toggleAspectRatioMode,
                           onCast: () {
@@ -2587,6 +2644,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       return;
     }
 
+    String? subUrl;
+    if (!result.selectedSubtitle.isOff &&
+        (result.selectedSubtitle.url?.startsWith('http') ?? false)) {
+      subUrl = result.selectedSubtitle.url;
+    } else if (result.selectedVariant.subtitles.isNotEmpty) {
+      subUrl = result.selectedVariant.subtitles
+          .firstWhereOrNull((s) => s.url?.startsWith('http') ?? false)
+          ?.url;
+    }
+
     downloadService.startDownload(
       animeId: widget.animeId,
       episodeNumber: widget.episodeNumber,
@@ -2594,6 +2661,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       animeTitle: animeTitle,
       posterUrl: posterUrl,
       streamUrl: result.selectedVariant.url,
+      subtitleUrl: subUrl,
       headers: result.selectedVariant.headers,
     );
 

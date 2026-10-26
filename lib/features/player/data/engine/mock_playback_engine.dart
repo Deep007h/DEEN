@@ -14,6 +14,8 @@ class MockPlaybackEngine implements VideoPlaybackEngine {
   double _volume = 1.0;
   VideoAspectRatioMode _aspectRatioMode = VideoAspectRatioMode.fit;
   SubtitleTrack _currentSubtitleTrack = SubtitleTrack.off();
+  SubtitleSettings _subtitleSettings = const SubtitleSettings();
+  List<String> _currentSubtitle = const [];
 
   final _positionController = StreamController<Duration>.broadcast();
   final _durationController = StreamController<Duration>.broadcast();
@@ -25,6 +27,7 @@ class MockPlaybackEngine implements VideoPlaybackEngine {
   final _completedController = StreamController<bool>.broadcast();
   final _errorController = StreamController<String?>.broadcast();
   final _aspectRatioModeController = StreamController<VideoAspectRatioMode>.broadcast();
+  final _subtitleController = StreamController<List<String>>.broadcast();
 
   String? currentUrl;
   Map<String, String>? currentHeaders;
@@ -169,8 +172,32 @@ class MockPlaybackEngine implements VideoPlaybackEngine {
   SubtitleTrack get currentSubtitleTrack => _currentSubtitleTrack;
 
   @override
-  Future<void> setSubtitleTrack(SubtitleTrack track) async {
+  SubtitleSettings get subtitleSettings => _subtitleSettings;
+
+  @override
+  void setSubtitleSettings(SubtitleSettings settings) {
+    _subtitleSettings = settings;
+  }
+
+  @override
+  Stream<List<String>> get subtitleStream => _subtitleController.stream;
+
+  @override
+  List<String> get currentSubtitle => _currentSubtitle;
+
+  @override
+  Future<void> setSubtitleTrack(SubtitleTrack track, {Map<String, String>? headers}) async {
     _currentSubtitleTrack = track;
+    if (track.isOff) {
+      _currentSubtitle = const [];
+      _subtitleController.add(const []);
+    }
+  }
+
+  /// Helper to simulate subtitle text updates in tests.
+  void simulateSubtitle(List<String> lines) {
+    _currentSubtitle = lines;
+    _subtitleController.add(lines);
   }
 
   /// Helper to simulate position updates in tests.
@@ -244,6 +271,7 @@ class MockPlaybackEngine implements VideoPlaybackEngine {
     await _completedController.close();
     await _errorController.close();
     await _aspectRatioModeController.close();
+    await _subtitleController.close();
   }
 }
 

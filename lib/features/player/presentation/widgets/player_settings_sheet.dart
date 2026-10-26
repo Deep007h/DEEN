@@ -6,27 +6,6 @@ import '../../../stream/domain/models/stream_provider.dart';
 import '../../../stream/domain/models/subtitle_track.dart';
 import '../../domain/engine/video_playback_engine.dart';
 
-/// Subtitle customization settings.
-class SubtitleSettings {
-  final double fontSize;
-  final double delaySeconds;
-
-  const SubtitleSettings({
-    this.fontSize = 18.0,
-    this.delaySeconds = 0.0,
-  });
-
-  SubtitleSettings copyWith({
-    double? fontSize,
-    double? delaySeconds,
-  }) {
-    return SubtitleSettings(
-      fontSize: fontSize ?? this.fontSize,
-      delaySeconds: delaySeconds ?? this.delaySeconds,
-    );
-  }
-}
-
 /// Landscape side sheet providing player configuration controls:
 /// - Quality
 /// - Audio (Sub/Dub)
@@ -64,6 +43,7 @@ class PlayerSettingsSheet extends StatefulWidget {
   final ValueChanged<double>? onSelectVolume;
 
   final VoidCallback onClose;
+  final int initialTabIndex;
 
   const PlayerSettingsSheet({
     super.key,
@@ -88,6 +68,7 @@ class PlayerSettingsSheet extends StatefulWidget {
     this.currentVolume,
     this.onSelectVolume,
     required this.onClose,
+    this.initialTabIndex = 0,
   });
 
   @override
@@ -95,7 +76,13 @@ class PlayerSettingsSheet extends StatefulWidget {
 }
 
 class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
-  int _activeTabIndex = 0;
+  late int _activeTabIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _activeTabIndex = widget.initialTabIndex;
+  }
 
   final _tabs = const [
     'Quality',

@@ -81,5 +81,30 @@ void main() {
       expect(service.isDownloaded(500100, 2), isTrue);
       expect(service.getDownloadProgress(500100, 2), equals(1.0));
     });
+
+    test('startDownload with subtitleUrl saves companion subtitle file', () async {
+      final prefs = await SharedPreferences.getInstance();
+      final service = DownloadService(prefs: prefs);
+
+      final entry = await service.startDownload(
+        animeId: 600200,
+        episodeNumber: 1,
+        title: 'Episode 1',
+        animeTitle: 'Demon Slayer',
+        streamUrl: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+        subtitleUrl: 'https://example.com/subs/en.vtt',
+      );
+
+      await service.getActiveDownloadTask(entry.id);
+
+      final downloaded = service.getDownload(600200, 1);
+      expect(downloaded, isNotNull);
+      expect(downloaded!.subtitleFilePath, isNotNull);
+      expect(downloaded.subtitleFilePath!.endsWith('.vtt'), isTrue);
+
+      // Clean up
+      await service.deleteDownload('600200_1');
+      expect(service.isDownloaded(600200, 1), isFalse);
+    });
   });
 }

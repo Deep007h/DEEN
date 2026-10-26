@@ -16,6 +16,7 @@ class DownloadedEpisode {
   final String? posterUrl;
   final String localFilePath;
   final String streamUrl;
+  final String? subtitleFilePath;
   final int fileSizeBytes;
   final DateTime downloadedAt;
   final bool isCompleted;
@@ -30,6 +31,7 @@ class DownloadedEpisode {
     this.posterUrl,
     required this.localFilePath,
     required this.streamUrl,
+    this.subtitleFilePath,
     required this.fileSizeBytes,
     required this.downloadedAt,
     this.isCompleted = true,
@@ -45,6 +47,7 @@ class DownloadedEpisode {
     String? posterUrl,
     String? localFilePath,
     String? streamUrl,
+    String? subtitleFilePath,
     int? fileSizeBytes,
     DateTime? downloadedAt,
     bool? isCompleted,
@@ -59,6 +62,7 @@ class DownloadedEpisode {
       posterUrl: posterUrl ?? this.posterUrl,
       localFilePath: localFilePath ?? this.localFilePath,
       streamUrl: streamUrl ?? this.streamUrl,
+      subtitleFilePath: subtitleFilePath ?? this.subtitleFilePath,
       fileSizeBytes: fileSizeBytes ?? this.fileSizeBytes,
       downloadedAt: downloadedAt ?? this.downloadedAt,
       isCompleted: isCompleted ?? this.isCompleted,
@@ -75,6 +79,7 @@ class DownloadedEpisode {
         'posterUrl': posterUrl,
         'localFilePath': localFilePath,
         'streamUrl': streamUrl,
+        'subtitleFilePath': subtitleFilePath,
         'fileSizeBytes': fileSizeBytes,
         'downloadedAt': downloadedAt.toIso8601String(),
         'isCompleted': isCompleted,
@@ -90,6 +95,7 @@ class DownloadedEpisode {
         posterUrl: json['posterUrl'] as String?,
         localFilePath: json['localFilePath'] as String,
         streamUrl: json['streamUrl'] as String? ?? '',
+        subtitleFilePath: json['subtitleFilePath'] as String?,
         fileSizeBytes: (json['fileSizeBytes'] as num?)?.toInt() ?? 0,
         downloadedAt: DateTime.tryParse(json['downloadedAt'] as String? ?? '') ?? DateTime.now(),
         isCompleted: json['isCompleted'] as bool? ?? true,
@@ -229,6 +235,7 @@ class DownloadService extends ChangeNotifier {
     required String animeTitle,
     String? posterUrl,
     required String streamUrl,
+    String? subtitleUrl,
     Map<String, String>? headers,
   }) async {
     final id = '${animeId}_$episodeNumber';
@@ -273,7 +280,14 @@ class DownloadService extends ChangeNotifier {
     _activeTokens[id] = cancelToken;
 
     // Asynchronous background download
-    final task = _runDownloadTask(initialEntry, savePath, streamUrl, headers, cancelToken);
+    final task = _runDownloadTask(
+      initialEntry,
+      savePath,
+      streamUrl,
+      subtitleUrl,
+      headers,
+      cancelToken,
+    );
     _activeTasks[id] = task;
 
     return initialEntry;
@@ -283,24 +297,38 @@ class DownloadService extends ChangeNotifier {
     DownloadedEpisode entry,
     String savePath,
     String url,
+    String? subtitleUrl,
     Map<String, String>? headers,
     CancelToken cancelToken,
   ) async {
     try {
+      String? savedSubtitlePath;
       if (Platform.environment.containsKey('FLUTTER_TEST')) {
         // Fast test stub
         final file = File(savePath);
         await file.writeAsString('#EXTM3U\n#EXT-X-VERSION:3\nTEST_STREAM_DATA');
         final size = await file.length();
+        if (subtitleUrl != null && subtitleUrl.isNotEmpty) {
+          final baseFilePath = savePath.replaceAll(RegExp(r'\.[^.]+$'), '');
+          final subFile = File('$baseFilePath.vtt');
+          await subFile.writeAsString('WEBVTT\n\n00:00:00.000 --> 00:00:05.000\n[Offline Subtitle]');
+          savedSubtitlePath = subFile.path;
+        }
         _downloads[entry.id] = entry.copyWith(
           isCompleted: true,
           progress: 1.0,
           fileSizeBytes: size,
+          subtitleFilePath: savedSubtitlePath,
         );
         _activeTokens.remove(entry.id);
         notifyListeners();
         _saveToStorage();
         return;
+      }
+
+      // Download companion subtitle concurrently if provided
+      if (subtitleUrl != null && subtitleUrl.isNotEmpty) {
+        savedSubtitlePath = await _downloadCompanionSubtitle(savePath, subtitleUrl, headers);
       }
 
       final isHls = url.toLowerCase().contains('.m3u8');
@@ -335,6 +363,7 @@ class DownloadService extends ChangeNotifier {
         isCompleted: true,
         progress: 1.0,
         fileSizeBytes: size > 0 ? size : 124 * 1024 * 1024,
+        subtitleFilePath: savedSubtitlePath,
       );
       _activeTokens.remove(entry.id);
       notifyListeners();
@@ -361,6 +390,49 @@ class DownloadService extends ChangeNotifier {
     } finally {
       _activeTasks.remove(entry.id);
     }
+  }
+
+  Future<String?> _downloadCompanionSubtitle(
+    String videoSavePath,
+    String subtitleUrl,
+    Map<String, String>? headers,
+  ) async {
+    try {
+      final baseFilePath = videoSavePath.replaceAll(RegExp(r'\.[^.]+$'), '');
+      String ext = 'vtt';
+      final cleanSub = subtitleUrl.split('?').first.toLowerCase();
+      if (cleanSub.endsWith('.srt')) {
+        ext = 'srt';
+      } else if (cleanSub.endsWith('.ass')) {
+        ext = 'ass';
+      }
+      final subFile = File('$baseFilePath.$ext');
+
+      final subHeaders = Map<String, String>.from(headers ?? {});
+      subHeaders.putIfAbsent('Referer', () => 'https://megavid.buzz/');
+      subHeaders.putIfAbsent('Origin', () => 'https://megavid.buzz');
+      subHeaders.putIfAbsent(
+        'User-Agent',
+        () =>
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+      );
+
+      final response = await _dio.get<String>(
+        subtitleUrl,
+        options: Options(
+          headers: subHeaders,
+          responseType: ResponseType.plain,
+          receiveTimeout: const Duration(seconds: 15),
+        ),
+      );
+      if (response.statusCode == 200 && response.data != null && response.data!.isNotEmpty) {
+        await subFile.writeAsString(response.data!);
+        return subFile.path;
+      }
+    } catch (e) {
+      debugPrint('[DOWNLOAD_SERVICE] Subtitle download skipped or failed: $e');
+    }
+    return null;
   }
 
   Future<void> _downloadHlsStream(
@@ -509,10 +581,7 @@ class DownloadService extends ChangeNotifier {
     }
     final entry = _downloads.remove(id);
     if (entry != null) {
-      try {
-        final file = File(entry.localFilePath);
-        if (file.existsSync()) file.deleteSync();
-      } catch (_) {}
+      _deleteLocalFiles(entry);
     }
     notifyListeners();
     _saveToStorage();
@@ -521,12 +590,25 @@ class DownloadService extends ChangeNotifier {
   Future<void> deleteDownload(String id) async {
     final entry = _downloads.remove(id);
     if (entry != null) {
-      try {
-        final file = File(entry.localFilePath);
-        if (file.existsSync()) file.deleteSync();
-      } catch (_) {}
+      _deleteLocalFiles(entry);
     }
     notifyListeners();
     _saveToStorage();
+  }
+
+  void _deleteLocalFiles(DownloadedEpisode entry) {
+    try {
+      final file = File(entry.localFilePath);
+      if (file.existsSync()) file.deleteSync();
+      final baseFilePath = entry.localFilePath.replaceAll(RegExp(r'\.[^.]+$'), '');
+      for (final ext in ['vtt', 'srt', 'ass']) {
+        final sf = File('$baseFilePath.$ext');
+        if (sf.existsSync()) sf.deleteSync();
+      }
+      if (entry.subtitleFilePath != null) {
+        final subFile = File(entry.subtitleFilePath!);
+        if (subFile.existsSync()) subFile.deleteSync();
+      }
+    } catch (_) {}
   }
 }

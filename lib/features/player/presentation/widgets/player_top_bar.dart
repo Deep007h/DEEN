@@ -23,6 +23,8 @@ class PlayerTopBar extends StatelessWidget {
   final VoidCallback? onToggleAudio;
   final VoidCallback? onLock;
   final VoidCallback? onOpenDescription;
+  final VoidCallback? onOpenSubtitles;
+  final bool hasActiveSubtitles;
   final String streamType;
   final String qualityLabel;
 
@@ -44,6 +46,8 @@ class PlayerTopBar extends StatelessWidget {
     this.onToggleAudio,
     this.onLock,
     this.onOpenDescription,
+    this.onOpenSubtitles,
+    this.hasActiveSubtitles = false,
     this.streamType = 'HLS',
     this.qualityLabel = '1080P',
   });
@@ -278,6 +282,19 @@ class PlayerTopBar extends StatelessWidget {
               const SizedBox(width: 12),
             ],
 
+            // Subtitles / Captions button
+            if (onOpenSubtitles != null) ...[
+              _FrostedCircleButton(
+                icon: hasActiveSubtitles ? Icons.closed_caption_rounded : Icons.closed_caption_outlined,
+                size: 20,
+                buttonSize: 40,
+                onPressed: onOpenSubtitles!,
+                tooltip: 'Captions & Subtitles',
+                iconColor: hasActiveSubtitles ? AppColors.accent : Colors.white,
+              ),
+              const SizedBox(width: 12),
+            ],
+
             // More / Overflow options button (⋮)
             if (onOpenMore != null)
               _FrostedCircleButton(
@@ -289,7 +306,7 @@ class PlayerTopBar extends StatelessWidget {
               )
             else if (onOpenEpisodes != null)
               _FrostedCircleButton(
-                icon: Icons.subtitles_outlined,
+                icon: Icons.video_library_rounded,
                 size: 20,
                 buttonSize: 40,
                 onPressed: onOpenEpisodes!,
