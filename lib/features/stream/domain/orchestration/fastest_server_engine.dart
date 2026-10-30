@@ -33,12 +33,12 @@ class FastestServerEngine {
 
   FastestServerEngine({
     Dio? client,
-    this.probeTimeout = const Duration(milliseconds: 350),
+    this.probeTimeout = const Duration(milliseconds: 1500),
   }) : _dio = client ??
             Dio(
               BaseOptions(
-                connectTimeout: const Duration(milliseconds: 350),
-                receiveTimeout: const Duration(milliseconds: 350),
+                connectTimeout: const Duration(milliseconds: 1500),
+                receiveTimeout: const Duration(milliseconds: 1500),
               ),
             );
 

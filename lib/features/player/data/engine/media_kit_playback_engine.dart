@@ -7,6 +7,8 @@ import 'package:media_kit_video/media_kit_video.dart';
 import '../../../stream/data/hls/local_hls_server.dart';
 import '../../../stream/domain/models/subtitle_track.dart';
 import '../../domain/engine/video_playback_engine.dart';
+import '../subtitles/subtitle_cue.dart';
+import '../subtitles/subtitle_parser.dart';
 
 /// Real video playback engine powered by [media_kit] and libmpv hardware decoding.
 class MediaKitPlaybackEngine implements VideoPlaybackEngine {
@@ -25,9 +27,27 @@ class MediaKitPlaybackEngine implements VideoPlaybackEngine {
   Map<String, String>? _lastStreamHeaders;
   File? _cachedSubtitleFile;
 
+  List<SubtitleCue> _activeCues = [];
+  final _subtitleController = StreamController<List<String>>.broadcast();
+  List<String> _currentSubtitle = const [];
+
   MediaKitPlaybackEngine._(this._player, this._videoController) {
     _subscriptions.add(_player.stream.tracks.listen((tracks) {
       _applyPreferredTracks(tracks);
+    }));
+    _subscriptions.add(_player.stream.position.listen((pos) {
+      _updateSubtitlesAtPosition(pos);
+    }));
+    _subscriptions.add(_player.stream.subtitle.listen((mpvLines) {
+      if (_activeCues.isEmpty) {
+        final filtered = mpvLines.map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
+        if (!_listEquals(_currentSubtitle, filtered)) {
+          _currentSubtitle = filtered;
+          if (!_subtitleController.isClosed) {
+            _subtitleController.add(filtered);
+          }
+        }
+      }
     }));
   }
 
@@ -113,10 +133,10 @@ class MediaKitPlaybackEngine implements VideoPlaybackEngine {
       _aspectRatioController.stream;
 
   @override
-  Stream<List<String>> get subtitleStream => _player.stream.subtitle;
+  Stream<List<String>> get subtitleStream => _subtitleController.stream;
 
   @override
-  List<String> get currentSubtitle => _player.state.subtitle;
+  List<String> get currentSubtitle => _currentSubtitle;
 
   @override
   SubtitleSettings get subtitleSettings => _subtitleSettings;
@@ -128,6 +148,38 @@ class MediaKitPlaybackEngine implements VideoPlaybackEngine {
       final platform = _player.platform as dynamic;
       platform?.setProperty('sub-delay', settings.delaySeconds.toString());
     } catch (_) {}
+    _updateSubtitlesAtPosition(_player.state.position);
+  }
+
+  void _updateSubtitlesAtPosition(Duration pos) {
+    if (_activeCues.isEmpty || _selectedSubtitleTrack.isOff) {
+      if (_currentSubtitle.isNotEmpty) {
+        _currentSubtitle = const [];
+        if (!_subtitleController.isClosed) {
+          _subtitleController.add(const []);
+        }
+      }
+      return;
+    }
+
+    final delay = _subtitleSettings.delaySeconds;
+    final matching = _activeCues.where((c) => c.matches(pos, delaySeconds: delay)).toList();
+    final lines = matching.isNotEmpty ? matching.expand((c) => c.lines).toList() : const <String>[];
+
+    if (!_listEquals(_currentSubtitle, lines)) {
+      _currentSubtitle = lines;
+      if (!_subtitleController.isClosed) {
+        _subtitleController.add(lines);
+      }
+    }
+  }
+
+  bool _listEquals(List<String> a, List<String> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 
   @override
@@ -238,6 +290,11 @@ class MediaKitPlaybackEngine implements VideoPlaybackEngine {
     try {
       if (track.isOff) {
         _cleanupCachedSubtitleFile();
+        _activeCues = [];
+        _currentSubtitle = const [];
+        if (!_subtitleController.isClosed) {
+          _subtitleController.add(const []);
+        }
         await _player.setSubtitleTrack(mk.SubtitleTrack.no());
         return;
       }
@@ -247,9 +304,19 @@ class MediaKitPlaybackEngine implements VideoPlaybackEngine {
         // 1. Direct local file (downloaded episode or cached)
         if (url.startsWith('/') || url.startsWith('file://')) {
           final path = url.startsWith('file://') ? Uri.parse(url).toFilePath() : url;
+          final file = File(path);
+          if (file.existsSync()) {
+            try {
+              final content = await file.readAsString();
+              _activeCues = SubtitleParser.parse(content);
+              _updateSubtitlesAtPosition(_player.state.position);
+            } catch (e) {
+              print('[ENGINE_SUBTITLE_PARSE_ERR] $e');
+            }
+          }
           await _player.setSubtitleTrack(
             mk.SubtitleTrack.uri(
-              path,
+              file.uri.toString(),
               title: track.label,
               language: track.languageCode,
             ),
@@ -263,9 +330,16 @@ class MediaKitPlaybackEngine implements VideoPlaybackEngine {
           if (localFile != null && localFile.existsSync()) {
             _cleanupCachedSubtitleFile();
             _cachedSubtitleFile = localFile;
+            try {
+              final content = await localFile.readAsString();
+              _activeCues = SubtitleParser.parse(content);
+              _updateSubtitlesAtPosition(_player.state.position);
+            } catch (e) {
+              print('[ENGINE_SUBTITLE_PARSE_ERR] $e');
+            }
             await _player.setSubtitleTrack(
               mk.SubtitleTrack.uri(
-                localFile.path,
+                localFile.uri.toString(),
                 title: track.label,
                 language: track.languageCode,
               ),
@@ -286,6 +360,7 @@ class MediaKitPlaybackEngine implements VideoPlaybackEngine {
       }
 
       // 3. Embedded track inside the media stream
+      _activeCues = [];
       final availableSubs = _player.state.tracks.subtitle;
       final targetLang = track.languageCode.toLowerCase();
       final targetId = track.id.toLowerCase();
@@ -377,6 +452,16 @@ class MediaKitPlaybackEngine implements VideoPlaybackEngine {
             return lang.startsWith('en') || title.contains('eng') || title.contains('dub');
           } else if (target == 'ja') {
             return lang.startsWith('ja') || title.contains('jap') || title.contains('orig') || title.contains('sub');
+          } else if (target == 'hi') {
+            return lang.startsWith('hi') || lang == 'hin' || title.contains('hindi');
+          } else if (target == 'ta') {
+            return lang.startsWith('ta') || lang == 'tam' || title.contains('tamil');
+          } else if (target == 'te') {
+            return lang.startsWith('te') || lang == 'tel' || title.contains('telugu');
+          } else if (target == 'kn') {
+            return lang.startsWith('kn') || lang == 'kan' || title.contains('kannada');
+          } else if (target == 'ml') {
+            return lang.startsWith('ml') || lang == 'mal' || title.contains('malayalam');
           }
           return lang.startsWith(target) || title.contains(target);
         },
@@ -506,6 +591,7 @@ class MediaKitPlaybackEngine implements VideoPlaybackEngine {
       await sub.cancel();
     }
     await _aspectRatioController.close();
+    await _subtitleController.close();
     await _player.dispose();
   }
 }

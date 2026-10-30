@@ -310,18 +310,6 @@ class _PlayerBottomBarState extends State<PlayerBottomBar> {
             ),
             const SizedBox(width: 16),
 
-            // Subtitles / Captions button
-            if (widget.onOpenSubtitles != null) ...[
-              _FrostedBarButton(
-                icon: widget.hasActiveSubtitles ? Icons.closed_caption_rounded : Icons.closed_caption_outlined,
-                size: 20,
-                onPressed: widget.onOpenSubtitles!,
-                tooltip: 'Captions & Subtitles',
-                isActive: widget.hasActiveSubtitles,
-              ),
-              const SizedBox(width: 8),
-            ],
-
             // Episodes button (list sheet)
             _FrostedBarButton(
               icon: Icons.video_library_rounded,

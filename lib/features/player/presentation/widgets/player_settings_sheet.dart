@@ -218,11 +218,32 @@ class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
           ),
           const Divider(color: AppColors.borderSubtle, height: 1),
 
-          // Tab Content Area
+          // Tab Content Area with fluid cross-fade transition
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-              child: _buildTabContent(),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, animation) {
+                return FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0.03, 0),
+                      end: Offset.zero,
+                    ).animate(animation),
+                    child: child,
+                  ),
+                );
+              },
+              child: KeyedSubtree(
+                key: ValueKey<int>(_activeTabIndex),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                  physics: const BouncingScrollPhysics(),
+                  child: _buildTabContent(),
+                ),
+              ),
             ),
           ),
         ],
@@ -468,12 +489,16 @@ class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
   }
 
   Widget _buildAudioSection() {
-    final allAudios = <AudioLanguage>[...widget.availableAudios];
-    if (!allAudios.any((a) => a.code == AudioLanguage.japaneseOriginal.code)) {
-      allAudios.insert(0, AudioLanguage.japaneseOriginal);
+    final allAudios = <AudioLanguage>[];
+    for (final a in widget.availableAudios) {
+      if (!allAudios.any((x) => x.code == a.code)) {
+        allAudios.add(a);
+      }
     }
-    if (!allAudios.any((a) => a.code == AudioLanguage.englishDub.code)) {
-      allAudios.add(AudioLanguage.englishDub);
+    for (final supported in AudioLanguage.supportedLanguages) {
+      if (!allAudios.any((x) => x.code == supported.code)) {
+        allAudios.add(supported);
+      }
     }
 
     return Column(
@@ -552,11 +577,11 @@ class _PlayerSettingsSheetState extends State<PlayerSettingsSheet> {
         ),
         ...allAudios.map((a) {
           final isSelected = a.code == widget.selectedAudio.code;
-          final isDub = a.code == AudioLanguage.englishDub.code;
+          final isOriginal = a.isOriginal || a.code == 'ja' || a.code == 'ko';
           return _buildSettingCard(
             isSelected: isSelected,
             title: a.label,
-            badge: isDub ? 'DUB' : 'ORIGINAL',
+            badge: isOriginal ? 'ORIGINAL' : 'DUB',
             trailingText: a.code.toUpperCase(),
             onTap: () => widget.onSelectAudio(a),
           );

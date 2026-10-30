@@ -312,11 +312,27 @@ class SettingsScreen extends ConsumerWidget {
                       _SettingsTile(
                         icon: Icons.record_voice_over_rounded,
                         title: 'Default Audio',
+                        subtitle: 'Primary audio preference for streaming',
                         trailing: _DropdownPill<String>(
                           value: settings.defaultAudioLanguage,
-                          items: const ['Original', 'English', 'Japanese'],
+                          items: const ['Hindi', 'English', 'Original', 'Japanese', 'Tamil', 'Telugu'],
                           onChanged: (val) {
                             if (val != null) settingsNotifier.updateDefaultAudio(val);
+                          },
+                        ),
+                      ),
+                      const Divider(height: 1),
+
+                      // Secondary Audio Language (Fallback)
+                      _SettingsTile(
+                        icon: Icons.alt_route_rounded,
+                        title: 'Secondary Audio',
+                        subtitle: 'Fallback if primary language is unavailable',
+                        trailing: _DropdownPill<String>(
+                          value: settings.secondaryAudioLanguage,
+                          items: const ['English', 'Original', 'Japanese', 'Hindi', 'Tamil', 'Telugu'],
+                          onChanged: (val) {
+                            if (val != null) settingsNotifier.updateSecondaryAudio(val);
                           },
                         ),
                       ),
@@ -1177,7 +1193,7 @@ class _DropdownPill<T> extends StatelessWidget {
           dropdownColor: AppColors.surfaceElevated,
           icon: const Icon(Icons.arrow_drop_down_rounded, color: AppColors.textSecondary, size: 18),
           style: AppText.meta.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
-          items: items.map((item) {
+          items: (items.contains(value) ? items : [value, ...items]).map((item) {
             final text = displayLabel != null ? displayLabel!(item) : item.toString();
             return DropdownMenuItem<T>(
               value: item,

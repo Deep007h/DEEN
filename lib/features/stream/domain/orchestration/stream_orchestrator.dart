@@ -127,6 +127,7 @@ class StreamOrchestrator {
         registry.getOrderedEnabledProviders().firstOrNull?.id ??
         'anifam';
     final effectiveAudio = prefsRepo.getEffectiveAudioLanguage(anime.id);
+    final secondaryAudio = prefsRepo.getEffectiveSecondaryAudioLanguage(anime.id);
     final title = anime.titles.preferredTitle();
     final cacheKey = '${anime.id}_${episodeNumber}_${effectiveProviderId}_$effectiveAudio';
     final cached = _resolutionCache[cacheKey];
@@ -137,7 +138,7 @@ class StreamOrchestrator {
 
     diagnostics.info(
       'Starting resolution for "$title" (ID: ${anime.id}) Ep: $episodeNumber',
-      {'preferredProvider': effectiveProviderId},
+      {'preferredProvider': effectiveProviderId, 'primaryAudio': effectiveAudio, 'secondaryAudio': secondaryAudio},
     );
 
     final isKDrama = anime.platform == 'K-Drama' ||
@@ -158,6 +159,12 @@ class StreamOrchestrator {
       if (preferredProviderId != null) {
         final preferred = registry.getProvider(preferredProviderId);
         if (preferred != null) candidateProviders.add(preferred);
+      } else if (effectiveAudio == 'hi' || effectiveAudio == 'ta' || effectiveAudio == 'te' || effectiveAudio == 'kn' || effectiveAudio == 'ml') {
+        // Prioritize multi-audio provider (Animelok) when Indian audio language is preferred
+        final animelok = registry.getProvider('animelok');
+        if (animelok != null && registry.isProviderEnabled('animelok')) {
+          candidateProviders.add(animelok);
+        }
       }
 
       for (final p in enabledProviders) {
@@ -167,7 +174,10 @@ class StreamOrchestrator {
       }
 
       if (candidateProviders.isEmpty) {
-        final primary = registry.getProvider('anifam') ?? registry.getProvider('megavid') ?? registry.allProviders.firstOrNull;
+        final primary = registry.getProvider('anifam') ??
+            registry.getProvider('megavid') ??
+            registry.getProvider('animelok') ??
+            registry.allProviders.firstOrNull;
         if (primary != null) candidateProviders.add(primary);
       }
     }
@@ -376,22 +386,21 @@ class StreamOrchestrator {
           } catch (_) {}
         }
 
-        // Apply Audio preference (prioritizing English Dub if requested)
-        final prefersDub = effectiveAudio == 'en' || effectiveAudio == AudioLanguage.englishDub.code;
-        StreamVariant selectedVariant = rankedVariants.firstWhere(
-          (v) => prefersDub
-              ? (v.audio.code == 'en' || v.audio.code == AudioLanguage.englishDub.code || v.audio.isDub)
-              : (v.audio.code == effectiveAudio),
-          orElse: () => rankedVariants.firstWhere(
-            (v) => prefersDub
-                ? (v.audio.isDub || v.audio.code == 'en')
-                : v.audio.isOriginal,
-            orElse: () => rankedVariants.firstWhere(
-              (v) => v.audio.isOriginal,
-              orElse: () => rankedVariants.first,
-            ),
-          ),
+        // Apply Audio preference with fallback hierarchy (Primary -> Secondary -> Original -> First)
+        StreamVariant? primaryMatch = rankedVariants.firstWhereOrNull(
+          (v) => v.audio.code == effectiveAudio || (effectiveAudio == 'en' && v.audio.isDub),
         );
+        StreamVariant? secondaryMatch = rankedVariants.firstWhereOrNull(
+          (v) => v.audio.code == secondaryAudio || (secondaryAudio == 'en' && v.audio.isDub),
+        );
+        StreamVariant? originalMatch = rankedVariants.firstWhereOrNull(
+          (v) => v.audio.isOriginal,
+        );
+
+        StreamVariant selectedVariant = primaryMatch ??
+            secondaryMatch ??
+            originalMatch ??
+            rankedVariants.first;
 
         // Apply Subtitle preference
         final effectiveSub = prefsRepo.getEffectiveSubtitleLanguage(anime.id);

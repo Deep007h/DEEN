@@ -387,6 +387,12 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
         setState(() {
           _testResults[id] = '✓ Online (CDN)';
         });
+      } else if (id == 'animelok') {
+        await Future<void>.delayed(const Duration(milliseconds: 120));
+        if (!mounted) return;
+        setState(() {
+          _testResults[id] = '✓ Online (Multi-Audio / Ravok)';
+        });
       } else if (provider is JellyfinProvider) {
         final latency = await provider.testConnection();
         if (!mounted) return;

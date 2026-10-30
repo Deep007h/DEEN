@@ -334,6 +334,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     }
   }
 
+  void _openAudio() {
+    if (_showSettingsSheet && _settingsInitialTabIndex == 1 && _sidePanelController.value > 0.0) {
+      _closeSidePanel();
+    } else {
+      _openSettings(initialTab: 1);
+    }
+  }
+
   void _closeSidePanel() {
     setState(() {
       _showSettingsSheet = false;
@@ -1414,11 +1422,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                         },
                         availableAudios: () {
                           final list = result.variants.map((v) => v.audio).toSet().toList();
-                          if (!list.any((a) => a.code == AudioLanguage.japaneseOriginal.code)) {
-                            list.insert(0, AudioLanguage.japaneseOriginal);
-                          }
-                          if (!list.any((a) => a.code == AudioLanguage.englishDub.code)) {
-                            list.add(AudioLanguage.englishDub);
+                          for (final supported in AudioLanguage.supportedLanguages) {
+                            if (!list.any((a) => a.code == supported.code)) {
+                              list.add(supported);
+                            }
                           }
                           return list;
                         }(),
@@ -1430,7 +1437,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                         selectedSubtitle: result.selectedSubtitle,
                         onSelectSubtitle: (s) {
                           streamNotifier.selectSubtitleTrack(s);
-                          _currentlyLoadedSubtitle = s;
+                          setState(() {
+                            _currentlyLoadedSubtitle = s;
+                          });
                           _engine?.setSubtitleTrack(s, headers: result.selectedVariant.headers);
                         },
                         subtitleSettings: _subtitleSettings,
@@ -1612,7 +1621,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                         ),
 
                         // 1a. High-Contrast Material 3 Subtitle Overlay
-                        if (_engine != null && (_currentlyLoadedSubtitle == null || !_currentlyLoadedSubtitle!.isOff))
+                        if (_engine != null)
                           Positioned.fill(
                             child: PlayerSubtitleOverlay(
                               engine: _engine!,
@@ -1647,7 +1656,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                       width: 78,
                       height: 78,
                       decoration: BoxDecoration(
-                        color: const Color(0x5A000000),
+                        color: const Color(0x66000000),
                         shape: BoxShape.circle,
                         border: Border.all(
                           color: const Color(0x40FFFFFF),
@@ -1684,9 +1693,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.75),
+                        color: Colors.black.withValues(alpha: 0.82),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(color: AppColors.accent.withValues(alpha: 0.5)),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x55000000),
+                            blurRadius: 12,
+                            offset: Offset(0, 3),
+                          ),
+                        ],
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -1705,7 +1721,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 13,
-                              fontWeight: FontWeight.w500,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
@@ -1865,20 +1881,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                                 title: matchTitle,
                                 episodeSubtitle: epSubtitle,
                                 danmakuEnabled: _danmakuEnabled,
-                                audioLabel: result.selectedAudio.code == AudioLanguage.englishDub.code ? 'DUB' : 'SUB',
+                                audioLabel: result.selectedAudio.shortLabel,
                                 streamType: 'HLS',
                                 qualityLabel: result.selectedQuality.height != null
                                     ? '${result.selectedQuality.height}P'
                                     : (result.selectedQuality.isAuto ? '1080P' : result.selectedQuality.label.toUpperCase()),
                                 onLock: _lockPlayer,
                                 onOpenDescription: _toggleDescription,
-                                onToggleAudio: () {
-                                  final currentAudio = result.selectedAudio;
-                                  final targetAudio = currentAudio.code == AudioLanguage.englishDub.code
-                                      ? AudioLanguage.japaneseOriginal
-                                      : AudioLanguage.englishDub;
-                                  streamNotifier.selectAudioLanguage(targetAudio);
-                                },
+                                onToggleAudio: _openAudio,
                                 onBack: _exitPlayer,
                                 onToggleDanmaku: () {
                                   setState(() => _danmakuEnabled = !_danmakuEnabled);
@@ -2093,8 +2103,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                             _resetControlsHideTimer();
                           },
                           onOpenEpisodes: _toggleEpisodes,
-                          onOpenSubtitles: _openSubtitles,
-                          hasActiveSubtitles: _currentlyLoadedSubtitle != null && !_currentlyLoadedSubtitle!.isOff,
                           onOpenSettings: _toggleSettings,
                           onToggleFullscreen: _toggleAspectRatioMode,
                           onCast: () {
@@ -2812,6 +2820,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
                         final currentPos = _position;
                         _currentlyLoadedUrl = v.url;
+                        _engine?.setTrackPreferences(audioLanguage: v.audio.code);
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text('Switched to $serverName'),

@@ -101,9 +101,10 @@ class LocalHlsServer {
   Future<String> proxyStream(
     String targetUrl, {
     Map<String, String>? headers,
+    bool forceProxy = false,
   }) async {
     // In widget/integration test environments, bypass local proxy to prevent fake_async timer leaks
-    if (Platform.environment.containsKey('FLUTTER_TEST')) {
+    if (!forceProxy && Platform.environment.containsKey('FLUTTER_TEST')) {
       return targetUrl;
     }
 

@@ -476,10 +476,7 @@ class MegaVidProvider implements StreamProvider {
     final streamUrl = (data['source'] ?? data['Video'])?.toString();
     if (streamUrl == null || streamUrl.isEmpty) return null;
 
-    // Permanently ban all broken / truncated /vid/ proxy streams
-    if (streamUrl.contains('/vid/')) {
-      return null;
-    }
+    // Allow MegaVid /vid/ streams (production endpoint)
 
     // Permanently ban broken 'yuki' provider on cdnx.aniwatchtv.site for DUB
     final provider = (data['provider'] ?? '').toString().toLowerCase();

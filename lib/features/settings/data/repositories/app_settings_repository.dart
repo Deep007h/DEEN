@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../metadata/domain/models/anime_titles.dart';
+import '../../../stream/domain/models/audio_language.dart';
 import '../../domain/models/app_settings.dart';
 
 /// Global shared preferences provider, initialized in main() before runApp().
@@ -69,20 +70,23 @@ class AppSettingsRepository {
   }
 
   Future<void> syncStreamPreferences(AppSettings settings) async {
-    final audioCode = settings.defaultAudioLanguage.toLowerCase().contains('eng') ? 'en' : 'ja';
+    final primaryAudioCode = AudioLanguage.fromName(settings.defaultAudioLanguage).code;
+    final secondaryAudioCode = AudioLanguage.fromName(settings.secondaryAudioLanguage).code;
     final qualityLabel = settings.defaultQuality;
     final subLower = settings.defaultSubtitleLanguage.toLowerCase();
     final subCode = subLower == 'off' ? 'off' : (subLower.contains('span') ? 'es' : 'en');
 
     try {
-      await _getAsyncPrefs.setString('stream_pref_global_audio', audioCode);
+      await _getAsyncPrefs.setString('stream_pref_global_audio', primaryAudioCode);
+      await _getAsyncPrefs.setString('stream_pref_global_secondary_audio', secondaryAudioCode);
       await _getAsyncPrefs.setString('stream_pref_global_quality', qualityLabel);
       await _getAsyncPrefs.setString('stream_pref_global_subtitle', subCode);
     } catch (_) {}
 
     if (_prefs != null) {
       try {
-        await _prefs.setString('stream_pref_global_audio', audioCode);
+        await _prefs.setString('stream_pref_global_audio', primaryAudioCode);
+        await _prefs.setString('stream_pref_global_secondary_audio', secondaryAudioCode);
         await _prefs.setString('stream_pref_global_quality', qualityLabel);
         await _prefs.setString('stream_pref_global_subtitle', subCode);
       } catch (_) {}
@@ -158,6 +162,11 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
 
   Future<void> updateDefaultAudio(String audio) async {
     final updated = state.copyWith(defaultAudioLanguage: audio);
+    await updateSettings(updated);
+  }
+
+  Future<void> updateSecondaryAudio(String audio) async {
+    final updated = state.copyWith(secondaryAudioLanguage: audio);
     await updateSettings(updated);
   }
 
