@@ -101,9 +101,10 @@ class LocalHlsServer {
   Future<String> proxyStream(
     String targetUrl, {
     Map<String, String>? headers,
+    bool forceProxy = false,
   }) async {
     // In widget/integration test environments, bypass local proxy to prevent fake_async timer leaks
-    if (Platform.environment.containsKey('FLUTTER_TEST')) {
+    if (!forceProxy && Platform.environment.containsKey('FLUTTER_TEST')) {
       return targetUrl;
     }
 
@@ -302,39 +303,78 @@ class LocalHlsServer {
     return ContentType('video', 'mp2t');
   }
 
+  /// Parses a single-range `Range: bytes=a-b` header. Returns null when absent
+  /// or malformed (suffix/multipart ranges are not supported by this proxy).
+  (int start, int? end)? _parseByteRange(String? header) {
+    if (header == null) return null;
+    final m = RegExp(r'^bytes=(\d+)-(\d*)').firstMatch(header.trim());
+    if (m == null) return null;
+    return (
+      int.parse(m.group(1)!),
+      m.group(2)!.isEmpty ? null : int.parse(m.group(2)!),
+    );
+  }
+
+  /// Serves [bytes] honoring an optional byte range (206 + Content-Range).
+  Future<void> _serveBytes(
+    HttpRequest request,
+    List<int> bytes,
+    String url,
+    (int, int?)? range,
+  ) async {
+    request.response.statusCode = HttpStatus.ok;
+    request.response.headers.contentType = _getContentType(url);
+    request.response.headers.set('Accept-Ranges', 'bytes');
+    request.response.headers.set('Cache-Control', 'public, max-age=86400');
+
+    if (range != null) {
+      final start = range.$1;
+      final clampedEnd = (range.$2 ?? bytes.length - 1).clamp(start, bytes.length - 1);
+      if (start >= bytes.length || start > clampedEnd) {
+        request.response.statusCode = HttpStatus.requestedRangeNotSatisfiable;
+        request.response.headers.set('Content-Range', 'bytes */${bytes.length}');
+        await request.response.close();
+        return;
+      }
+      request.response.statusCode = HttpStatus.partialContent;
+      request.response.headers
+          .set('Content-Range', 'bytes $start-$clampedEnd/${bytes.length}');
+      request.response.headers.contentLength = clampedEnd - start + 1;
+      request.response.add(bytes.sublist(start, clampedEnd + 1));
+    } else {
+      request.response.headers.contentLength = bytes.length;
+      request.response.add(bytes);
+    }
+    await request.response.close();
+  }
+
   Future<void> _serveSegment(
     HttpRequest request,
     _HlsSession session,
     String segmentUrl,
   ) async {
+    final rangeHeader = request.headers.value(HttpHeaders.rangeHeader);
+    final range = _parseByteRange(rangeHeader);
+
     // 1. Check memory cache first
     final cached = session._segmentCache[segmentUrl];
     if (cached != null && cached.isNotEmpty) {
-      request.response.statusCode = HttpStatus.ok;
-      request.response.headers.contentType = _getContentType(segmentUrl);
-      request.response.headers.contentLength = cached.length;
-      request.response.headers.set('Accept-Ranges', 'bytes');
-      request.response.headers.set('Cache-Control', 'public, max-age=86400');
-      request.response.add(cached);
-      await request.response.close();
+      await _serveBytes(request, cached, segmentUrl, range);
       _triggerPrefetch(session, segmentUrl);
       return;
     }
 
-    // 2. Check in-flight requests deduplication
-    final inFlight = _inFlightRequests[segmentUrl];
-    if (inFlight != null) {
-      final inFlightBytes = await inFlight;
-      if (inFlightBytes != null && inFlightBytes.isNotEmpty) {
-        request.response.statusCode = HttpStatus.ok;
-        request.response.headers.contentType = _getContentType(segmentUrl);
-        request.response.headers.contentLength = inFlightBytes.length;
-        request.response.headers.set('Accept-Ranges', 'bytes');
-        request.response.headers.set('Cache-Control', 'public, max-age=86400');
-        request.response.add(inFlightBytes);
-        await request.response.close();
-        _triggerPrefetch(session, segmentUrl);
-        return;
+    // 2. Check in-flight requests deduplication (full fetches only: a ranged
+    //    client must not be handed another request's full body as its slice).
+    if (range == null) {
+      final inFlight = _inFlightRequests[segmentUrl];
+      if (inFlight != null) {
+        final inFlightBytes = await inFlight;
+        if (inFlightBytes != null && inFlightBytes.isNotEmpty) {
+          await _serveBytes(request, inFlightBytes, segmentUrl, null);
+          _triggerPrefetch(session, segmentUrl);
+          return;
+        }
       }
     }
 
@@ -357,13 +397,24 @@ class LocalHlsServer {
           session.headers.forEach((k, v) {
             req.headers.set(k, v);
           });
+          // Forward byte-range requests upstream (EXT-X-BYTERANGE / fMP4 seeking)
+          if (rangeHeader != null) {
+            req.headers.set(HttpHeaders.rangeHeader, rangeHeader);
+          }
 
           upstreamResp = await req.close().timeout(const Duration(seconds: 8));
-          if (upstreamResp.statusCode == HttpStatus.ok) {
-            request.response.statusCode = HttpStatus.ok;
+          if (upstreamResp.statusCode == HttpStatus.ok ||
+              upstreamResp.statusCode == HttpStatus.partialContent) {
+            request.response.statusCode = range != null
+                ? upstreamResp.statusCode
+                : HttpStatus.ok;
             request.response.headers.contentType = _getContentType(segmentUrl);
             request.response.headers.set('Accept-Ranges', 'bytes');
             request.response.headers.set('Cache-Control', 'public, max-age=86400');
+            final upstreamContentRange = upstreamResp.headers.value('content-range');
+            if (range != null && upstreamContentRange != null) {
+              request.response.headers.set('Content-Range', upstreamContentRange);
+            }
             if (upstreamResp.contentLength > 0) {
               request.response.headers.contentLength = upstreamResp.contentLength;
             }
@@ -376,7 +427,8 @@ class LocalHlsServer {
             }
             await request.response.close();
             finalBytes = builder.takeBytes();
-            if (finalBytes.isNotEmpty) {
+            // Never cache partial (ranged) bodies under the full-segment key
+            if (range == null && finalBytes.isNotEmpty) {
               _cacheSegment(session, segmentUrl, finalBytes);
             }
             break;
@@ -417,18 +469,28 @@ class LocalHlsServer {
 
     // Upstream permanently failed for this segment (e.g. 403 / 500 / dropped CDN node):
     // Do NOT return 403 / 500 to MPV, as that causes libavformat to abort the entire stream.
-    // Instead, serve a valid MPEG-TS null padding packet with HTTP 200 so playback seamlessly continues.
-    print('[HLS_PROXY] Segment failed after 3 attempts: $segmentUrl. Serving graceful null TS frame.');
+    // Instead, serve an HTTP 200 body libavformat tolerates so playback seamlessly continues.
+    if (kDebugMode) {
+      debugPrint('[HLS_PROXY] Segment failed after 3 attempts: $segmentUrl. Serving graceful filler body.');
+    }
+    final fallbackType = _getContentType(segmentUrl);
     request.response.statusCode = HttpStatus.ok;
-    request.response.headers.contentType = _getContentType(segmentUrl);
-    final nullPacket = Uint8List(188);
-    nullPacket[0] = 0x47;
-    nullPacket[1] = 0x1F;
-    nullPacket[2] = 0xFF;
-    nullPacket[3] = 0x10;
-    nullPacket.fillRange(4, 188, 0xFF);
-    request.response.headers.contentLength = 188;
-    request.response.add(nullPacket);
+    request.response.headers.contentType = fallbackType;
+    if (fallbackType.subType == 'mp2t') {
+      // MPEG-TS: a valid null padding packet (sync byte 0x47, no payload flag)
+      final nullPacket = Uint8List(188);
+      nullPacket[0] = 0x47;
+      nullPacket[1] = 0x1F;
+      nullPacket[2] = 0xFF;
+      nullPacket[3] = 0x10;
+      nullPacket.fillRange(4, 188, 0xFF);
+      request.response.headers.contentLength = 188;
+      request.response.add(nullPacket);
+    } else {
+      // fMP4 / AAC / WebVTT: injecting TS bytes would corrupt the decoder;
+      // an empty 200 body makes libavformat skip the segment instead of aborting.
+      request.response.headers.contentLength = 0;
+    }
     await request.response.close();
   }
 
@@ -510,6 +572,19 @@ class LocalHlsServer {
         } else {
           output.add(line);
         }
+      } else if (trimmed.startsWith('#EXT-X-KEY:') || trimmed.startsWith('#EXT-X-SESSION-KEY:')) {
+        // Encryption keys must also flow through the proxy: fetching them from
+        // the CDN directly loses the session headers and gets 403s.
+        final uriMatch = RegExp(r'URI="([^"]+)"').firstMatch(trimmed);
+        if (uriMatch != null) {
+          final rawKeyUri = uriMatch.group(1)!;
+          final resolvedKeyUrl = _resolveUrl(baseUrl, rawKeyUri);
+          final encoded = Uri.encodeComponent(resolvedKeyUrl);
+          final proxied = 'http://127.0.0.1:$port/segment-${session.token}?url=$encoded';
+          output.add(line.replaceFirst('URI="$rawKeyUri"', 'URI="$proxied"'));
+        } else {
+          output.add(line);
+        }
       } else if (!trimmed.startsWith('#')) {
         // Segment URL
         final resolvedUrl = _resolveUrl(baseUrl, trimmed);
@@ -517,6 +592,10 @@ class LocalHlsServer {
 
         if (!session.segmentSequence.contains(resolvedUrl)) {
           session.segmentSequence.add(resolvedUrl);
+          // Live playlists grow forever: cap the sequence so memory stays bounded.
+          if (session.segmentSequence.length > 600) {
+            session.segmentSequence.removeRange(0, session.segmentSequence.length - 600);
+          }
         }
 
         if (segmentUrlsToPrefetch.length < 3) {

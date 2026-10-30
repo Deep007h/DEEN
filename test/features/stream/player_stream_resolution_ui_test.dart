@@ -199,9 +199,18 @@ void main() {
     await tester.tap(find.byType(GestureDetector).first);
     await tester.pump(const Duration(milliseconds: 300));
 
-    // 8. Open Diagnostics Sheet from More Options menu
-    await tester.tap(find.byIcon(Icons.more_vert_rounded));
-    await tester.pumpAndSettle();
+    // 8. Open Diagnostics Sheet from More Options menu.
+    // The single screen tap above races the 3s controls auto-hide timer, so the
+    // top bar may be hidden right now. Tap the screen / menu button until the
+    // More sheet is actually open (deterministic instead of clock-racing).
+    for (var attempt = 0; attempt < 3; attempt++) {
+      await tester.tap(find.byIcon(Icons.more_vert_rounded), warnIfMissed: false);
+      await tester.pumpAndSettle();
+      if (find.text('Copy Embed URL').evaluate().isNotEmpty) break;
+      await tester.tap(find.byType(GestureDetector).first, warnIfMissed: false);
+      await tester.pump(const Duration(milliseconds: 400));
+    }
+    expect(find.text('Copy Embed URL'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.byIcon(Icons.bug_report_outlined),
       50.0,

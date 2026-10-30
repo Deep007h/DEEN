@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 /// Shares the identical dark squircle geometry, animations, and typography tokens as [PlayerSettingsSheet].
 class PlayerMoreOptionsSheet extends StatelessWidget {
   final VoidCallback onLockPlayer;
-  final VoidCallback onPictureInPicture;
   final VoidCallback onSwitchToEmbed;
   final VoidCallback onCopyEmbedUrl;
   final VoidCallback onSelectServer;
@@ -19,7 +18,6 @@ class PlayerMoreOptionsSheet extends StatelessWidget {
   const PlayerMoreOptionsSheet({
     super.key,
     required this.onLockPlayer,
-    required this.onPictureInPicture,
     required this.onSwitchToEmbed,
     required this.onCopyEmbedUrl,
     required this.onSelectServer,
@@ -136,12 +134,6 @@ class PlayerMoreOptionsSheet extends StatelessWidget {
                   title: 'Lock Controls',
                   subtitle: 'Prevent accidental touches on screen',
                   onTap: onLockPlayer,
-                ),
-                _buildOptionCard(
-                  icon: Icons.picture_in_picture_alt_rounded,
-                  title: 'Picture in Picture',
-                  subtitle: 'Keep playing while using other apps',
-                  onTap: onPictureInPicture,
                 ),
                 _buildOptionCard(
                   icon: Icons.language_rounded,

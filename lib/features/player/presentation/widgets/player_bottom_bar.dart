@@ -27,7 +27,6 @@ class PlayerBottomBar extends StatefulWidget {
   final bool hasNextEpisode;
   final VoidCallback? onPreviousEpisode;
   final VoidCallback? onNextEpisode;
-  final VoidCallback? onCast;
   final bool isSettingsOpen;
   final VoidCallback? onOpenSubtitles;
   final bool hasActiveSubtitles;
@@ -50,7 +49,6 @@ class PlayerBottomBar extends StatefulWidget {
     this.hasNextEpisode = false,
     this.onPreviousEpisode,
     this.onNextEpisode,
-    this.onCast,
     this.isSettingsOpen = false,
     this.onOpenSubtitles,
     this.hasActiveSubtitles = false,
@@ -310,18 +308,6 @@ class _PlayerBottomBarState extends State<PlayerBottomBar> {
             ),
             const SizedBox(width: 16),
 
-            // Subtitles / Captions button
-            if (widget.onOpenSubtitles != null) ...[
-              _FrostedBarButton(
-                icon: widget.hasActiveSubtitles ? Icons.closed_caption_rounded : Icons.closed_caption_outlined,
-                size: 20,
-                onPressed: widget.onOpenSubtitles!,
-                tooltip: 'Captions & Subtitles',
-                isActive: widget.hasActiveSubtitles,
-              ),
-              const SizedBox(width: 8),
-            ],
-
             // Episodes button (list sheet)
             _FrostedBarButton(
               icon: Icons.video_library_rounded,
@@ -379,29 +365,37 @@ class _FrostedBarButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         child: Tooltip(
           message: tooltip,
-          child: Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: isActive ? AppColors.accent.withValues(alpha: 0.18) : AppColors.surfaceCard.withValues(alpha: 0.92),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: isActive ? AppColors.accent : AppColors.border,
-                width: isActive ? 1.5 : 1.0,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: isActive ? AppColors.accent.withValues(alpha: 0.3) : const Color(0x66000000),
-                  blurRadius: 4,
-                  offset: const Offset(0, 1),
-                ),
-              ],
-            ),
+          child: ConstrainedBox(
+            // Material a11y minimum touch target (visual stays 38×38).
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
             child: Center(
-              child: Icon(
-                icon,
-                size: size,
-                color: isActive ? AppColors.accent : Colors.white,
+              child: Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: isActive
+                      ? AppColors.accent.withValues(alpha: 0.18)
+                      : AppColors.surfaceCard.withValues(alpha: 0.92),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isActive ? AppColors.accent : AppColors.border,
+                    width: isActive ? 1.5 : 1.0,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: isActive
+                          ? AppColors.accent.withValues(alpha: 0.3)
+                          : const Color(0x66000000),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  icon,
+                  size: size,
+                  color: isActive ? AppColors.accent : Colors.white,
+                ),
               ),
             ),
           ),

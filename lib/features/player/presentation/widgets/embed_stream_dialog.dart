@@ -99,10 +99,12 @@ class _EmbedStreamDialogState extends State<EmbedStreamDialog> {
       final epNum = info.episodeNumber;
 
       if (!mounted) return;
+      // Capture the router before popping: the dialog's context dies with its route.
+      final router = GoRouter.of(context);
       Navigator.of(context).pop();
 
       // Launch native video player with resolved anime ID, episode, and megavid provider
-      context.push(
+      router.push(
         '/player?animeId=$animeId&ep=$epNum&provider=megavid',
       );
     } catch (e) {

@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -141,20 +142,17 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                       ],
                     ),
                     const SizedBox(height: 10),
-                    // Progress Track
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: Container(
-                        height: 6,
-                        color: const Color(0xFF222B22),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: (usedBytes > 0) ? 28 : 10,
-                              color: AppColors.accent,
-                            ),
-                          ],
-                        ),
+                    // Honest representation: the app cannot read device storage
+                    // totals without platform channels, so only the app's own
+                    // usage is shown (no fake device-capacity meter).
+                    Text(
+                      usedBytes > 0
+                          ? 'Videos are stored locally for offline playback.'
+                          : 'No offline videos yet.',
+                      style: const TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
@@ -363,10 +361,14 @@ class _DownloadItemCard extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   if (item.posterUrl != null && item.posterUrl!.isNotEmpty)
-                    Image.network(
-                      item.posterUrl!,
+                    CachedNetworkImage(
+                      imageUrl: item.posterUrl!,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Center(
+                      memCacheWidth: 160,
+                      memCacheHeight: 104,
+                      placeholder: (context, url) =>
+                          Container(color: AppColors.surface),
+                      errorWidget: (context, url, error) => Center(
                         child: Icon(Icons.movie_rounded, color: AppColors.accent, size: 24),
                       ),
                     )

@@ -62,10 +62,10 @@ class _AppShellState extends ConsumerState<AppShell> {
         activeIcon: Icons.bookmark_rounded,
         label: l10n?.tabLibrary ?? 'Library',
       ),
-      const FloatingNavBarItem(
+      FloatingNavBarItem(
         icon: Icons.file_download_outlined,
         activeIcon: Icons.download_rounded,
-        label: 'Downloads',
+        label: l10n?.tabDownloads ?? 'Downloads',
       ),
       FloatingNavBarItem(
         icon: Icons.settings_outlined,

@@ -582,88 +582,16 @@ class _HomeTopBar extends ConsumerWidget {
 class _NotificationButton extends ConsumerWidget {
   const _NotificationButton();
 
-  void _showNotificationsSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.surfaceCard,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 30),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.border,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Container(
-                  width: 3.5,
-                  height: 18,
-                  decoration: BoxDecoration(
-                    color: AppColors.accent,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  'Notifications',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: AppColors.accent.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
-                ),
-                child: Icon(Icons.auto_awesome, color: AppColors.accent, size: 20),
-              ),
-              title: const Text(
-                'DEEN PRO v2.0 Ready',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14),
-              ),
-              subtitle: const Text(
-                'Full UI redesign, dynamic pull-to-refresh & K-Drama catalog enabled',
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(accentColorProvider);
 
     return PressableScale(
       targetScale: 0.92,
+      semanticLabel: 'Notifications',
       onTap: () {
         HapticFeedback.lightImpact();
-        _showNotificationsSheet(context);
+        NotificationsSheet.show(context);
       },
       child: Container(
         width: 38,
@@ -673,28 +601,10 @@ class _NotificationButton extends ConsumerWidget {
           shape: BoxShape.circle,
           border: Border.all(color: AppColors.border, width: 0.9),
         ),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            const Icon(
-              Icons.notifications_none_rounded,
-              color: Colors.white,
-              size: 20,
-            ),
-            Positioned(
-              top: 7,
-              right: 7,
-              child: Container(
-                width: 7.5,
-                height: 7.5,
-                decoration: BoxDecoration(
-                  color: AppColors.accent,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.background, width: 1.2),
-                ),
-              ),
-            ),
-          ],
+        child: const Icon(
+          Icons.notifications_none_rounded,
+          color: Colors.white,
+          size: 20,
         ),
       ),
     );
@@ -869,7 +779,7 @@ class _ProfileDropdownButton extends ConsumerWidget {
                       children: [
                         Text('Guest User', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
                         SizedBox(height: 2),
-                        Text('Signed in as Guest', style: TextStyle(color: Color(0xFF8E8E93), fontSize: 12)),
+                        Text('Signed in as Guest', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
                       ],
                     ),
                   ],
@@ -1045,7 +955,8 @@ class _HeroSpotlightBillboard extends ConsumerStatefulWidget {
   ConsumerState<_HeroSpotlightBillboard> createState() => _HeroSpotlightBillboardState();
 }
 
-class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard> {
+class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard>
+    with WidgetsBindingObserver {
   late final PageController _pageController;
   final ValueNotifier<int> _currentPageNotifier = ValueNotifier<int>(0);
   Timer? _autoScrollTimer;
@@ -1053,8 +964,19 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _pageController = PageController();
     _startAutoScroll();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Don't burn CPU or advance pages while the app is not visible.
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
+      _pauseAutoScroll();
+    } else if (state == AppLifecycleState.resumed) {
+      _resumeAutoScroll();
+    }
   }
 
   void _startAutoScroll() {
@@ -1082,6 +1004,7 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _autoScrollTimer?.cancel();
     _pageController.dispose();
     _currentPageNotifier.dispose();
@@ -1163,6 +1086,7 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
                   final summary = _cleanSummary(item.summary);
                   final isFollowed = followedIds.contains(item.id);
                   final heroTag = 'poster_${item.id}_home_spotlight';
+                  final year = item.seasonYear?.toString();
 
                   return GestureDetector(
                     behavior: HitTestBehavior.opaque,
@@ -1280,7 +1204,14 @@ class _HeroSpotlightBillboardState extends ConsumerState<_HeroSpotlightBillboard
                               children: [
                                 Flexible(
                                   child: Text(
-                                    '2024  •  $format  •  $eps  •  $score',
+                                    // Real air year when known; gracefully skip
+                                    // the segment instead of a hardcoded '2024'.
+                                    [
+                                      if (year != null) year,
+                                      format,
+                                      eps,
+                                      score,
+                                    ].join('  •  '),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
@@ -2406,48 +2337,9 @@ class _UserFavouritesList extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 // Continue Watching Section & 16:9 Widescreen Cards (matching media_1792761512098.png)
 // ---------------------------------------------------------------------------
-class _ContinueWatchingPreview {
-  final String title;
-  final String subtitle;
-  final double progress;
-  final String posterUrl;
-  final String query;
-
-  const _ContinueWatchingPreview({
-    required this.title,
-    required this.subtitle,
-    required this.progress,
-    required this.posterUrl,
-    required this.query,
-  });
-}
-
-const List<_ContinueWatchingPreview> _kContinueWatchingPreviews = [
-  _ContinueWatchingPreview(
-    title: 'Jujutsu Kaisen',
-    subtitle: 'S1 E12 • 14m left',
-    progress: 0.65,
-    posterUrl: 'https://s4.anilist.co/file/anilistcdn/media/anime/banner/113415-jQBSkxWAAk83.jpg',
-    query: 'Jujutsu Kaisen',
-  ),
-  _ContinueWatchingPreview(
-    title: 'Demon Slayer',
-    subtitle: 'S3 E8 • 21m left',
-    progress: 0.35,
-    posterUrl: 'https://s4.anilist.co/file/anilistcdn/media/anime/banner/101922-YfZhKBUDDS6L.jpg',
-    query: 'Demon Slayer',
-  ),
-  _ContinueWatchingPreview(
-    title: 'One Piece',
-    subtitle: 'E1085 • 8m left',
-    progress: 0.85,
-    posterUrl: 'https://s4.anilist.co/file/anilistcdn/media/anime/banner/21-wf37VakJSpdH.jpg',
-    query: 'One Piece',
-  ),
-];
-
 class _ContinueWatchingSection extends ConsumerWidget {
   final List<WatchHistoryItem> history;
 
@@ -2455,9 +2347,8 @@ class _ContinueWatchingSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final hasHistory = history.isNotEmpty;
-    final count = hasHistory ? history.length : _kContinueWatchingPreviews.length;
-
+    // Empty history is handled by the caller (section is hidden entirely),
+    // so no fabricated preview entries are ever shown.
     return SizedBox(
       height: 206,
       child: ListView.separated(
@@ -2465,42 +2356,26 @@ class _ContinueWatchingSection extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageMargin),
         scrollDirection: Axis.horizontal,
         physics: AppMotion.m3ScrollPhysics,
-        itemCount: count,
+        itemCount: history.length,
         separatorBuilder: (_, __) => const SizedBox(width: 12),
         itemBuilder: (context, index) {
-          if (hasHistory) {
-            final item = history[index];
-            return RepaintBoundary(
-              child: _ContinueWatchingCard(
-                title: item.animeTitle,
-                subtitle: 'Ep ${item.episodeNumber} · ${item.formattedProgress}',
-                progress: item.progressFraction,
-                posterUrl: item.posterUrl,
-                isFirst: index == 0,
-                onTap: () {
-                  context.push('/player?animeId=${item.animeId}&ep=${item.episodeNumber}');
-                },
-                onRemove: () async {
-                  final repo = ref.read(playbackHistoryRepositoryProvider);
-                  await repo.deleteHistoryItem(item.animeId, item.episodeNumber);
-                },
-              ),
-            );
-          } else {
-            final preview = _kContinueWatchingPreviews[index];
-            return RepaintBoundary(
-              child: _ContinueWatchingCard(
-                title: preview.title,
-                subtitle: preview.subtitle,
-                progress: preview.progress,
-                posterUrl: preview.posterUrl,
-                isFirst: index == 0,
-                onTap: () {
-                  context.push('/search?q=${Uri.encodeComponent(preview.query)}');
-                },
-              ),
-            );
-          }
+          final item = history[index];
+          return RepaintBoundary(
+            child: _ContinueWatchingCard(
+              title: item.animeTitle,
+              subtitle: 'Ep ${item.episodeNumber} · ${item.formattedProgress}',
+              progress: item.progressFraction,
+              posterUrl: item.posterUrl,
+              isFirst: index == 0,
+              onTap: () {
+                context.push('/player?animeId=${item.animeId}&ep=${item.episodeNumber}');
+              },
+              onRemove: () async {
+                final repo = ref.read(playbackHistoryRepositoryProvider);
+                await repo.deleteHistoryItem(item.animeId, item.episodeNumber);
+              },
+            ),
+          );
         },
       ),
     );

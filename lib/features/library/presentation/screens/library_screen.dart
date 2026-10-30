@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/presentation/widgets/floating_nav_bar.dart';
 import '../../../../core/presentation/widgets/hero_shuttle_builder.dart';
+import '../../../../core/presentation/widgets/pressable_scale.dart';
 import '../../../../core/presentation/widgets/shimmer_box.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_motion.dart';
@@ -201,7 +202,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
                         final item = list[index];
-                        return GestureDetector(
+                        return PressableScale(
+                          targetScale: 0.94,
                           onTap: () => context.push(
                             '/anime/${item.id}',
                             extra: {
@@ -452,7 +454,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                           const SizedBox(height: 3),
                                           Text(
                                             'Episode ${item.episodeNumber}',
-                                            style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
+                                            style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
                                           ),
                                           const SizedBox(height: 6),
                                           ClipRRect(

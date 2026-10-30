@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../settings/domain/models/app_settings.dart';
+import '../../domain/models/audio_language.dart';
 import '../../domain/models/quality_option.dart';
 
 /// Manages and persists user preferences for audio language (sub/dub),
@@ -12,6 +13,7 @@ class StreamPreferencesRepository {
   const StreamPreferencesRepository(this._prefs, {this.settings});
 
   static const _kGlobalAudio = 'stream_pref_global_audio';
+  static const _kGlobalSecondaryAudio = 'stream_pref_global_secondary_audio';
   static const _kGlobalSubtitle = 'stream_pref_global_subtitle';
   static const _kGlobalQuality = 'stream_pref_global_quality';
   static const _kAppSettingsKey = 'app_settings_v1';
@@ -26,9 +28,7 @@ class StreamPreferencesRepository {
 
   String getGlobalAudioLanguage() {
     if (settings != null) {
-      final audio = settings!.defaultAudioLanguage.toLowerCase();
-      if (audio.contains('eng')) return 'en';
-      if (audio.contains('jap') || audio.contains('orig')) return 'ja';
+      return AudioLanguage.fromName(settings!.defaultAudioLanguage).code;
     }
 
     final direct = _prefs.getString(_kGlobalAudio);
@@ -40,9 +40,7 @@ class StreamPreferencesRepository {
         final decoded = jsonDecode(appSettingsRaw) as Map<String, dynamic>;
         final audio = decoded['defaultAudioLanguage'] as String?;
         if (audio != null) {
-          final lower = audio.toLowerCase();
-          if (lower.contains('eng')) return 'en';
-          if (lower.contains('jap') || lower.contains('orig')) return 'ja';
+          return AudioLanguage.fromName(audio).code;
         }
       } catch (_) {}
     }
@@ -53,9 +51,38 @@ class StreamPreferencesRepository {
   Future<void> setGlobalAudioLanguage(String code) =>
       _prefs.setString(_kGlobalAudio, code);
 
+  String getGlobalSecondaryAudioLanguage() {
+    if (settings != null) {
+      return AudioLanguage.fromName(settings!.secondaryAudioLanguage).code;
+    }
+
+    final direct = _prefs.getString(_kGlobalSecondaryAudio);
+    if (direct != null && direct.isNotEmpty) return direct;
+
+    final appSettingsRaw = _prefs.getString(_kAppSettingsKey);
+    if (appSettingsRaw != null && appSettingsRaw.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(appSettingsRaw) as Map<String, dynamic>;
+        final audio = decoded['secondaryAudioLanguage'] as String?;
+        if (audio != null) {
+          return AudioLanguage.fromName(audio).code;
+        }
+      } catch (_) {}
+    }
+
+    return 'en';
+  }
+
+  Future<void> setGlobalSecondaryAudioLanguage(String code) =>
+      _prefs.setString(_kGlobalSecondaryAudio, code);
+
   String getEffectiveAudioLanguage(int animeId) {
     final perAnime = _prefs.getString('$_kAnimeAudioPrefix$animeId');
     return perAnime ?? getGlobalAudioLanguage();
+  }
+
+  String getEffectiveSecondaryAudioLanguage(int animeId) {
+    return getGlobalSecondaryAudioLanguage();
   }
 
   Future<void> setAnimeAudioLanguage(int animeId, String code) =>

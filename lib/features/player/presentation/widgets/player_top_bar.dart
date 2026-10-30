@@ -14,7 +14,6 @@ class PlayerTopBar extends StatelessWidget {
   final bool showDanmaku;
   final VoidCallback onToggleDanmaku;
   final VoidCallback? onOpenEpisodes;
-  final VoidCallback? onCast;
   final VoidCallback? onOpenMore;
   final VoidCallback? onOpenDiagnostics;
   final VoidCallback? onSwitchToEmbed;
@@ -37,7 +36,6 @@ class PlayerTopBar extends StatelessWidget {
     this.showDanmaku = true,
     required this.onToggleDanmaku,
     this.onOpenEpisodes,
-    this.onCast,
     this.onOpenMore,
     this.onOpenDiagnostics,
     this.onSwitchToEmbed,
@@ -270,18 +268,6 @@ class PlayerTopBar extends StatelessWidget {
               const SizedBox(width: 12),
             ],
 
-            // Cast button
-            if (onCast != null) ...[
-              _FrostedCircleButton(
-                icon: Icons.cast_rounded,
-                size: 18,
-                buttonSize: 40,
-                onPressed: onCast!,
-                tooltip: 'Cast',
-              ),
-              const SizedBox(width: 12),
-            ],
-
             // Subtitles / Captions button
             if (onOpenSubtitles != null) ...[
               _FrostedCircleButton(
@@ -338,38 +324,45 @@ class _FrostedCircleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final button = Container(
+      width: buttonSize,
+      height: buttonSize,
+      decoration: BoxDecoration(
+        color: AppColors.surfaceCard.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.border,
+          width: 1.0,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x66000000),
+            blurRadius: 4,
+            offset: Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Center(
+        child: Icon(
+          icon,
+          size: size,
+          color: iconColor,
+        ),
+      ),
+    );
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onPressed,
         borderRadius: BorderRadius.circular(12),
-        child: Tooltip(
-          message: tooltip ?? '',
-          child: Container(
-            width: buttonSize,
-            height: buttonSize,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceCard.withValues(alpha: 0.92),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppColors.border,
-                width: 1.0,
-              ),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x66000000),
-                  blurRadius: 4,
-                  offset: Offset(0, 1),
-                ),
-              ],
-            ),
-            child: Center(
-              child: Icon(
-                icon,
-                size: size,
-                color: iconColor,
-              ),
-            ),
+        child: ConstrainedBox(
+          // Material a11y minimum touch target (visual stays 40×40).
+          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+          child: Center(
+            child: (tooltip == null || tooltip!.isEmpty)
+                ? button
+                : Tooltip(message: tooltip!, child: button),
           ),
         ),
       ),

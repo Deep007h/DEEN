@@ -529,6 +529,7 @@ query ($page: Int, $perPage: Int) {
         final rawDesc = item['description'] as String?;
         final genresRaw = item['genres'] as List<dynamic>?;
         final genres = genresRaw?.whereType<String>().toList() ?? <String>[];
+        final seasonYear = item['seasonYear'] as int?;
 
         results.add(
           FeaturedAnimeItem(
@@ -541,6 +542,7 @@ query ($page: Int, $perPage: Int) {
             format: format,
             summary: _cleanDescription(rawDesc),
             genres: genres,
+            seasonYear: seasonYear,
           ),
         );
 
@@ -971,6 +973,7 @@ class FeaturedAnimeItem {
   final String? format;
   final String? summary;
   final List<String> genres;
+  final int? seasonYear;
 
   const FeaturedAnimeItem({
     required this.id,
@@ -982,5 +985,6 @@ class FeaturedAnimeItem {
     this.format,
     this.summary,
     this.genres = const [],
+    this.seasonYear,
   });
 }

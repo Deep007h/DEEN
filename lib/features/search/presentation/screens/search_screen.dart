@@ -68,7 +68,11 @@ class UnifiedSearchItem {
 /// Features a streamlined search bar, animated filter pills, trending suggestions,
 /// and smooth staggered entry animations.
 class SearchScreen extends ConsumerStatefulWidget {
-  const SearchScreen({super.key});
+  /// Seed query (e.g. the genre tapped as "See all" on Explore).
+  /// Falls back to the persisted [searchQueryProvider] when null.
+  final String? initialQuery;
+
+  const SearchScreen({super.key, this.initialQuery});
 
   @override
   ConsumerState<SearchScreen> createState() => _SearchScreenState();
@@ -112,14 +116,23 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   @override
   void initState() {
     super.initState();
-    final initialQuery = ref.read(searchQueryProvider);
+    final String initialQuery = widget.initialQuery ?? ref.read(searchQueryProvider);
     _searchController = TextEditingController(text: initialQuery);
+    // Sync the provider so back-navigation/filter chips keep the seeded query.
+    ref.read(searchQueryProvider.notifier).state = initialQuery;
     _focusNode = FocusNode();
+    // FocusNode doesn't notify build on focus change by itself; rebuild so the
+    // focus ring/boxShadow track _focusNode.hasFocus in real time.
+    _focusNode.addListener(_handleFocusChanged);
     _scrollController = ScrollController()..addListener(_onScroll);
 
     if (initialQuery.trim().isNotEmpty) {
       _searchKShows(initialQuery.trim());
     }
+  }
+
+  void _handleFocusChanged() {
+    if (mounted) setState(() {});
   }
 
   void _onScroll() {
@@ -133,6 +146,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   void dispose() {
     _kshowDebounceTimer?.cancel();
     _kshowCancelToken?.cancel('SearchScreen disposed');
+    _focusNode.removeListener(_handleFocusChanged);
     _searchController.dispose();
     _focusNode.dispose();
     _scrollController.dispose();
@@ -859,7 +873,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       key: ValueKey(item.id + (item.isKShow ? '_kshow' : '_anime')),
                       item: item,
                       index: index,
+                      // Stagger only the first result page; deeper pages mount
+                      // at final state so scrolling doesn't replay entrances.
+                      animate: index < 20,
                       onTap: () {
+                        // Match the Hero tag used by this card so the flight
+                        // animates on the detail screen (kshow tags differ).
+                        final heroTag = item.isKShow
+                            ? 'kshow_poster_${item.id}'
+                            : 'poster_${item.id}';
                         if (item.isKShow && item.kshow != null) {
                           ref.read(metadataRepositoryProvider).recordKShowMatch(item.kshow!);
                           context.push(
@@ -869,6 +891,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                               'title': item.title,
                               'isKShow': true,
                               'match': item.kshow,
+                              'heroTag': heroTag,
                             },
                           );
                         } else if (item.anime != null) {
@@ -877,6 +900,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                             extra: {
                               'posterUrl': item.posterUrl,
                               'title': item.title,
+                              'heroTag': heroTag,
                             },
                           );
                         }
@@ -977,11 +1001,15 @@ class _UnifiedPosterCard extends StatelessWidget {
   final int index;
   final VoidCallback onTap;
 
+  /// When false the card mounts directly at its final (fully visible) state.
+  final bool animate;
+
   const _UnifiedPosterCard({
     super.key,
     required this.item,
     required this.index,
     required this.onTap,
+    this.animate = true,
   });
 
   String _formatHeat(int? heat) {
@@ -996,10 +1024,11 @@ class _UnifiedPosterCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final heatStr = _formatHeat(item.heat);
 
-    // Stagger animation based on card index
+    // Stagger animation based on card index; skipped for later pages so
+    // re-entering cards on scroll don't replay the entrance.
     return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: 0.0, end: 1.0),
-      duration: Duration(milliseconds: 220 + math.min(index * 20, 260)),
+      tween: Tween<double>(begin: animate ? 0.0 : 1.0, end: 1.0),
+      duration: animate ? Duration(milliseconds: 220 + math.min(index * 20, 260)) : Duration.zero,
       curve: AppMotion.hyperOsDecelerate,
       builder: (context, value, child) {
         return Opacity(

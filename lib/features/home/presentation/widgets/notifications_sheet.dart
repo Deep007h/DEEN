@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_text.dart';
 
-/// Interactive Material 3 Notification sheet showing latest simulcast releases and updates.
+/// Material 3 Notification sheet.
+///
+/// There is no backend notification feed yet, so the sheet shows an honest
+/// empty state instead of fabricated release announcements.
 class NotificationsSheet extends StatelessWidget {
   const NotificationsSheet({super.key});
 
@@ -19,42 +23,11 @@ class NotificationsSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
 
-    final mockNotifications = [
-      (
-        title: 'Solo Leveling: Episode 12 is Live!',
-        subtitle: 'The thrilling climax of Season 1 is now streaming with dual audio.',
-        time: '10m ago',
-        isNew: true,
-        icon: Icons.play_circle_fill_rounded,
-      ),
-      (
-        title: 'Demon Slayer: Hashira Training Arc Updated',
-        subtitle: 'New episode available in 1080p high bitrate stream.',
-        time: '2h ago',
-        isNew: true,
-        icon: Icons.movie_filter_rounded,
-      ),
-      (
-        title: 'DEEN v1.0.3 Performance Update',
-        subtitle: 'Parallel stream pre-fetching enabled for instant 0ms playback.',
-        time: 'Today',
-        isNew: false,
-        icon: Icons.speed_rounded,
-      ),
-      (
-        title: 'Jujutsu Kaisen: English Dub Available',
-        subtitle: 'New dub track added to your watch list.',
-        time: 'Yesterday',
-        isNew: false,
-        icon: Icons.record_voice_over_rounded,
-      ),
-    ];
-
     return Container(
       decoration: const BoxDecoration(
-        color: Color(0xFF16161E),
+        color: AppColors.surfaceCard,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        border: Border(top: BorderSide(color: Color(0xFF2A2A38), width: 1)),
+        border: Border(top: BorderSide(color: AppColors.border, width: 1)),
       ),
       child: SafeArea(
         top: false,
@@ -101,83 +74,37 @@ class NotificationsSheet extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: AppSpacing.xl),
 
-              // Notification items
-              Flexible(
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: mockNotifications.length,
-                  separatorBuilder: (_, __) => const Divider(color: Color(0xFF22222E), height: 16),
-                  itemBuilder: (context, index) {
-                    final item = mockNotifications[index];
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1E1E28),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Icon(item.icon, color: Colors.white70, size: 20),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        item.title,
-                                        style: AppText.cardTitle.copyWith(
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 13.5,
-                                        ),
-                                      ),
-                                    ),
-                                    if (item.isNew)
-                                      Container(
-                                        margin: const EdgeInsets.only(left: 6),
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: primary,
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: Text(
-                                          'NEW',
-                                          style: TextStyle(
-                                            color: Theme.of(context).colorScheme.onPrimary,
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  item.subtitle,
-                                  style: AppText.bodySecondary.copyWith(fontSize: 12),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  item.time,
-                                  style: const TextStyle(color: Colors.white38, fontSize: 11),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+              // Empty state: no notification backend exists yet.
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: const BoxDecoration(
+                        color: AppColors.surfaceElevated,
+                        shape: BoxShape.circle,
                       ),
-                    );
-                  },
+                      child: Icon(
+                        Icons.mark_email_read_outlined,
+                        color: AppColors.accent,
+                        size: 34,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Text(
+                      'You\'re all caught up',
+                      style: AppText.cardTitle.copyWith(fontSize: 15, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    const Text(
+                      'New episode alerts will appear here once notifications are enabled.',
+                      textAlign: TextAlign.center,
+                      style: AppText.bodySecondary,
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),

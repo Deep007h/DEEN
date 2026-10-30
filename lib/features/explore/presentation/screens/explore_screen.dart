@@ -681,13 +681,13 @@ class _SectionHeader extends StatelessWidget {
                   Text(
                     'See all',
                     style: TextStyle(
-                      color: Color(0xFF8E8E93),
+                      color: AppColors.textSecondary,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   SizedBox(width: 2),
-                  Icon(Icons.chevron_right_rounded, color: Color(0xFF8E8E93), size: 16),
+                  Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary, size: 16),
                 ],
               ),
             ),
@@ -1176,7 +1176,7 @@ class _CatalogGridCard extends StatelessWidget {
             const SizedBox(height: 2),
             Text(
               item.platform ?? 'TV Series',
-              style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 11),
+              style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
             ),
           ],
         ),
@@ -1280,13 +1280,13 @@ class _CatalogListCard extends StatelessWidget {
                         if (item.eps != null) ...[
                           Text(
                             '${item.eps} Episodes',
-                            style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
+                            style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
                           ),
                           const SizedBox(width: 12),
                         ],
                         Text(
                           item.platform ?? 'TV',
-                          style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
+                          style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
                         ),
                       ],
                     ),
@@ -1404,7 +1404,7 @@ class _CatalogWideCard extends StatelessWidget {
                           ],
                           Text(
                             item.platform ?? 'Anime',
-                            style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
+                            style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
                           ),
                         ],
                       ),

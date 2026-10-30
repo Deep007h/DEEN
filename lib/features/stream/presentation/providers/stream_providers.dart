@@ -8,6 +8,7 @@ import '../../domain/models/stream_provider.dart';
 import '../../domain/models/subtitle_track.dart';
 import '../../domain/orchestration/stream_orchestrator.dart';
 import '../../data/providers/anifam_provider.dart';
+import '../../data/providers/animelok_provider.dart';
 import '../../data/providers/demo_provider.dart';
 import '../../data/providers/direct_url_provider.dart';
 import '../../data/providers/jellyfin_provider.dart';
@@ -47,18 +48,23 @@ final anifamProvider = Provider<AniFamProvider>((ref) => AniFamProvider());
 /// Direct instance provider for MegaVidProvider.
 final megaVidProvider = Provider<MegaVidProvider>((ref) => MegaVidProvider());
 
+/// Direct instance provider for AnimelokProvider.
+final animelokProvider = Provider<AnimelokProvider>((ref) => AnimelokProvider());
+
 /// Registry provider managing available providers and priorities.
 final streamProviderRegistryProvider = FutureProvider<StreamProviderRegistry>((ref) async {
   final prefs = await ref.watch(sharedPreferencesAsyncProvider.future);
   final registry = StreamProviderRegistry(prefs, const []);
   final anifam = ref.watch(anifamProvider);
   final megavid = ref.watch(megaVidProvider);
+  final animelok = ref.watch(animelokProvider);
   const demo = DemoProvider();
   final direct = DirectUrlProvider(registry);
   final jellyfin = JellyfinProvider(registry);
 
   registry.register(anifam);
   registry.register(megavid);
+  registry.register(animelok);
   registry.register(demo);
   registry.register(direct);
   registry.register(jellyfin);
@@ -193,10 +199,16 @@ class ActiveStreamStateNotifier
         final metadataRepo = ref.read(metadataRepositoryProvider);
         final anime = await metadataRepo.getAnimeDetail(arg.animeId);
 
+        // If switching to an Indian audio language (Hindi, Tamil, Telugu), route to animelok provider
+        final isIndianAudio = audio.code == 'hi' || audio.code == 'ta' || audio.code == 'te' || audio.code == 'kn' || audio.code == 'ml';
+        final targetProvider = isIndianAudio
+            ? 'animelok'
+            : (arg.preferredProviderId == 'animelok' ? null : arg.preferredProviderId);
+
         final reloaded = await orchestrator.resolveEpisode(
           anime: anime,
           episodeNumber: arg.episodeNumber,
-          preferredProviderId: arg.preferredProviderId,
+          preferredProviderId: targetProvider,
         );
         state = AsyncData(reloaded);
         return;
@@ -277,8 +289,12 @@ class ActiveStreamStateNotifier
 
   /// Automatically retry resolution with the next available provider or invalidate cache.
   Future<void> retryWithNextProvider() async {
-    final megavid = ref.read(megaVidProvider);
-    megavid.clearCache();
+    // Clear stale caches on ALL providers: a failure could be cached on any of
+    // them (empty match/episode lists are deliberately not cached, but variant
+    // failures and stale entries can still block recovery).
+    ref.read(megaVidProvider).clearCache();
+    ref.read(anifamProvider).clearCache();
+    ref.read(animelokProvider).clearCache();
 
     final current = state.value;
     final registry = await ref.read(streamProviderRegistryProvider.future);

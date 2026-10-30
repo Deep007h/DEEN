@@ -103,7 +103,7 @@ class _NavBarTabButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final activeColor = AppColors.navBarActivePill;
-    const inactiveColor = Color(0xFF8E8E93);
+    const inactiveColor = AppColors.navBarInactive;
 
     return Semantics(
       selected: isSelected,

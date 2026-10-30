@@ -112,6 +112,12 @@ abstract class AppLocalizations {
   /// **'Library'**
   String get tabLibrary;
 
+  /// Label for the Downloads bottom navigation tab
+  ///
+  /// In en, this message translates to:
+  /// **'Downloads'**
+  String get tabDownloads;
+
   /// Label for the Following (追番) bottom navigation tab
   ///
   /// In en, this message translates to:

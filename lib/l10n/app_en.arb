@@ -12,6 +12,10 @@
   "@tabLibrary": {
     "description": "Label for the Library bottom navigation tab"
   },
+  "tabDownloads": "Downloads",
+  "@tabDownloads": {
+    "description": "Label for the Downloads bottom navigation tab"
+  },
   "tabFollowing": "Following",
   "@tabFollowing": {
     "description": "Label for the Following (追番) bottom navigation tab"

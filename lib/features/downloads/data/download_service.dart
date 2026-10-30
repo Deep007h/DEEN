@@ -209,8 +209,9 @@ class DownloadService extends ChangeNotifier {
         for (final item in decoded) {
           if (item is Map<String, dynamic>) {
             final entry = DownloadedEpisode.fromJson(item);
-            // Verify file exists on disk if completed
-            if (!entry.isCompleted || File(entry.localFilePath).existsSync()) {
+            // Only completed downloads survive a restart: in-progress entries
+            // have no resume support and would linger as phantom items.
+            if (entry.isCompleted && File(entry.localFilePath).existsSync()) {
               _downloads[entry.id] = entry;
             }
           }
@@ -239,6 +240,16 @@ class DownloadService extends ChangeNotifier {
     Map<String, String>? headers,
   }) async {
     final id = '${animeId}_$episodeNumber';
+
+    // Re-entrancy guard: a completed (and still-present) download or an
+    // in-flight task must not spawn a second concurrent writer on the same file.
+    final existing = _downloads[id];
+    if (_activeTasks.containsKey(id)) {
+      return existing ?? (throw StateError('Download already in progress'));
+    }
+    if (existing != null && existing.isCompleted && File(existing.localFilePath).existsSync()) {
+      return existing;
+    }
 
     // Locate target save path in app documents or temp
     Directory dir;
@@ -314,6 +325,7 @@ class DownloadService extends ChangeNotifier {
           await subFile.writeAsString('WEBVTT\n\n00:00:00.000 --> 00:00:05.000\n[Offline Subtitle]');
           savedSubtitlePath = subFile.path;
         }
+        if (!_downloads.containsKey(entry.id)) return; // deleted/cancelled mid-run
         _downloads[entry.id] = entry.copyWith(
           isCompleted: true,
           progress: 1.0,
@@ -344,7 +356,7 @@ class DownloadService extends ChangeNotifier {
             followRedirects: true,
           ),
           onReceiveProgress: (received, total) {
-            if (total > 0) {
+            if (total > 0 && _downloads.containsKey(entry.id)) {
               final p = (received / total).clamp(0.0, 1.0);
               _downloads[entry.id] = entry.copyWith(
                 progress: p,
@@ -356,15 +368,28 @@ class DownloadService extends ChangeNotifier {
         );
       }
 
+      // The download was deleted/cancelled while it ran: never resurrect it.
+      if (!_downloads.containsKey(entry.id)) {
+        _deleteLocalFiles(entry.copyWith(localFilePath: savePath));
+        return;
+      }
+
       final downloadedFile = File(savePath);
       final size = downloadedFile.existsSync() ? downloadedFile.lengthSync() : 0;
 
-      _downloads[entry.id] = entry.copyWith(
-        isCompleted: true,
-        progress: 1.0,
-        fileSizeBytes: size > 0 ? size : 124 * 1024 * 1024,
-        subtitleFilePath: savedSubtitlePath,
-      );
+      if (size <= 0) {
+        // Empty file means the transfer silently failed: do not fabricate a
+        // size or mark it complete (phantom unusable entry on the shelf).
+        _downloads.remove(entry.id);
+        _deleteLocalFiles(entry.copyWith(localFilePath: savePath));
+      } else {
+        _downloads[entry.id] = entry.copyWith(
+          isCompleted: true,
+          progress: 1.0,
+          fileSizeBytes: size,
+          subtitleFilePath: savedSubtitlePath,
+        );
+      }
       _activeTokens.remove(entry.id);
       notifyListeners();
       _saveToStorage();
@@ -372,17 +397,11 @@ class DownloadService extends ChangeNotifier {
       if (cancelToken.isCancelled) {
         _downloads.remove(entry.id);
       } else {
-        // Fallback: If HLS manifest or segments were downloaded, mark available
-        final file = File(savePath);
-        if (file.existsSync() && file.lengthSync() > 0) {
-          _downloads[entry.id] = entry.copyWith(
-            isCompleted: true,
-            progress: 1.0,
-            fileSizeBytes: file.lengthSync(),
-          );
-        } else {
-          _downloads.remove(entry.id);
-        }
+        // Transient/permanent failure: there is no resume support, so a partial
+        // file can never become complete. Remove the entry and clean up instead
+        // of marking a truncated file as finished (it would break at playback).
+        _downloads.remove(entry.id);
+        _deleteLocalFiles(entry.copyWith(localFilePath: savePath));
       }
       _activeTokens.remove(entry.id);
       notifyListeners();
@@ -588,6 +607,13 @@ class DownloadService extends ChangeNotifier {
   }
 
   Future<void> deleteDownload(String id) async {
+    // Stop an active download first, otherwise the running task re-adds the
+    // entry when it finishes (deleted items would resurrect on completion).
+    final token = _activeTokens[id];
+    if (token != null) {
+      token.cancel('Download deleted by user');
+      _activeTokens.remove(id);
+    }
     final entry = _downloads.remove(id);
     if (entry != null) {
       _deleteLocalFiles(entry);

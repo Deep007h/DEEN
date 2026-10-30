@@ -91,7 +91,8 @@ class _WebEmbedPlayerViewState extends State<WebEmbedPlayerView> {
               setState(() => _isLoading = false);
             }
             // Strip any injected web ad elements & banners
-            _controller?.runJavaScript('''
+            try {
+              _controller?.runJavaScript('''
               try {
                 var ad = document.getElementById("ad-slot");
                 if (ad) ad.remove();
@@ -99,6 +100,7 @@ class _WebEmbedPlayerViewState extends State<WebEmbedPlayerView> {
                 if (blocked) blocked.remove();
               } catch(e) {}
             ''');
+            } catch (_) {}
           },
           onWebResourceError: (WebResourceError error) {
             if (kDebugMode) {
@@ -158,7 +160,10 @@ class _WebEmbedPlayerViewState extends State<WebEmbedPlayerView> {
   void dispose() {
     _unlockTimer?.cancel();
     if (!Platform.environment.containsKey('FLUTTER_TEST')) {
-      _controller?.loadRequest(Uri.parse('about:blank'));
+      // Best-effort teardown: the platform channel may already be gone on rapid back-press.
+      try {
+        _controller?.loadRequest(Uri.parse('about:blank'));
+      } catch (_) {}
     }
     super.dispose();
   }

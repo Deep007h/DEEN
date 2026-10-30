@@ -17,6 +17,9 @@ class PressableScale extends StatefulWidget {
   final HitTestBehavior behavior;
   final bool enableHaptics;
 
+  /// Optional semantics label announced by screen readers.
+  final String? semanticLabel;
+
   const PressableScale({
     super.key,
     required this.child,
@@ -29,6 +32,7 @@ class PressableScale extends StatefulWidget {
     this.pressCurve = Curves.easeOutQuad,
     this.behavior = HitTestBehavior.opaque,
     this.enableHaptics = true,
+    this.semanticLabel,
   });
 
   @override
@@ -74,7 +78,7 @@ class _PressableScaleState extends State<PressableScale> {
     final isInteractive = widget.onTap != null || widget.onLongPress != null;
     if (!isInteractive) return widget.child;
 
-    return GestureDetector(
+    final scaled = GestureDetector(
       behavior: widget.behavior,
       onTapDown: _handleTapDown,
       onTapUp: _handleTapUp,
@@ -88,5 +92,8 @@ class _PressableScaleState extends State<PressableScale> {
         child: widget.child,
       ),
     );
+
+    if (widget.semanticLabel == null) return scaled;
+    return Semantics(label: widget.semanticLabel, button: true, child: scaled);
   }
 }

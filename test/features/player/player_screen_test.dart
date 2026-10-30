@@ -131,12 +131,11 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       await tester.pump(const Duration(milliseconds: 300));
 
-      // 1. Top bar: back button, title, episode subtitle, comments toggle, cast, more options
+      // 1. Top bar: back button, title, episode subtitle, comments toggle, more options
       expect(find.byTooltip('Back'), findsOneWidget);
       expect(find.text("Frieren: Beyond Journey's End"), findsWidgets);
       expect(find.textContaining('Episode 01'), findsOneWidget);
       expect(find.byTooltip('Disable Comments'), findsOneWidget);
-      expect(find.byTooltip('Cast'), findsOneWidget);
       expect(find.byTooltip('More Options'), findsOneWidget);
 
       // 2. Center controls: replay-10, large play/pause, forward-10
@@ -576,16 +575,29 @@ void main() {
       mockEngine.simulatePosition(const Duration(minutes: 23, seconds: 45));
       await tester.pump(const Duration(milliseconds: 50));
 
-      // Rebuild with Episode 2 (simulating didUpdateWidget / episode change)
+      // Rebuild with Episode 2 (simulating didUpdateWidget / episode change).
+      // A real open has an async gap; make it long enough that the stale event
+      // below lands while the new episode is still opening.
+      mockEngine.openDelay = const Duration(milliseconds: 150);
       await tester.pumpWidget(buildPlayerScreen(episodeNumber: 2));
-      await tester.pump(const Duration(milliseconds: 50));
 
       // Simulate a lingering/delayed position event from Episode 1's demuxer
+      // while the Episode 2 open is still in flight
       mockEngine.simulatePosition(const Duration(minutes: 23, seconds: 48));
       await tester.pump(const Duration(milliseconds: 50));
 
+      // The stale event must be ignored by the screen: the rendered position
+      // stays 00:00 (no old-episode leak into the UI).
+      expect(find.text('23:48'), findsNothing);
+      expect(find.text('00:00'), findsWidgets);
+
+      // Let the Episode 2 open complete with startPosition Duration.zero
+      await tester.pump(const Duration(milliseconds: 200));
+
       // The new episode must strictly be at Duration.zero
       expect(mockEngine.position, Duration.zero);
+      expect(find.text('23:48'), findsNothing);
+      expect(find.text('00:00'), findsWidgets);
     });
   });
 }

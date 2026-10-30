@@ -310,11 +310,27 @@ class SettingsScreen extends ConsumerWidget {
                       _SettingsTile(
                         icon: Icons.record_voice_over_rounded,
                         title: 'Default Audio',
+                        subtitle: 'Primary audio preference for streaming',
                         trailing: _DropdownPill<String>(
                           value: settings.defaultAudioLanguage,
-                          items: const ['Original', 'English', 'Japanese'],
+                          items: const ['Hindi', 'English', 'Original', 'Japanese', 'Tamil', 'Telugu'],
                           onChanged: (val) {
                             if (val != null) settingsNotifier.updateDefaultAudio(val);
+                          },
+                        ),
+                      ),
+                      const Divider(height: 1),
+
+                      // Secondary Audio Language (Fallback)
+                      _SettingsTile(
+                        icon: Icons.alt_route_rounded,
+                        title: 'Secondary Audio',
+                        subtitle: 'Fallback if primary language is unavailable',
+                        trailing: _DropdownPill<String>(
+                          value: settings.secondaryAudioLanguage,
+                          items: const ['English', 'Original', 'Japanese', 'Hindi', 'Tamil', 'Telugu'],
+                          onChanged: (val) {
+                            if (val != null) settingsNotifier.updateSecondaryAudio(val);
                           },
                         ),
                       ),
@@ -748,132 +764,151 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   Future<void> _handleImportData(BuildContext context, WidgetRef ref) async {
-    final textController = TextEditingController();
-
-    showDialog<void>(
+    final input = await showDialog<String>(
       context: context,
-      builder: (dialogCtx) {
+      builder: (dialogCtx) => const _ImportJsonDialog(),
+    );
+    if (input == null || input.trim().isEmpty) return;
+    if (!context.mounted) return;
+
+    final backup = DataBackup.tryParse(input.trim());
+    if (backup == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Theme.of(context).colorScheme.error,
+          content: const Text('Invalid backup JSON format'),
+        ),
+      );
+      return;
+    }
+
+    final followRepo = ref.read(followRepositoryProvider);
+    final historyRepo = ref.read(playbackHistoryRepositoryProvider);
+
+    final currentFavorites = await followRepo.getFollowedList();
+    final currentHistory = await historyRepo.getHistoryList();
+
+    if (!context.mounted) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (confirmCtx) {
         return AlertDialog(
           backgroundColor: AppColors.surfaceElevated,
           shape: const RoundedRectangleBorder(borderRadius: AppRadius.modalBorder),
-          title: const Text('Import Data (JSON)', style: AppText.sectionTitle),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Paste your backup JSON below to restore favorites and watch history:',
-                  style: AppText.bodySecondary,
-                ),
-                const SizedBox(height: AppSpacing.md),
-                TextField(
-                  controller: textController,
-                  maxLines: 8,
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 12,
-                    color: Colors.white,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: '{\n  "version": 1,\n  "favorites": [...],\n  "history": [...]\n}',
-                    hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 12),
-                    filled: true,
-                    fillColor: AppColors.surface,
-                    border: const OutlineInputBorder(
-                      borderRadius: AppRadius.cardBorder,
-                      borderSide: BorderSide(color: AppColors.border),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: AppRadius.cardBorder,
-                      borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          title: const Text('Import Data', style: AppText.sectionTitle),
+          content: Text(
+            'This will replace your current ${currentFavorites.length} favorites and ${currentHistory.length} history records. Continue?',
+            style: AppText.bodySecondary,
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(dialogCtx).pop(),
+              onPressed: () => Navigator.of(confirmCtx).pop(false),
               child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
             ),
             FilledButton(
-              onPressed: () async {
-                final input = textController.text.trim();
-                final backup = DataBackup.tryParse(input);
-
-                if (backup == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      backgroundColor: Color(0xFFFF453A),
-                      content: Text('Invalid backup JSON format'),
-                    ),
-                  );
-                  return;
-                }
-
-                Navigator.of(dialogCtx).pop();
-
-                final followRepo = ref.read(followRepositoryProvider);
-                final historyRepo = ref.read(playbackHistoryRepositoryProvider);
-
-                final currentFavorites = await followRepo.getFollowedList();
-                final currentHistory = await historyRepo.getHistoryList();
-
-                if (!context.mounted) return;
-
-                final confirmed = await showDialog<bool>(
-                  context: context,
-                  builder: (confirmCtx) {
-                    return AlertDialog(
-                      backgroundColor: AppColors.surfaceElevated,
-                      shape: const RoundedRectangleBorder(borderRadius: AppRadius.modalBorder),
-                      title: const Text('Import Data', style: AppText.sectionTitle),
-                      content: Text(
-                        'This will replace your current ${currentFavorites.length} favorites and ${currentHistory.length} history records. Continue?',
-                        style: AppText.bodySecondary,
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.of(confirmCtx).pop(false),
-                          child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
-                        ),
-                        FilledButton(
-                          onPressed: () => Navigator.of(confirmCtx).pop(true),
-                          child: const Text('Import'),
-                        ),
-                      ],
-                    );
-                  },
-                );
-
-                if (confirmed != true) return;
-
-                await followRepo.replaceFollowedList(backup.favorites);
-                await historyRepo.replaceHistoryList(backup.history);
-
-                ref.invalidate(followedAnimeIdsProvider);
-                ref.invalidate(followedAnimeListProvider);
-                ref.invalidate(watchHistoryListProvider);
-
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      backgroundColor: AppColors.surfaceElevated,
-                      content: Text(
-                        'Restored ${backup.favorites.length} favorites & ${backup.history.length} history items',
-                      ),
-                    ),
-                  );
-                }
-              },
+              onPressed: () => Navigator.of(confirmCtx).pop(true),
               child: const Text('Import'),
             ),
           ],
         );
       },
+    );
+
+    if (confirmed != true) return;
+
+    await followRepo.replaceFollowedList(backup.favorites);
+    await historyRepo.replaceHistoryList(backup.history);
+
+    ref.invalidate(followedAnimeIdsProvider);
+    ref.invalidate(followedAnimeListProvider);
+    ref.invalidate(watchHistoryListProvider);
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.surfaceElevated,
+          content: Text(
+            'Restored ${backup.favorites.length} favorites & ${backup.history.length} history items',
+          ),
+        ),
+      );
+    }
+  }
+}
+
+/// Input dialog for pasting a backup JSON. Owns its TextEditingController so
+/// it is disposed exactly when the dialog content unmounts (not at pop time,
+/// while the exit transition is still animating).
+class _ImportJsonDialog extends StatefulWidget {
+  const _ImportJsonDialog();
+
+  @override
+  State<_ImportJsonDialog> createState() => _ImportJsonDialogState();
+}
+
+class _ImportJsonDialogState extends State<_ImportJsonDialog> {
+  final _textController = TextEditingController();
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: AppColors.surfaceElevated,
+      shape: const RoundedRectangleBorder(borderRadius: AppRadius.modalBorder),
+      title: const Text('Import Data (JSON)', style: AppText.sectionTitle),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Paste your backup JSON below to restore favorites and watch history:',
+              style: AppText.bodySecondary,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            TextField(
+              controller: _textController,
+              maxLines: 8,
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 12,
+                color: Colors.white,
+              ),
+              decoration: InputDecoration(
+                hintText: '{\n  "version": 1,\n  "favorites": [...],\n  "history": [...]\n}',
+                hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                filled: true,
+                fillColor: AppColors.surface,
+                border: const OutlineInputBorder(
+                  borderRadius: AppRadius.cardBorder,
+                  borderSide: BorderSide(color: AppColors.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: AppRadius.cardBorder,
+                  borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_textController.text),
+          child: const Text('Import'),
+        ),
+      ],
     );
   }
 }
@@ -1041,8 +1076,6 @@ class _SettingsSwitchTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final primaryColor = Theme.of(context).colorScheme.primary;
-
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.lg,
@@ -1073,7 +1106,6 @@ class _SettingsSwitchTile extends StatelessWidget {
           ),
           Switch(
             value: value,
-            activeThumbColor: primaryColor,
             onChanged: onChanged,
           ),
         ],
@@ -1112,7 +1144,7 @@ class _DropdownPill<T> extends StatelessWidget {
           dropdownColor: AppColors.surfaceElevated,
           icon: const Icon(Icons.arrow_drop_down_rounded, color: AppColors.textSecondary, size: 18),
           style: AppText.meta.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
-          items: items.map((item) {
+          items: (items.contains(value) ? items : [value, ...items]).map((item) {
             final text = displayLabel != null ? displayLabel!(item) : item.toString();
             return DropdownMenuItem<T>(
               value: item,

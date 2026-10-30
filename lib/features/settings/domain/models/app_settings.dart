@@ -9,6 +9,7 @@ class AppSettings {
   // Playback
   final String defaultQuality;
   final String defaultAudioLanguage;
+  final String secondaryAudioLanguage;
   final String defaultSubtitleLanguage;
   final bool autoplayNext;
   final int skipStepSeconds;
@@ -22,6 +23,7 @@ class AppSettings {
     this.titlePreference = TitlePreference.english,
     this.defaultQuality = 'Auto',
     this.defaultAudioLanguage = 'Original',
+    this.secondaryAudioLanguage = 'English',
     this.defaultSubtitleLanguage = 'English',
     this.autoplayNext = true,
     this.skipStepSeconds = 10,
@@ -37,6 +39,7 @@ class AppSettings {
       'titlePreference': titlePreference.name,
       'defaultQuality': defaultQuality,
       'defaultAudioLanguage': defaultAudioLanguage,
+      'secondaryAudioLanguage': secondaryAudioLanguage,
       'defaultSubtitleLanguage': defaultSubtitleLanguage,
       'autoplayNext': autoplayNext,
       'skipStepSeconds': skipStepSeconds,
@@ -77,6 +80,7 @@ class AppSettings {
       titlePreference: pref,
       defaultQuality: json['defaultQuality'] as String? ?? 'Auto',
       defaultAudioLanguage: json['defaultAudioLanguage'] as String? ?? 'Original',
+      secondaryAudioLanguage: json['secondaryAudioLanguage'] as String? ?? 'English',
       defaultSubtitleLanguage: json['defaultSubtitleLanguage'] as String? ?? 'English',
       autoplayNext: json['autoplayNext'] as bool? ?? true,
       skipStepSeconds: json['skipStepSeconds'] as int? ?? 10,
@@ -92,6 +96,7 @@ class AppSettings {
     TitlePreference? titlePreference,
     String? defaultQuality,
     String? defaultAudioLanguage,
+    String? secondaryAudioLanguage,
     String? defaultSubtitleLanguage,
     bool? autoplayNext,
     int? skipStepSeconds,
@@ -105,6 +110,7 @@ class AppSettings {
       titlePreference: titlePreference ?? this.titlePreference,
       defaultQuality: defaultQuality ?? this.defaultQuality,
       defaultAudioLanguage: defaultAudioLanguage ?? this.defaultAudioLanguage,
+      secondaryAudioLanguage: secondaryAudioLanguage ?? this.secondaryAudioLanguage,
       defaultSubtitleLanguage: defaultSubtitleLanguage ?? this.defaultSubtitleLanguage,
       autoplayNext: autoplayNext ?? this.autoplayNext,
       skipStepSeconds: skipStepSeconds ?? this.skipStepSeconds,
@@ -124,6 +130,7 @@ class AppSettings {
           titlePreference == other.titlePreference &&
           defaultQuality == other.defaultQuality &&
           defaultAudioLanguage == other.defaultAudioLanguage &&
+          secondaryAudioLanguage == other.secondaryAudioLanguage &&
           defaultSubtitleLanguage == other.defaultSubtitleLanguage &&
           autoplayNext == other.autoplayNext &&
           skipStepSeconds == other.skipStepSeconds &&
@@ -138,6 +145,7 @@ class AppSettings {
       titlePreference.hashCode ^
       defaultQuality.hashCode ^
       defaultAudioLanguage.hashCode ^
+      secondaryAudioLanguage.hashCode ^
       defaultSubtitleLanguage.hashCode ^
       autoplayNext.hashCode ^
       skipStepSeconds.hashCode ^

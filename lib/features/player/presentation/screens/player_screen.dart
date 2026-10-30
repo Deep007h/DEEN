@@ -160,6 +160,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   SubtitleTrack? _currentlyLoadedSubtitle;
   Duration? _languageSwitchSeekTarget;
   bool _isSwitchingAudio = false;
+  bool _isOpenInFlight = false;
+  Duration? _pendingSeekTarget;
   Duration? _savedResumePosition;
   late PlaybackHistoryRepository _historyRepo;
 
@@ -180,6 +182,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         isKShow: widget.isKShow,
       );
 
+  /// True when the currently loaded media is a local file (downloaded episode).
+  bool get _isLocalPlayback {
+    final url = _currentlyLoadedUrl;
+    return url != null && (url.startsWith('/') || url.startsWith('file://'));
+  }
+
   @override
   void initState() {
     super.initState();
@@ -194,6 +202,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
           _showSettingsSheet = false;
           _showEpisodeSheet = false;
           _showMoreSheet = false;
+          _showDescriptionSheet = false;
         });
         _resetControlsHideTimer();
       }
@@ -244,7 +253,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
           _isVerticalHudVolume = true;
           _showVerticalHud = true;
         });
-        _engine?.setVolume(newVol);
+        // System volume is the single source of truth; setting engine volume too
+        // would double-attenuate loudness (system × engine multiplication).
         _verticalHudTimer?.cancel();
         _verticalHudTimer = Timer(const Duration(milliseconds: 1000), () {
           if (mounted) {
@@ -272,7 +282,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   void _exitPlayer() {
     if (_isExiting) return;
-    setState(() => _isExiting = true);
+    if (mounted) setState(() => _isExiting = true);
     _engine?.pause();
     _saveCurrentProgress();
     _restoreOrientations();
@@ -290,6 +300,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       _showDescriptionSheet = false;
       _controlsVisible = true;
     });
+    _controlsHideTimer?.cancel(); // Controls must not auto-hide while a panel is open
     _sidePanelController.forward(from: 0.0);
   }
 
@@ -301,6 +312,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       _showDescriptionSheet = false;
       _controlsVisible = true;
     });
+    _controlsHideTimer?.cancel(); // Controls must not auto-hide while a panel is open
     _sidePanelController.forward(from: 0.0);
   }
 
@@ -312,6 +324,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       _showDescriptionSheet = false;
       _controlsVisible = true;
     });
+    _controlsHideTimer?.cancel(); // Controls must not auto-hide while a panel is open
     _sidePanelController.forward(from: 0.0);
   }
 
@@ -323,6 +336,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       _showMoreSheet = false;
       _controlsVisible = true;
     });
+    _controlsHideTimer?.cancel(); // Controls must not auto-hide while a panel is open
     _sidePanelController.forward(from: 0.0);
   }
 
@@ -334,14 +348,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     }
   }
 
+  void _openAudio() {
+    if (_showSettingsSheet && _settingsInitialTabIndex == 1 && _sidePanelController.value > 0.0) {
+      _closeSidePanel();
+    } else {
+      _openSettings(initialTab: 1);
+    }
+  }
+
   void _closeSidePanel() {
-    setState(() {
-      _showSettingsSheet = false;
-      _showEpisodeSheet = false;
-      _showMoreSheet = false;
-      _showDescriptionSheet = false;
-    });
-    _sidePanelController.reset();
+    // Animate the panel out; flags are cleared by the controller's status listener
+    // when the reverse animation completes (keeps content visible while sliding).
+    _sidePanelController.reverse();
   }
 
   void _toggleSettings() {
@@ -410,6 +428,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       if (!mounted) return;
       if (_isSwitchingEpisode) return; // Prevent old episode position leaks during transition!
       if (_isScrubbing || _isUserSeeking) return; // Prevent overwriting user's active drag/scrub!
+      // Ignore stale pre-seek engine positions: until mpv reaches the requested seek target,
+      // old positions must not drag the seekbar backward (visible snap-back on slow seeks).
+      final pending = _pendingSeekTarget;
+      if (pending != null) {
+        if (pos >= pending - const Duration(milliseconds: 600)) {
+          _pendingSeekTarget = null; // Engine caught up with the requested target
+        } else {
+          return;
+        }
+      }
       if (pos > _position) {
         _eofRecoveryAttempts = 0;
         _consecutiveErrors = 0;
@@ -527,6 +555,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _engineSubscriptions.add(engine.errorStream.listen((err) {
       if (!mounted || err == null) return;
       debugPrint('[ENGINE_ERROR_STREAM] $err');
+      // A failed open/switch must never leave the switching spinner stuck forever.
+      if (_isSwitchingAudio) {
+        setState(() {
+          _isSwitchingAudio = false;
+          _languageSwitchSeekTarget = null;
+        });
+      }
       // Count consecutive errors; show error UI after threshold
       _consecutiveErrors++;
       if (_consecutiveErrors >= 3) {
@@ -559,7 +594,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       _engine?.pause();
       return;
     }
-    if (!_isEngineReady || _engine == null) return;
+    // Capture the engine: dispose() nulls [_engine] while awaits are in flight.
+    final engine = _engine;
+    if (!_isEngineReady || engine == null) return;
+    if (_isOpenInFlight) return; // Never stack a second open while one is running
 
     final downloadService = ref.read(downloadServiceProvider);
     final downloadedEp = downloadService.getDownload(widget.animeId, widget.episodeNumber);
@@ -593,10 +631,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         _positionNotifier.value = Duration.zero;
         _savedResumePosition = null;
         _hasCheckedResume = true;
-        _isSwitchingEpisode = false;
         _hasPrewarmedNextEpisode = false;
+        // [_isSwitchingEpisode] intentionally stays true until the open below
+        // completes, so stale old-episode position events can't leak in.
       } else if (_position > Duration.zero) {
         startPos = _position;
+        _hasCheckedResume = true;
       } else {
         final settings = ref.read(appSettingsProvider);
         if (settings.resumeBehavior != 'never') {
@@ -609,21 +649,32 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
             startPos = _savedResumePosition;
           }
         }
+        // Resume position (if any) is already applied via startPosition below,
+        // so the duration listener must not seek again (prevents double-seek + duplicate toast).
+        _hasCheckedResume = true;
       }
 
-      if (!mounted) return;
+      if (!mounted || _engine != engine) return;
 
-      _engine!.setTrackPreferences(
+      engine.setTrackPreferences(
         audioLanguage: result.selectedAudio.code,
         qualityPreference: result.selectedQuality.label,
       );
-      _engine!.setSubtitleSettings(_subtitleSettings);
+      engine.setSubtitleSettings(_subtitleSettings);
 
-      await _engine!.open(
-        activeUrl,
-        headers: result.selectedVariant.headers,
-        startPosition: startPos,
-      );
+      _isOpenInFlight = true;
+      try {
+        await engine.open(
+          activeUrl,
+          headers: result.selectedVariant.headers,
+          startPosition: startPos,
+        );
+      } finally {
+        _isOpenInFlight = false;
+      }
+      if (!mounted || _engine != engine) return;
+      // Safe to accept engine position events again: the new media is loaded.
+      _isSwitchingEpisode = false;
 
       SubtitleTrack effectiveSub = result.selectedSubtitle;
       if (hasOfflineFile) {
@@ -643,12 +694,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       }
 
       _currentlyLoadedSubtitle = effectiveSub;
-      await _engine!.setSubtitleTrack(
+      await engine.setSubtitleTrack(
         effectiveSub,
         headers: result.selectedVariant.headers,
       );
+      if (!mounted || _engine != engine) return;
 
-      if (_savedResumePosition != null && mounted) {
+      if (_savedResumePosition != null) {
         final resumePos = _savedResumePosition!;
         final minutes = resumePos.inMinutes.remainder(60).toString().padLeft(2, '0');
         final seconds = resumePos.inSeconds.remainder(60).toString().padLeft(2, '0');
@@ -666,13 +718,17 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         });
       }
     } else {
-      _engine!.setTrackPreferences(
+      engine.setTrackPreferences(
         audioLanguage: result.selectedAudio.code,
         qualityPreference: result.selectedQuality.label,
       );
-      if (_currentlyLoadedSubtitle != result.selectedSubtitle) {
+      final loadedSub = _currentlyLoadedSubtitle;
+      // Don't swap a working offline subtitle back to the remote track on
+      // unrelated provider emissions (audio/quality changes).
+      final offlineSubActive = loadedSub != null && loadedSub.id.startsWith('offline_') && hasOfflineFile;
+      if (!offlineSubActive && _currentlyLoadedSubtitle != result.selectedSubtitle) {
         _currentlyLoadedSubtitle = result.selectedSubtitle;
-        await _engine!.setSubtitleTrack(
+        await engine.setSubtitleTrack(
           result.selectedSubtitle,
           headers: result.selectedVariant.headers,
         );
@@ -695,6 +751,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       _savedResumePosition = null;
       _languageSwitchSeekTarget = null;
       _isSwitchingAudio = false;
+      _pendingSeekTarget = null;
       _position = Duration.zero;
       _positionNotifier.value = Duration.zero;
       _buffer = Duration.zero;
@@ -702,6 +759,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       _duration = Duration.zero;
       _bufferingStuckSeconds = 0;
       _autoplayDismissedForCurrentEpisode = false;
+      // Kill any pending auto-play countdown: without this, a running timer would
+      // auto-advance to yet another episode after a manual episode switch.
+      _countdownTimer?.cancel();
+      _countdownTimer = null;
+      _nextEpisodeCountdownSeconds = 5;
       _showNextEpisodeCountdown = false;
       final currentResult = ref.read(activeStreamProvider(_params)).valueOrNull;
       if (currentResult != null) {
@@ -775,9 +837,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       // Detect continuous buffering stall (e.g. infinite loading animation)
       if (_isBuffering) {
         _bufferingStuckSeconds += 2;
-        if (_bufferingStuckSeconds >= 28 && !_isScrubbing && !_isUserSeeking) {
+        // Never reload while an open/switch is already in flight (prevents double-open on mpv)
+        if (_bufferingStuckSeconds >= 28 && !_isScrubbing && !_isUserSeeking && !_isOpenInFlight && !_isSwitchingAudio) {
           _bufferingStuckSeconds = 0;
-          print('[BUFFERING_WATCHDOG] Buffer stall at 28s. Auto-reloading stream at ${_position.inSeconds}s...');
+          debugPrint('[BUFFERING_WATCHDOG] Buffer stall at 28s. Auto-reloading stream at ${_position.inSeconds}s...');
           setState(() {
             _resumeToastMessage = 'Buffering stall · Reconnecting stream...';
           });
@@ -865,6 +928,28 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     );
   }
 
+  /// Central seek helper: tracks the requested target so stale pre-seek engine
+  /// positions are ignored, and keeps [_position] / notifier / engine in sync.
+  void _performSeek(Duration target) {
+    final clamped = target < Duration.zero
+        ? Duration.zero
+        : (_duration > Duration.zero && target > _duration ? _duration : target);
+    _pendingSeekTarget = clamped;
+    _position = clamped;
+    _positionNotifier.value = clamped;
+    unawaited(_engine?.seek(clamped));
+  }
+
+  /// Whether a next episode actually exists (guards autoplay + next buttons).
+  bool _hasNextEpisode() {
+    final detail = (widget.isKShow
+            ? ref.read(kshowDetailProvider(widget.animeId)).value
+            : null) ??
+        ref.read(animeDetailProvider(widget.animeId)).value;
+    final totalEps = detail?.eps;
+    return totalEps == null || widget.episodeNumber < totalEps;
+  }
+
   Future<void> _checkAndApplyResume(Duration totalDuration) async {
     if (_hasCheckedResume) return;
     _hasCheckedResume = true;
@@ -885,9 +970,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       if (fraction < 0.90) {
         final resumePos = Duration(seconds: savedSeconds);
         _savedResumePosition = resumePos;
-        await _engine?.seek(resumePos);
-        _position = resumePos;
-        _positionNotifier.value = resumePos;
+        _performSeek(resumePos);
 
         final minutes = resumePos.inMinutes.remainder(60).toString().padLeft(2, '0');
         final seconds = resumePos.inSeconds.remainder(60).toString().padLeft(2, '0');
@@ -909,22 +992,26 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   void _checkEpisodeEndCountdown(Duration currentPos, Duration totalDur) {
     if (totalDur <= const Duration(minutes: 1)) return;
-    if (_autoplayDismissedForCurrentEpisode) return;
     final settings = ref.read(appSettingsProvider);
     if (!settings.autoplayNext) return;
 
     final remaining = (totalDur - currentPos).inSeconds;
 
+    // Re-enable autoplay if the user sought backward (must run BEFORE the dismissed guard,
+    // otherwise a cancelled countdown can never be offered again for this episode).
+    if (remaining > 15 && _autoplayDismissedForCurrentEpisode) {
+      _autoplayDismissedForCurrentEpisode = false;
+    }
+    if (_autoplayDismissedForCurrentEpisode) return;
+
     if (remaining <= 5 && remaining >= 0 && !_showNextEpisodeCountdown) {
       _triggerNextEpisodeCountdown();
-    } else if (remaining > 15 && _autoplayDismissedForCurrentEpisode) {
-      // Re-enable autoplay if user sought backward
-      _autoplayDismissedForCurrentEpisode = false;
     }
   }
 
   void _triggerNextEpisodeCountdown() {
     if (_showNextEpisodeCountdown) return;
+    if (!_hasNextEpisode()) return; // Never autoplay a nonexistent episode
     setState(() {
       _showNextEpisodeCountdown = true;
       _nextEpisodeCountdownSeconds = 5;
@@ -973,6 +1060,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   void _playNextEpisode() {
     _countdownTimer?.cancel();
+    if (!_hasNextEpisode()) return; // No next episode: stay put instead of erroring
     _saveCurrentProgress();
     _isSwitchingEpisode = true;
     _hasPrewarmedNextEpisode = false;
@@ -980,10 +1068,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _engine?.pause();
     _position = Duration.zero;
     _positionNotifier.value = Duration.zero;
+    _pendingSeekTarget = null;
     final nextEp = widget.episodeNumber + 1;
     final prov = widget.preferredProviderId != null ? '&provider=${widget.preferredProviderId}' : '';
     final kshowParam = widget.isKShow ? '&isKShow=true' : '';
-    if (mounted) context.go('/player?animeId=${widget.animeId}&ep=$nextEp$prov$kshowParam');
+    if (mounted) {
+      // pushReplacement keeps the detail screen on the back stack (context.go would wipe it)
+      context.pushReplacement('/player?animeId=${widget.animeId}&ep=$nextEp$prov$kshowParam');
+    }
   }
 
   void _playPreviousEpisode() {
@@ -995,10 +1087,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _engine?.pause();
     _position = Duration.zero;
     _positionNotifier.value = Duration.zero;
+    _pendingSeekTarget = null;
     final prevEp = widget.episodeNumber - 1;
     final prov = widget.preferredProviderId != null ? '&provider=${widget.preferredProviderId}' : '';
     final kshowParam = widget.isKShow ? '&isKShow=true' : '';
-    context.go('/player?animeId=${widget.animeId}&ep=$prevEp$prov$kshowParam');
+    if (mounted) {
+      context.pushReplacement('/player?animeId=${widget.animeId}&ep=$prevEp$prov$kshowParam');
+    }
   }
 
   // Auto-hide controls
@@ -1101,12 +1196,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         _engine?.togglePlay();
       } else {
         final target = _position + Duration(seconds: zone == HorizontalZone.leftThird ? -step : step);
-        final seekTarget = target < Duration.zero
-            ? Duration.zero
-            : (_duration > Duration.zero && target > _duration ? _duration : target);
-        setState(() => _position = seekTarget);
-        _positionNotifier.value = seekTarget;
-        _engine?.seek(seekTarget);
+        _performSeek(target);
         _showDoubleTapBadge(offset);
       }
       _resetControlsHideTimer();
@@ -1230,10 +1320,22 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     if (!_isScrubbing) return;
     _position = _scrubTargetPosition;
     _positionNotifier.value = _scrubTargetPosition;
+    _pendingSeekTarget = _scrubTargetPosition;
     _engine?.seek(_scrubTargetPosition);
     setState(() {
       _isScrubbing = false;
     });
+    _resetControlsHideTimer();
+  }
+
+  void _handleHorizontalDragCancel() {
+    if (!_isScrubbing) return;
+    // Gesture was interrupted (system gesture/second pointer): restore the real
+    // playhead and the auto-hide timer instead of leaving a half-scrubbed state.
+    setState(() {
+      _isScrubbing = false;
+    });
+    _positionNotifier.value = _position;
     _resetControlsHideTimer();
   }
 
@@ -1275,8 +1377,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     } else {
       final changed = (newVal - _volume).abs() >= 0.01;
       _volume = newVal;
+      // System media volume only — the engine stays at 100% to avoid
+      // double attenuation (system × engine multiplication).
       _deviceControls.setVolume(newVal);
-      _engine?.setVolume(newVal);
       if (changed) setState(() {});
     }
   }
@@ -1361,7 +1464,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
             // 1. Default to Web Embed technique for playback (User's preferred technique)
             if (_useEmbedPlayer) {
-              _engine?.pause();
+              // No engine side effect in build: entering embed mode already paused
+              // the engine via onSwitchToEmbed / the error-overlay path.
               final matchId = result.match.id.isNotEmpty ? result.match.id : widget.animeId.toString();
               final isDub = result.selectedAudio.code == AudioLanguage.englishDub.code;
               final lang = isDub ? 'dub' : 'sub';
@@ -1382,8 +1486,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                 onBack: _exitPlayer,
               onSwitchToNative: () {
                 setState(() => _useEmbedPlayer = false);
-                _openStreamIfReady(result);
-                _engine?.play();
+                // Open first, play after: playing immediately would resume the old idle media.
+                unawaited(() async {
+                  await _openStreamIfReady(result);
+                  if (mounted) _engine?.play();
+                }());
               },
               isLocked: _isLocked,
               onToggleLock: () {
@@ -1401,6 +1508,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
           final animeDetail = (widget.isKShow
               ? ref.watch(kshowDetailProvider(widget.animeId)).value
               : null) ?? ref.watch(animeDetailProvider(widget.animeId)).value;
+          final totalEpisodeCount = animeDetail?.eps ?? result.match.episodeCount;
+          final hasNextEp = totalEpisodeCount == null || widget.episodeNumber < totalEpisodeCount;
 
           Widget buildSidePanel() => AnimatedSwitcher(
                 duration: const Duration(milliseconds: 200),
@@ -1414,11 +1523,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                         },
                         availableAudios: () {
                           final list = result.variants.map((v) => v.audio).toSet().toList();
-                          if (!list.any((a) => a.code == AudioLanguage.japaneseOriginal.code)) {
-                            list.insert(0, AudioLanguage.japaneseOriginal);
-                          }
-                          if (!list.any((a) => a.code == AudioLanguage.englishDub.code)) {
-                            list.add(AudioLanguage.englishDub);
+                          for (final supported in AudioLanguage.supportedLanguages) {
+                            if (!list.any((a) => a.code == supported.code)) {
+                              list.add(supported);
+                            }
                           }
                           return list;
                         }(),
@@ -1430,7 +1538,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                         selectedSubtitle: result.selectedSubtitle,
                         onSelectSubtitle: (s) {
                           streamNotifier.selectSubtitleTrack(s);
-                          _currentlyLoadedSubtitle = s;
+                          setState(() {
+                            _currentlyLoadedSubtitle = s;
+                          });
                           _engine?.setSubtitleTrack(s, headers: result.selectedVariant.headers);
                         },
                         subtitleSettings: _subtitleSettings,
@@ -1459,8 +1569,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                         currentVolume: _volume,
                         onSelectVolume: (vol) {
                           setState(() => _volume = vol);
+                          // System media volume only (see vertical drag handler)
                           _deviceControls.setVolume(vol);
-                          _engine?.setVolume(vol);
                         },
                         onClose: _closeSidePanel,
                       )
@@ -1470,6 +1580,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                             totalEpisodes: result.match.episodeCount ?? 24,
                             currentEpisode: widget.episodeNumber,
                             onSelectEpisode: (ep) {
+                              // Selecting the currently playing episode would stop the engine and
+                              // then never re-open (route params unchanged) — just close the sheet.
+                              if (ep == widget.episodeNumber) {
+                                _closeSidePanel();
+                                return;
+                              }
                               _closeSidePanel();
                               _saveCurrentProgress();
                               _isSwitchingEpisode = true;
@@ -1477,6 +1593,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                               _engine?.pause();
                               _position = Duration.zero;
                               _positionNotifier.value = Duration.zero;
+                              _pendingSeekTarget = null;
                               final prov = widget.preferredProviderId != null ? '&provider=${widget.preferredProviderId}' : '';
                               final kshowParam = widget.isKShow ? '&isKShow=true' : '';
                               if (mounted) context.pushReplacement('/player?animeId=${widget.animeId}&ep=$ep$prov$kshowParam');
@@ -1491,17 +1608,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                                   final isDownloading = downloadService.isDownloading(widget.animeId, widget.episodeNumber);
 
                                   return PlayerMoreOptionsSheet(
-                                    key: const ValueKey('more_sheet'),
-                                    onLockPlayer: _lockPlayer,
-                                    onPictureInPicture: () {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('Picture in Picture activated'),
-                                          duration: Duration(seconds: 2),
-                                        ),
-                                      );
-                                    },
-                                    onSwitchToEmbed: () {
+                                     key: const ValueKey('more_sheet'),
+                                     onLockPlayer: _lockPlayer,
+                                     onSwitchToEmbed: () {
                                       _closeSidePanel();
                                       setState(() => _useEmbedPlayer = true);
                                       _engine?.pause();
@@ -1599,11 +1708,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                           onHorizontalDragStart: _handleHorizontalDragStart,
                           onHorizontalDragUpdate: (details) => _handleHorizontalDragUpdate(details, videoFrameWidth),
                           onHorizontalDragEnd: (_) => _handleHorizontalDragEnd(),
-                          onHorizontalDragCancel: () => setState(() { _isScrubbing = false; }),
+                          onHorizontalDragCancel: _handleHorizontalDragCancel,
                           onVerticalDragStart: (details) => _handleVerticalDragStart(details, videoFrameWidth),
                           onVerticalDragUpdate: (details) => _handleVerticalDragUpdate(details, videoFrameHeight),
                           onVerticalDragEnd: (_) => _handleVerticalDragEnd(),
-                          onVerticalDragCancel: () => setState(() { _showVerticalHud = false; }),
+                          onVerticalDragCancel: _handleVerticalDragEnd,
                           child: Center(
                             child: _engine != null
                                 ? _engine!.buildVideoView()
@@ -1612,7 +1721,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                         ),
 
                         // 1a. High-Contrast Material 3 Subtitle Overlay
-                        if (_engine != null && (_currentlyLoadedSubtitle == null || !_currentlyLoadedSubtitle!.isOff))
+                        if (_engine != null)
                           Positioned.fill(
                             child: PlayerSubtitleOverlay(
                               engine: _engine!,
@@ -1647,7 +1756,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                       width: 78,
                       height: 78,
                       decoration: BoxDecoration(
-                        color: const Color(0x5A000000),
+                        color: const Color(0x66000000),
                         shape: BoxShape.circle,
                         border: Border.all(
                           color: const Color(0x40FFFFFF),
@@ -1684,9 +1793,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.75),
+                        color: Colors.black.withValues(alpha: 0.82),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(color: AppColors.accent.withValues(alpha: 0.5)),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x55000000),
+                            blurRadius: 12,
+                            offset: Offset(0, 3),
+                          ),
+                        ],
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -1705,7 +1821,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 13,
-                              fontWeight: FontWeight.w500,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
@@ -1786,10 +1902,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                         label: 'Skip Intro',
                         onSkip: () {
                           final targetMs = (selectedVar.introEnd! * 1000).round();
-                          final target = Duration(milliseconds: targetMs);
-                          setState(() => _position = target);
-                          _positionNotifier.value = target;
-                          _engine?.seek(target);
+                          _performSeek(Duration(milliseconds: targetMs));
                         },
                       ),
                     );
@@ -1808,10 +1921,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                         label: 'Skip Outro',
                         onSkip: () {
                           final targetMs = (selectedVar.outroEnd! * 1000).round();
-                          final target = Duration(milliseconds: targetMs);
-                          setState(() => _position = target);
-                          _positionNotifier.value = target;
-                          _engine?.seek(target);
+                          _performSeek(Duration(milliseconds: targetMs));
                         },
                       ),
                     );
@@ -1865,32 +1975,19 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                                 title: matchTitle,
                                 episodeSubtitle: epSubtitle,
                                 danmakuEnabled: _danmakuEnabled,
-                                audioLabel: result.selectedAudio.code == AudioLanguage.englishDub.code ? 'DUB' : 'SUB',
-                                streamType: 'HLS',
-                                qualityLabel: result.selectedQuality.height != null
-                                    ? '${result.selectedQuality.height}P'
-                                    : (result.selectedQuality.isAuto ? '1080P' : result.selectedQuality.label.toUpperCase()),
+                                audioLabel: result.selectedAudio.shortLabel,
+                                streamType: _isLocalPlayback ? 'LOCAL' : 'HLS',
+                                qualityLabel: result.selectedQuality.isAuto
+                                    ? 'AUTO'
+                                    : (result.selectedQuality.height != null
+                                        ? '${result.selectedQuality.height}P'
+                                        : result.selectedQuality.label.toUpperCase()),
                                 onLock: _lockPlayer,
                                 onOpenDescription: _toggleDescription,
-                                onToggleAudio: () {
-                                  final currentAudio = result.selectedAudio;
-                                  final targetAudio = currentAudio.code == AudioLanguage.englishDub.code
-                                      ? AudioLanguage.japaneseOriginal
-                                      : AudioLanguage.englishDub;
-                                  streamNotifier.selectAudioLanguage(targetAudio);
-                                },
+                                onToggleAudio: _openAudio,
                                 onBack: _exitPlayer,
                                 onToggleDanmaku: () {
                                   setState(() => _danmakuEnabled = !_danmakuEnabled);
-                                  _resetControlsHideTimer();
-                                },
-                                onCast: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Searching for Cast / AirPlay devices...'),
-                                      duration: Duration(seconds: 2),
-                                    ),
-                                  );
                                   _resetControlsHideTimer();
                                 },
                                 onOpenMore: _toggleMore,
@@ -1979,11 +2076,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                       // Center Controls (Prev Ep, Replay-10, Play/Pause circle, Forward-10, Next Ep)
                       Builder(
                         builder: (context) {
-                          final animeDetail = (widget.isKShow
-                              ? ref.watch(kshowDetailProvider(widget.animeId)).value
-                              : null) ?? ref.watch(animeDetailProvider(widget.animeId)).value;
-                          final totalEps = animeDetail?.eps;
-                          final hasNextEp = totalEps == null || widget.episodeNumber < totalEps;
                           final hasPrevEp = widget.episodeNumber > 1;
 
                           return PlayerCenterControls(
@@ -2000,20 +2092,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                             onReplay10: () {
                               final step = ref.read(appSettingsProvider).skipStepSeconds;
                               final raw = _position - Duration(seconds: step);
-                              final target = raw < Duration.zero ? Duration.zero : raw;
-                              setState(() => _position = target);
-                              _positionNotifier.value = target;
-                              _engine?.seek(target);
+                              _performSeek(raw < Duration.zero ? Duration.zero : raw);
                               _showDoubleTapBadge(-step);
                               _resetControlsHideTimer();
                             },
                             onForward10: () {
                               final step = ref.read(appSettingsProvider).skipStepSeconds;
                               final raw = _position + Duration(seconds: step);
-                              final target = (_duration > Duration.zero && raw > _duration) ? _duration : raw;
-                              setState(() => _position = target);
-                              _positionNotifier.value = target;
-                              _engine?.seek(target);
+                              _performSeek(raw);
                               _showDoubleTapBadge(step);
                               _resetControlsHideTimer();
                             },
@@ -2033,10 +2119,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                                 return SkipIntroButton(
                                   onSkip: () {
                                     final raw = currentPos + const Duration(seconds: 85);
-                                    final target = (_duration > Duration.zero && raw > _duration) ? _duration : raw;
-                                    _position = target;
-                                    _positionNotifier.value = target;
-                                    _engine?.seek(target);
+                                    _performSeek(raw);
                                     _resetControlsHideTimer();
                                   },
                                 );
@@ -2058,7 +2141,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                           buffer: _buffer,
                           bufferNotifier: _bufferNotifier,
                           hasPreviousEpisode: widget.episodeNumber > 1,
-                          hasNextEpisode: true,
+                          hasNextEpisode: hasNextEp,
                           isSettingsOpen: (_showSettingsSheet || _showEpisodeSheet || _showMoreSheet) &&
                               _sidePanelAnimation.value > 0.3,
                           onPreviousEpisode: _playPreviousEpisode,
@@ -2066,11 +2149,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                           onSeekStart: (target) {
                             _isUserSeeking = true;
                             _controlsHideTimer?.cancel();
-                            _position = target;
+                            // Preview only: _position (the real playhead used by progress saving)
+                            // must not be mutated until the drag commits.
                             _positionNotifier.value = target;
                           },
                           onSeek: (target) {
-                            _position = target;
                             _positionNotifier.value = target;
                           },
                           onSeekCancel: () {
@@ -2079,8 +2162,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                             _resetControlsHideTimer();
                           },
                           onSeekEnd: (target) async {
-                            _position = target;
-                            _positionNotifier.value = target;
+                            _performSeek(target);
                             try {
                               await _engine?.seek(target);
                             } finally {
@@ -2093,19 +2175,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                             _resetControlsHideTimer();
                           },
                           onOpenEpisodes: _toggleEpisodes,
-                          onOpenSubtitles: _openSubtitles,
-                          hasActiveSubtitles: _currentlyLoadedSubtitle != null && !_currentlyLoadedSubtitle!.isOff,
                           onOpenSettings: _toggleSettings,
                           onToggleFullscreen: _toggleAspectRatioMode,
-                          onCast: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Searching for Cast / AirPlay devices...'),
-                                duration: Duration(seconds: 2),
-                              ),
-                            );
-                            _resetControlsHideTimer();
-                          },
                         ),
                       ),
                     ],
@@ -2358,9 +2429,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                         setState(() {
                           _hasEngineError = false;
                           _consecutiveErrors = 0;
+                          _engineErrorMessage = null;
+                          _eofRecoveryAttempts = 0;
+                          // Force a genuine reopen: with the dead URL still marked as loaded,
+                          // _openStreamIfReady would only call setTrackPreferences + play.
+                          _currentlyLoadedUrl = null;
                         });
-                        _openStreamIfReady(result);
-                        _engine?.play();
+                        unawaited(() async {
+                          await _openStreamIfReady(result);
+                          if (mounted) _engine?.play();
+                        }());
                       },
                       icon: const Icon(Icons.refresh_rounded, size: 16),
                       label: const Text('Retry'),
@@ -2390,9 +2468,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
             child: InkWell(
               onTap: () async {
                 if (_savedResumePosition != null) {
-                  await _engine?.seek(_savedResumePosition!);
-                  _position = _savedResumePosition!;
-                  _positionNotifier.value = _savedResumePosition!;
+                  _performSeek(_savedResumePosition!);
                 }
                 _resumeToastTimer?.cancel();
                 if (mounted) setState(() => _resumeToastMessage = null);
@@ -2809,8 +2885,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                       onTap: () async {
                         Navigator.of(ctx).pop();
                         if (isCurrent) return;
+                        final engine = _engine;
+                        if (engine == null || _isOpenInFlight) return;
 
                         final currentPos = _position;
+                        setState(() {
+                          _isSwitchingAudio = true;
+                          _languageSwitchSeekTarget = currentPos;
+                        });
                         _currentlyLoadedUrl = v.url;
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
@@ -2819,12 +2901,28 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                             backgroundColor: AppColors.surfaceElevated,
                           ),
                         );
-                        await _engine?.open(
-                          v.url,
-                          headers: v.headers,
-                          startPosition: currentPos,
-                        );
-                        _engine?.play();
+                        _isOpenInFlight = true;
+                        try {
+                          await engine.open(
+                            v.url,
+                            headers: v.headers,
+                            startPosition: currentPos,
+                          );
+                          await engine.play();
+                          // Re-apply the selected subtitle with the new variant's headers,
+                          // otherwise captions keep pointing at the previous CDN.
+                          final sub = _currentlyLoadedSubtitle;
+                          if (sub != null && !sub.isOff) {
+                            await engine.setSubtitleTrack(sub, headers: v.headers);
+                          }
+                        } finally {
+                          _isOpenInFlight = false;
+                        }
+                        if (!mounted || _engine != engine) return;
+                        setState(() {
+                          _isSwitchingAudio = false;
+                        });
+                        _languageSwitchSeekTarget = null;
                       },
                     );
                   },

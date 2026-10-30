@@ -126,7 +126,10 @@ final GoRouter appRouter = GoRouter(
         key: state.pageKey,
         transitionDuration: const Duration(milliseconds: 300),
         reverseTransitionDuration: const Duration(milliseconds: 240),
-        child: const SearchScreen(),
+        child: SearchScreen(
+          // Genre "See all" deep links: /search?query=<genre>
+          initialQuery: state.uri.queryParameters['query'],
+        ),
         transitionsBuilder: _buildHyperOsTransition,
       ),
     ),

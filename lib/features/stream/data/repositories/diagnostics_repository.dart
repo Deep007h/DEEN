@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Diagnostic log entry recording resolution attempts, HTTP status, and errors.
@@ -67,7 +68,9 @@ class DiagnosticsRepository {
       message: message,
       details: details,
     );
-    print('[STREAM_DIAG:$level] $message ${details.isNotEmpty ? details : ""}');
+    if (kDebugMode) {
+      print('[STREAM_DIAG:$level] $message ${details.isNotEmpty ? details : ""}');
+    }
     _buffer.add(entry);
     if (_buffer.length > 200) {
       _buffer.removeAt(0);

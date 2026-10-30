@@ -33,6 +33,10 @@ class MockPlaybackEngine implements VideoPlaybackEngine {
   Map<String, String>? currentHeaders;
   bool isDisposed = false;
 
+  /// Test hook: when non-zero, [open] awaits this long before applying state,
+  /// simulating a real network open so tests can land events mid-switch.
+  Duration openDelay = Duration.zero;
+
   MockPlaybackEngine({
     Duration initialPosition = Duration.zero,
     Duration initialDuration = const Duration(minutes: 24),
@@ -106,6 +110,9 @@ class MockPlaybackEngine implements VideoPlaybackEngine {
   }) async {
     currentUrl = url;
     currentHeaders = headers;
+    if (openDelay > Duration.zero) {
+      await Future<void>.delayed(openDelay);
+    }
     if (startPosition != null) {
       _position = startPosition;
     }

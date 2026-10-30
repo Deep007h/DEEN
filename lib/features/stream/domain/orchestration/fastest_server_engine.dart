@@ -33,12 +33,12 @@ class FastestServerEngine {
 
   FastestServerEngine({
     Dio? client,
-    this.probeTimeout = const Duration(milliseconds: 350),
+    this.probeTimeout = const Duration(milliseconds: 1500),
   }) : _dio = client ??
             Dio(
               BaseOptions(
-                connectTimeout: const Duration(milliseconds: 350),
-                receiveTimeout: const Duration(milliseconds: 350),
+                connectTimeout: const Duration(milliseconds: 1500),
+                receiveTimeout: const Duration(milliseconds: 1500),
               ),
             );
 
@@ -94,6 +94,15 @@ class FastestServerEngine {
       sw.stop();
       final status = response.statusCode ?? 0;
       final isHealthy = (status == 200 || status == 206 || status == 302);
+
+      // Release the probe socket immediately: with ResponseType.stream the body
+      // is never drained automatically, so undrained probes leak sockets.
+      try {
+        final data = response.data;
+        if (data is ResponseBody) {
+          await data.stream.listen((_) {}, onError: (_) {}).cancel();
+        }
+      } catch (_) {}
 
       return ServerLatencyResult(
         variant: variant,

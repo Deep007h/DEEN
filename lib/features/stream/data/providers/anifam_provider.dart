@@ -177,7 +177,11 @@ class AniFamProvider implements StreamProvider {
     }
 
     matches.sort((a, b) => b.confidenceScore.compareTo(a.confidenceScore));
-    _matchCache[anime.id] = matches;
+    // Only cache non-empty results: a transient failure must not permanently
+    // pin an empty match list (retryWithNextProvider would never recover).
+    if (matches.isNotEmpty) {
+      _matchCache[anime.id] = matches;
+    }
     return matches;
   }
 
@@ -218,7 +222,11 @@ class AniFamProvider implements StreamProvider {
       );
     }
 
-    _episodeCache[match.id] = result;
+    // Only cache non-empty results: a transient failure must not permanently
+    // pin an empty episode list (retryWithNextProvider would never recover).
+    if (result.isNotEmpty) {
+      _episodeCache[match.id] = result;
+    }
     return result;
   }
 
@@ -288,7 +296,7 @@ class AniFamProvider implements StreamProvider {
               'server_id': serverId,
               'track': track,
             },
-          ).timeout(const Duration(milliseconds: 600));
+          ).timeout(const Duration(milliseconds: 2000));
 
           final rData = resolveResp.data ?? {};
           final rUrl = rData['url']?.toString();

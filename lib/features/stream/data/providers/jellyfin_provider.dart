@@ -15,7 +15,15 @@ class JellyfinProvider implements StreamProvider {
   final StreamProviderRegistry _registry;
   final Dio _dio;
 
-  JellyfinProvider(this._registry, [Dio? dio]) : _dio = dio ?? Dio();
+  JellyfinProvider(this._registry, [Dio? dio])
+      : _dio = dio ??
+            Dio(
+              BaseOptions(
+                connectTimeout: const Duration(seconds: 6),
+                receiveTimeout: const Duration(seconds: 15),
+                sendTimeout: const Duration(seconds: 10),
+              ),
+            );
 
   @override
   String get id => 'jellyfin';

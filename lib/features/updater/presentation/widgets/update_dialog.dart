@@ -201,7 +201,7 @@ class UpdateDialog extends StatelessWidget {
                     onPressed: () => _handleUpdate(context),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.accent,
-                      foregroundColor: Colors.black,
+                      foregroundColor: AppColors.accentContrast,
                       elevation: 0,
                       shape: const StadiumBorder(),
                       padding: const EdgeInsets.symmetric(vertical: 13),

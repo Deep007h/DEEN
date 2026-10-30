@@ -62,6 +62,7 @@ abstract final class AppColors {
   // Floating Nav Bar Tokens (Dynamic pill and border)
   static const Color navBarBackground = Color(0xF00E0F11); // Frosted obsidian surface (94% alpha)
   static const Color navBarBorder = Color(0x55303238); // Neutral dark 1px border
+  static const Color navBarInactive = Color(0xFF8E8E93); // iOS-style neutral inactive icon
   static Color get navBarActivePill => _accent; // Dynamic accent active tab capsule
   static Color get navBarActiveBorder => _accent.withValues(alpha: 0.85);
   static Color get navBarActiveIcon => accentContrast; // Contrast-adaptive icon inside active capsule

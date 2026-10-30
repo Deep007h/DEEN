@@ -85,7 +85,8 @@ class MegaVidProvider implements StreamProvider {
       _dubAvailabilityCache[id] = exists;
       return exists;
     } catch (_) {
-      _dubAvailabilityCache[id] = false;
+      // Transient network error: return false for this call but do NOT cache it,
+      // otherwise a single failed probe permanently hides the dub option.
       return false;
     }
   }
