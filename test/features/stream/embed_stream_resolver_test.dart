@@ -110,10 +110,10 @@ void main() {
       expect(result.isAnimeX, isTrue);
     });
 
-    test('parseSourcePayload rejects banned /vid/ URLs for anime', () {
+    test('parseSourcePayload rejects dead megavid.se URLs for anime', () {
       final brokenPayload = {
         'status': 'ok',
-        'source': 'https://megavid.buzz/vid/broken/seg.m3u8',
+        'source': 'https://s-90.megavid.se/uwu/master.txt',
       };
 
       final result = resolver.parseSourcePayload(

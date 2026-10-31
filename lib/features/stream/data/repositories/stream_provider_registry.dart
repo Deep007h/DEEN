@@ -39,8 +39,8 @@ class StreamProviderRegistry {
       }
       return current;
     }
-    // Default order
-    return ['anifam', 'megavid', 'animelok', 'demo', 'direct_url', 'jellyfin'];
+    // Default order: Prioritize active high-speed servers first
+    return ['megavid', 'animelok', 'anifam', 'demo', 'direct_url', 'jellyfin'];
   }
 
   Future<void> updatePriorityOrder(List<String> order) async {
@@ -50,8 +50,8 @@ class StreamProviderRegistry {
   bool isProviderEnabled(String id) {
     final val = _prefs.getBool('$_kEnabledPrefix$id');
     if (val != null) return val;
-    // Default: 'anifam', 'megavid', and 'animelok' enabled out of the box.
-    return id == 'anifam' || id == 'megavid' || id == 'animelok';
+    // Default: 'megavid', 'animelok', and 'anifam' enabled out of the box.
+    return id == 'megavid' || id == 'animelok' || id == 'anifam';
   }
 
   Future<void> setProviderEnabled(String id, bool enabled) async {

@@ -17,7 +17,6 @@ class AniFamProvider implements StreamProvider {
   final Dio _dio;
   static const List<String> defaultMirrors = [
     'https://anifam.net',
-    'https://app.anifam.net',
     'https://anifam.buzz',
     'https://anifam.top',
     'https://anifam.cfd',

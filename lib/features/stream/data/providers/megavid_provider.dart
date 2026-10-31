@@ -477,8 +477,8 @@ class MegaVidProvider implements StreamProvider {
     final streamUrl = (data['source'] ?? data['Video'])?.toString();
     if (streamUrl == null || streamUrl.isEmpty) return null;
 
-    // Permanently ban all broken / truncated /vid/ proxy streams
-    if (streamUrl.contains('/vid/')) {
+    // Ban dead megavid.se domain URLs
+    if (streamUrl.contains('megavid.se')) {
       return null;
     }
 
@@ -547,71 +547,57 @@ class MegaVidProvider implements StreamProvider {
       audio: lang,
     );
 
-    // Concurrently probe direct high-speed CDN mirrors using the test project's
     final isDub = lang == 'dub';
-    final directProbes = <Future<StreamVariant?>>[
+    final audio = isDub ? AudioLanguage.englishDub : AudioLanguage.japaneseOriginal;
+
+    // 1. Primary & production: Direct /api/ani route on megavid.buzz with canonical Referer
+    try {
+      final resp = await _dio.get<Map<String, dynamic>>(
+        '/api/ani/$id/$ep/$lang',
+        options: Options(
+          headers: {
+            'Referer': canonicalEmbedUrl,
+            'Origin': defaultBaseUrl,
+            'User-Agent': EmbedStreamResolver.defaultUserAgent,
+          },
+          receiveTimeout: const Duration(seconds: 4),
+          sendTimeout: const Duration(seconds: 3),
+        ),
+      );
+      final variant = _buildVariantFromData(resp.data, id, ep, lang, audio, embedUrl: canonicalEmbedUrl);
+      if (variant != null && !variant.url.contains('megavid.se')) {
+        return variant;
+      }
+    } catch (_) {}
+
+    // 2. Secondary fallback probes (excluding dead megavid.se domains)
+    final fallbackProbes = <Future<StreamVariant?>>[
       if (isDub) ...[
-        // 1. Primary verified DUB provider (loli on echovideo.to - zero 403 blocks)
+        // Verified DUB provider (loli on echovideo.to)
         () async {
           final res = await _embedResolver.resolveEmbedUrl(canonicalEmbedUrl, serverOverride: 'loli');
-          return res?.variant;
-        }(),
-        // 2. Direct production CDN endpoint
-        () async {
-          final res = await _embedResolver.resolveEmbedUrl(canonicalEmbedUrl);
-          return res?.variant;
+          final v = res?.variant;
+          if (v != null && !v.url.contains('megavid.se')) return v;
+          return null;
         }(),
       ] else ...[
-        // 1. Primary high-speed verified CDN mirror (?axsv=zuna)
-        () async {
-          final res = await _embedResolver.resolveEmbedUrl(canonicalEmbedUrl, serverOverride: 'zuna');
-          return res?.variant;
-        }(),
-        // 2. Alternative server mirror (?axsv=loli)
         () async {
           final res = await _embedResolver.resolveEmbedUrl(canonicalEmbedUrl, serverOverride: 'loli');
-          return res?.variant;
-        }(),
-        // 3. Alternative verified server mirror (?axsv=sora)
-        () async {
-          final res = await _embedResolver.resolveEmbedUrl(canonicalEmbedUrl, serverOverride: 'sora');
-          return res?.variant;
-        }(),
-        // 4. Direct production CDN endpoint (/ani/{id}/{ep}/{lang}/source)
-        () async {
-          final res = await _embedResolver.resolveEmbedUrl(canonicalEmbedUrl);
-          return res?.variant;
+          final v = res?.variant;
+          if (v != null && !v.url.contains('megavid.se')) return v;
+          return null;
         }(),
       ],
-      // Direct /api/ani route with canonical Referer
+      // Fallback via scrape embed page
       () async {
-        try {
-          final resp = await _dio.get<Map<String, dynamic>>(
-            '/api/ani/$id/$ep/$lang',
-            options: Options(
-              headers: {
-                'Referer': canonicalEmbedUrl,
-                'Origin': defaultBaseUrl,
-                'User-Agent': EmbedStreamResolver.defaultUserAgent,
-              },
-              receiveTimeout: const Duration(seconds: 4),
-              sendTimeout: const Duration(seconds: 3),
-            ),
-          );
-          final audio = isDub ? AudioLanguage.englishDub : AudioLanguage.japaneseOriginal;
-          return _buildVariantFromData(resp.data, id, ep, lang, audio, embedUrl: canonicalEmbedUrl);
-        } catch (_) {
-          return null;
-        }
+        final res = await _embedResolver.resolveEmbedUrl(canonicalEmbedUrl);
+        final v = res?.variant;
+        if (v != null && !v.url.contains('megavid.se')) return v;
+        return null;
       }(),
     ];
 
-    final directResult = await _raceFirstNonNull(directProbes);
-    if (directResult != null) {
-      return directResult;
-    }
-
-    return null;
+    return await _raceFirstNonNull(fallbackProbes);
   }
 
   Future<StreamVariant?> _resolveKissKh(String episodeId) async {

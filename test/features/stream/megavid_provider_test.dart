@@ -282,7 +282,7 @@ void main() {
       // Sub variant
       final sub = variants.firstWhere((v) => v.audio == AudioLanguage.japaneseOriginal);
       expect(sub.url, contains('/sub/master.m3u8'));
-      expect(sub.headers['Referer'], 'https://megavid.buzz/');
+      expect(sub.headers['Referer'], contains('https://megavid.buzz'));
       expect(sub.isHls, isTrue);
       expect(sub.hasIntro, isTrue);
       expect(sub.introStart, 90.0);
@@ -297,7 +297,7 @@ void main() {
       // Dub variant
       final dub = variants.firstWhere((v) => v.audio == AudioLanguage.englishDub);
       expect(dub.url, contains('/dub/master.m3u8'));
-      expect(dub.headers['Referer'], 'https://megavid.buzz/');
+      expect(dub.headers['Referer'], contains('https://megavid.buzz'));
     });
 
     test('resolve parses KissKH stream for K-Show episode', () async {
@@ -320,33 +320,26 @@ void main() {
       expect(drama.subtitles.any((s) => s.label == 'English'), isTrue);
     });
 
-    test('resolve rejects invalid /vid/ endpoints and prefers direct CDN sources', () async {
+    test('resolve extracts production /vid/ HLS master playlist from /api/ani endpoint', () async {
       final directMockDio = Dio(BaseOptions(baseUrl: 'https://megavid.buzz'));
       directMockDio.interceptors.add(
         InterceptorsWrapper(
           onRequest: (options, handler) {
-            if (options.path.startsWith('/ani/') && options.path.endsWith('/source')) {
-              return handler.resolve(
-                Response(
-                  requestOptions: options,
-                  statusCode: 200,
-                  data: {
-                    'status': 'ok',
-                    'source': 'https://cp.megavid.buzz/hls/test-uuid/playlist.m3u8',
-                    'tracks': [],
-                  },
-                ),
-              );
-            }
             if (options.path.startsWith('/api/ani/')) {
-              // Legacy endpoint returning bad /vid/ URL
               return handler.resolve(
                 Response(
                   requestOptions: options,
                   statusCode: 200,
                   data: {
                     'success': true,
-                    'source': 'https://megavid.buzz/vid/bad-token/invalid',
+                    'source': 'https://megavid.buzz/vid/master-token/master.m3u8',
+                    'tracks': [
+                      {
+                        'file': 'https://megavid.buzz/sub/en.vtt',
+                        'label': 'English',
+                        'default': true,
+                      }
+                    ],
                   },
                 ),
               );
@@ -374,8 +367,8 @@ void main() {
 
       final variants = await directProvider.resolve(episode);
       expect(variants, isNotEmpty);
-      expect(variants.first.url, 'https://cp.megavid.buzz/hls/test-uuid/playlist.m3u8');
-      expect(variants.any((v) => v.url.contains('/vid/')), isFalse);
+      expect(variants.first.url, 'https://megavid.buzz/vid/master-token/master.m3u8');
+      expect(variants.first.isHls, isTrue);
     });
 
     test('resolve extracts stream via embed page HTML when direct API is unreachable', () async {

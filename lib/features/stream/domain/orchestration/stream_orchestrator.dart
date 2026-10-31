@@ -125,7 +125,7 @@ class StreamOrchestrator {
   }) async {
     final effectiveProviderId = preferredProviderId ??
         registry.getOrderedEnabledProviders().firstOrNull?.id ??
-        'anifam';
+        'megavid';
     final effectiveAudio = prefsRepo.getEffectiveAudioLanguage(anime.id);
     final secondaryAudio = prefsRepo.getEffectiveSecondaryAudioLanguage(anime.id);
     final title = anime.titles.preferredTitle();

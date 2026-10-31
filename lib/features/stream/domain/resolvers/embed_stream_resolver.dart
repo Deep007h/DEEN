@@ -221,8 +221,8 @@ class EmbedStreamResolver {
         ? AudioLanguage.koreanOriginal
         : (isDub ? AudioLanguage.englishDub : AudioLanguage.japaneseOriginal);
 
-    // Permanently ban all broken /vid/ proxy streams for anime, but allow valid KissKH HLS streams
-    if (!urlInfo.isKisskh && rawSource.contains('/vid/')) return null;
+    // Permanently ban dead megavid.se domains
+    if (rawSource.contains('megavid.se')) return null;
 
     // Append #.m3u8 path hint so libmpv / FFmpeg recognizes HLS stream format instantly
     final streamUrl = rawSource.contains('.m3u8') ? rawSource : '$rawSource#.m3u8';

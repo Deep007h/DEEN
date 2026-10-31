@@ -208,7 +208,7 @@ class LocalHlsServer {
 
       // 3. Segment TS: /segment-{token}
       if (path.startsWith('/segment-')) {
-        final token = path.substring('/segment-'.length);
+        final token = path.substring('/segment-'.length).split('.').first;
         final session = _sessions[token];
         final rawTargetUrl = request.uri.queryParameters['url'];
 
