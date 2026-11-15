@@ -10,9 +10,9 @@
 
 <p align="center">
   <a href="https://deen.ct.ws/"><img src="https://img.shields.io/badge/Official_Website-deen.ct.ws-B8F23A?style=for-the-badge&logo=googlechrome&logoColor=black" alt="Official Website"/></a>
-  <a href="https://github.com/Deep007h/DEEN/releases/tag/v2.2"><img src="https://img.shields.io/github/v/release/Deep007h/DEEN?color=10B981&style=for-the-badge&logo=android&logoColor=white" alt="Latest Release v2.2"/></a>
-  <img src="https://img.shields.io/badge/Platform-Android_5.0+-24292e?style=for-the-badge&logo=android" alt="Platform"/>
-  <img src="https://img.shields.io/badge/Display-120Hz_Fluid-blueviolet?style=for-the-badge&logo=speedtest" alt="120Hz Display"/>
+  <a href="https://github.com/Deep007h/DEEN/releases/tag/v2.2"><img src="https://img.shields.io/github/v/release/Deep007h/DEEN?color=10B981&style=for-the-badge&logo=github&logoColor=white" alt="Latest Release v2.2"/></a>
+  <img src="https://img.shields.io/badge/Platform-Android_%7C_Linux_x64-24292e?style=for-the-badge&logo=linux&logoColor=white" alt="Platform"/>
+  <img src="https://img.shields.io/badge/Display-144Hz_Fluid-blueviolet?style=for-the-badge&logo=speedtest" alt="144Hz Display"/>
   <img src="https://img.shields.io/badge/Ads-100%25_Ad--Free-success?style=for-the-badge&logo=shield" alt="100% Ad-Free"/>
   <img src="https://img.shields.io/badge/Price-100%25_Free-blue?style=for-the-badge" alt="Free"/>
 </p>
@@ -21,9 +21,9 @@
 
 ## 🌟 Overview
 
-**DEEN** is a modern, high-performance anime streaming application designed specifically for enthusiasts who value aesthetic perfection, extensive catalogs, and a buttery smooth viewing experience. 
+**DEEN** is a modern, high-performance anime streaming application designed specifically for enthusiasts who value aesthetic perfection, extensive catalogs, and a buttery smooth viewing experience. Available natively on **Android** and **Linux Desktop** (x86_64).
 
-Built with an unwavering commitment to quality, DEEN blends a striking dark obsidian user interface with responsive touch controls, instant playback, 120Hz display refresh support, and access to an enormous library of anime titles across all eras. Best of all: **100% Ad-Free with zero interruptions, zero tracking, zero banners, and absolutely no paywalls**.
+Built with an unwavering commitment to quality, DEEN blends a striking dark obsidian user interface with responsive controls, instant playback, 120Hz/144Hz high-refresh rate pacing, native MPV video acceleration on desktop, and access to an enormous library of anime titles across all eras. Best of all: **100% Ad-Free with zero interruptions, zero tracking, zero banners, and absolutely no paywalls**.
 
 ---
 
@@ -120,9 +120,11 @@ Keep your anime journey organized effortlessly:
 
 ## 📥 Download & Installation
 
-The latest 100% Ad-Free release APKs are hosted directly under [GitHub Releases v2.2](https://github.com/Deep007h/DEEN/releases/tag/v2.2) and can also be downloaded from our official website at **[deen.ct.ws](https://deen.ct.ws/)**.
+The latest release packages for **Android** and **Linux Desktop** are hosted directly under [GitHub Releases v2.2](https://github.com/Deep007h/DEEN/releases/tag/v2.2) and can also be downloaded from our official website at **[deen.ct.ws](https://deen.ct.ws/)**.
 
-### Available Downloads (v2.2 — 100% Ad-Free Edition)
+---
+
+### 🤖 Android Packages (v2.2 — 100% Ad-Free Edition)
 
 | Package Architecture | File Name | Recommended For | Direct Download |
 | :--- | :--- | :--- | :--- |
@@ -130,26 +132,78 @@ The latest 100% Ad-Free release APKs are hosted directly under [GitHub Releases 
 | **ARMv7 (32-bit)** | `app-armeabi-v7a-release.apk` | Older Android phones & legacy devices | [Download APK](https://github.com/Deep007h/DEEN/releases/download/v2.2/app-armeabi-v7a-release.apk) |
 | **x86_64** | `app-x86_64-release.apk` | Android Emulators (BlueStacks, LDPlayer), Chromebooks & PC | [Download APK](https://github.com/Deep007h/DEEN/releases/download/v2.2/app-x86_64-release.apk) |
 
-> **Tip**: If you are unsure which version to pick, download **`app-arm64-v8a-release.apk`** (recommended for almost all modern Android devices).
+> **Tip for Android**: If you are unsure which version to pick, download **`app-arm64-v8a-release.apk`** (recommended for almost all modern Android devices).
 
 ---
 
-### Step-by-Step Installation Guide
+### 🐧 Linux Desktop Packages (v2.1.0 — 64-bit x86_64)
 
-1. **Download the APK**: Choose the APK corresponding to your device architecture from the table above, the [Releases](https://github.com/Deep007h/DEEN/releases/tag/v2.2) section, or the official website [deen.ct.ws](https://deen.ct.ws/).
+DEEN for Linux features native hardware-accelerated **libmpv** video decoding, 144Hz high-refresh display pacing, desktop keyboard navigation, and responsive widescreen layouts.
+
+| Format / Distribution | Package File Name | Target Linux Systems | Direct Download |
+| :--- | :--- | :--- | :--- |
+| **Universal AppImage** | `DEEN-2.1.0-x86_64.AppImage` | Universal binary (Ubuntu, Fedora, Arch, Debian, openSUSE) | [Download AppImage](https://github.com/Deep007h/DEEN/releases/download/v2.2/DEEN-2.1.0-x86_64.AppImage) |
+| **Debian / Ubuntu (.deb)** | `deen_2.1.0_amd64.deb` | Ubuntu, Debian, Linux Mint, Pop!_OS, Zorin OS | [Download DEB](https://github.com/Deep007h/DEEN/releases/download/v2.2/deen_2.1.0_amd64.deb) |
+| **Fedora / RHEL (.rpm)** | `deen-2.1.0-1.x86_64.rpm` | Fedora, Red Hat Enterprise Linux, openSUSE, CentOS | [Download RPM](https://github.com/Deep007h/DEEN/releases/download/v2.2/deen-2.1.0-1.x86_64.rpm) |
+| **Arch Linux (.pkg.tar.zst)** | `deen-2.1.0-1-x86_64.pkg.tar.zst` | Arch Linux, Manjaro, EndeavourOS, CachyOS, Garuda | [Download Arch PKG](https://github.com/Deep007h/DEEN/releases/download/v2.2/deen-2.1.0-1-x86_64.pkg.tar.zst) |
+| **Portable Tarball (.tar.gz)** | `deen-2.1.0-linux-x64.tar.gz` | Standalone portable archive for any Linux environment | [Download Tarball](https://github.com/Deep007h/DEEN/releases/download/v2.2/deen-2.1.0-linux-x64.tar.gz) |
+
+---
+
+### 🚀 Step-by-Step Installation Guides
+
+#### Android Devices
+1. **Download the APK**: Choose the APK corresponding to your device architecture from the Android table above or [deen.ct.ws](https://deen.ct.ws/).
 2. **Allow Installation**:
    - If prompted by your browser or file manager, open **Settings** > **Security** (or **Install unknown apps**).
    - Toggle **Allow from this source**.
-3. **Install the App**: Tap the downloaded `.apk` file and select **Install**.
-4. **Launch & Stream**: Open **DEEN** from your app drawer and enjoy unlimited, ad-free anime streaming!
+3. **Install & Launch**: Tap the downloaded `.apk` file, select **Install**, and launch DEEN from your app drawer.
+
+#### Linux Desktop
+
+##### 1. Universal AppImage (Recommended)
+Make executable and launch immediately without installing system dependencies:
+```bash
+chmod +x DEEN-2.1.0-x86_64.AppImage
+./DEEN-2.1.0-x86_64.AppImage
+```
+
+##### 2. Ubuntu / Debian / Linux Mint (.deb)
+```bash
+sudo apt install ./deen_2.1.0_amd64.deb
+```
+
+##### 3. Fedora / RHEL / openSUSE (.rpm)
+```bash
+# Fedora / RHEL
+sudo dnf install ./deen-2.1.0-1.x86_64.rpm
+
+# openSUSE
+sudo zypper install ./deen-2.1.0-1.x86_64.rpm
+```
+
+##### 4. Arch Linux / Manjaro / CachyOS (.pkg.tar.zst)
+```bash
+sudo pacman -U ./deen-2.1.0-1-x86_64.pkg.tar.zst
+```
+
+##### 5. Portable Tarball (.tar.gz)
+```bash
+tar -xzf deen-2.1.0-linux-x64.tar.gz
+cd deen-2.1.0-linux-x64
+./deen
+```
 
 ---
 
-### File Integrity (SHA-256 Checksums)
+### 🔒 File Integrity (SHA-256 Checksums)
 
-Verify the authenticity of your downloaded package:
+Verify the authenticity of your downloaded package against the official release hashes:
 
 ```text
+# ==========================================
+# Android Release Packages (v2.2)
+# ==========================================
 app-arm64-v8a-release.apk:
 8a0b6fac736944e5f67a14104cd287d8937c3a4388f3b5e6d598ac8f5fe2071b
 
@@ -158,15 +212,40 @@ app-armeabi-v7a-release.apk:
 
 app-x86_64-release.apk:
 c28988ebb3f6ed7923bae276200d8939ddaa9a34864f6cb45f5fae6d8182685c
+
+# ==========================================
+# Linux Desktop Packages (v2.1.0)
+# ==========================================
+DEEN-2.1.0-x86_64.AppImage:
+594349c39d3ed524af5cdb2dea382d5920730cda376c3b3950e5c4afadb79ca8
+
+deen_2.1.0_amd64.deb:
+f29cd7a5b358fd677b383e5b4821ae9e772b4832a6e70811780d51711491c7ba
+
+deen-2.1.0-1.x86_64.rpm:
+21096fb5f5768c640349c015e44544742f0efb3d235130744813b10da5ef5ac8
+
+deen-2.1.0-1-x86_64.pkg.tar.zst:
+9d8a04a6558406aa1709aae3c5a942d35608ed9aa91ffcdf25db45ec99019bf6
+
+deen-2.1.0-linux-x64.tar.gz:
+c83cb3629e72948293fc0ee510bfec1ed073e3dac26d46940a72496a4e676727
 ```
 
 ---
 
-## 📱 System Requirements
+## 💻 System Requirements
 
+### Android
 - **Operating System**: Android 5.0 (Lollipop, API Level 21) or higher
 - **Internet**: High-speed connection recommended for 1080p high-definition playback
-- **Permissions**: Network access (Internet / Access Network State)
+- **Permissions**: Network access (`INTERNET`, `ACCESS_NETWORK_STATE`)
+
+### Linux Desktop
+- **Operating System**: Modern 64-bit Linux distribution (Ubuntu 20.04+, Debian 11+, Fedora 34+, Arch Linux, openSUSE 15.3+)
+- **Display Server**: X11 or Wayland
+- **Hardware Acceleration**: OpenGL / Vulkan capable graphics card
+- **Libraries**: GTK 3.24+, GLib 2.64+, libepoxy, libmpv
 
 ---
 
