@@ -151,13 +151,13 @@ Verify the authenticity of your downloaded package:
 
 ```text
 app-arm64-v8a-release.apk:
-c68149ff3c2ffebae8a4ea480473cf68b9214ddb84a5d188b9fb90ab6da150e8
+740aae9f1b52da988c39eceed71afbe693f341fbbeceb8b7a928f3b3db91660e
 
 app-armeabi-v7a-release.apk:
-913de11942c80ea8d32e9196eef4894e50f0b467638af14818031aed8b41f3fd
+92be9c36f17eb15266f5847e3e18e2b693738444f5a6dc227710bff6222f2096
 
 app-x86_64-release.apk:
-5422a69c2e62a15879cdb4d83b5016a813683c740843a7d915bf90a8aa5c35bf
+ec857dddbd83dea5bc6dfc52efd4ea602a36a17fd48a1eee91d081e3424e8051
 ```
 
 ---
