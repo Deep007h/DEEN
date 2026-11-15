@@ -9,6 +9,7 @@
 </p>
 
 <p align="center">
+  <a href="https://deen.ct.ws/"><img src="https://img.shields.io/badge/Official_Website-deen.ct.ws-B8F23A?style=for-the-badge&logo=googlechrome&logoColor=black" alt="Official Website"/></a>
   <a href="https://github.com/Deep007h/DEEN/releases/tag/v2.2"><img src="https://img.shields.io/github/v/release/Deep007h/DEEN?color=10B981&style=for-the-badge&logo=android&logoColor=white" alt="Latest Release v2.2"/></a>
   <img src="https://img.shields.io/badge/Platform-Android_5.0+-24292e?style=for-the-badge&logo=android" alt="Platform"/>
   <img src="https://img.shields.io/badge/Display-120Hz_Fluid-blueviolet?style=for-the-badge&logo=speedtest" alt="120Hz Display"/>
@@ -23,6 +24,19 @@
 **DEEN** is a modern, high-performance anime streaming application designed specifically for enthusiasts who value aesthetic perfection, extensive catalogs, and a buttery smooth viewing experience. 
 
 Built with an unwavering commitment to quality, DEEN blends a striking dark obsidian user interface with responsive touch controls, instant playback, 120Hz display refresh support, and access to an enormous library of anime titles across all eras. Best of all: **100% Ad-Free with zero interruptions, zero tracking, zero banners, and absolutely no paywalls**.
+
+---
+
+## 🌐 Official Website & Web Portal
+
+Explore our official web portal: **[https://deen.ct.ws/](https://deen.ct.ws/)**
+
+The DEEN official website offers an interactive preview of the application:
+
+- **Interactive 3D App Showcase**: Explore the luxury Obsidian OLED interface across Home, Cinema Player, and Show Hub screens with interactive 3D spatial parallax and dynamic specular glare.
+- **Cinema Player Hotspot Tour**: Inspect real-time radar pins detailing touch gestures, multi-language audio (Hindi, English, Japanese, Tamil, Telugu), WebVTT subtitle sync controls, and adaptive 1080p HLS streaming.
+- **Direct Web Downloads**: Quick download portal with automatic release detection and architecture switchers for ARM64, ARMv7, and x86_64.
+- **Comprehensive FAQ & Guides**: Clear instructions on installing APKs on Android, managing permissions, and selecting the optimal architecture for phones, tablets, and emulators.
 
 ---
 
@@ -106,7 +120,7 @@ Keep your anime journey organized effortlessly:
 
 ## 📥 Download & Installation
 
-The latest 100% Ad-Free release APKs are hosted directly under [GitHub Releases v2.2](https://github.com/Deep007h/DEEN/releases/tag/v2.2).
+The latest 100% Ad-Free release APKs are hosted directly under [GitHub Releases v2.2](https://github.com/Deep007h/DEEN/releases/tag/v2.2) and can also be downloaded from our official website at **[deen.ct.ws](https://deen.ct.ws/)**.
 
 ### Available Downloads (v2.2 — 100% Ad-Free Edition)
 
@@ -122,7 +136,7 @@ The latest 100% Ad-Free release APKs are hosted directly under [GitHub Releases 
 
 ### Step-by-Step Installation Guide
 
-1. **Download the APK**: Choose the APK corresponding to your device architecture from the table above or the [Releases](https://github.com/Deep007h/DEEN/releases/tag/v2.2) section.
+1. **Download the APK**: Choose the APK corresponding to your device architecture from the table above, the [Releases](https://github.com/Deep007h/DEEN/releases/tag/v2.2) section, or the official website [deen.ct.ws](https://deen.ct.ws/).
 2. **Allow Installation**:
    - If prompted by your browser or file manager, open **Settings** > **Security** (or **Install unknown apps**).
    - Toggle **Allow from this source**.
